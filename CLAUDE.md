@@ -21,7 +21,7 @@ Website preview: launch config `website-4318` (port 4317 may be held by another 
 - Keys only via the app's Settings (Electron safeStorage/DPAPI vault in main). Never in repo, logs, settings or renderer. Don't echo keys.
 - Renderer: sandbox + contextIsolation, allowlisted IPC validated with Zod in main, CSP, no remote content.
 - No audio capture before explicit consent; raw audio never persisted; history opt-in.
-- Content protection is best-effort; never claim undetectability or add evasion. Website/FAQ keep the "check the interview's rules" guidance.
+- Content protection (overlay left out of screen shares) is on by default since 0.2.1 at the owner's request (ADR 0008); it stays best-effort: never claim undetectability or add evasion. Website/FAQ keep the "check the interview's rules" guidance. `capture.e2e.ts` checks it against a real Edge/Chrome screen share (`HIRORA_SHARE_CHANNEL=chrome`).
 - Ollama endpoint is loopback-only (`validateLocalBaseUrl`).
 - Hirora Cloud secrets live only in the Vercel project's encrypted env: `GROQ_API_KEY` (Production + Preview, sensitive) and `HIRORA_ACCESS_CODE` (comma-separated codes). `apps/cloud/.env.local` holds CLI tokens (OIDC, Blob read-write): never commit or print it. The relay never logs request/response content.
 - Never overwrite a published Blob installer; upload each build to a new versioned path so cached copies match the page's SHA-256.
@@ -29,7 +29,7 @@ Website preview: launch config `website-4318` (port 4317 may be held by another 
 
 ## Status (2026-11-21)
 See `docs/PERF_RESULTS.md` (measured numbers), `docs/ACCEPTANCE.md`, `CHANGELOG.md` 0.2.0.
-Deployed: site + relay at https://hirora-one.vercel.app; installer 0.2.0 (sha256 `139af23d…0c798`) on Blob. The user's own profile is set to Hirora Cloud (gpt-oss-20b, Whisper), with Ollama as fallback and Gemini disabled (its key is still in the vault). `CHANGELOG.md` Unreleased has a fix that isn't in the hosted installer yet.
+Deployed: site + relay at https://hirora-one.vercel.app; installer 0.2.1 (sha256 `075e0c6d…c7b411`, `releases/0.2.1/`) on Blob; 0.2.0 stays at its own path. The user's own profile is set to Hirora Cloud (gpt-oss-20b, Whisper), with Ollama as fallback and Gemini disabled (its key is still in the vault); its stored `overlay.contentProtection` was `false` (new default only affects new profiles). The user runs Hirora from `Desktop\Hirora`, so don't silent-install over it; e2e the packaged build via `HIRORA_E2E_EXE=apps/desktop/release/win-unpacked/Hirora.exe`.
 
 The user's Gemini key is in the legacy DPAPI vault `%APPDATA%\VeyraCue` (and, once migrated, `%APPDATA%\Hirora`). Live tests copy the profile to a temp folder (`HIRORA_LIVE_PROFILE`, migrated via `HIRORA_MIGRATE_FROM`), never modify it, and never print the key. Ollama 0.40 is installed per-user on this machine with `qwen3.5:4b` (RTX 4060 Laptop, 8 GB).
 

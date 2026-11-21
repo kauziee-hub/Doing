@@ -6,7 +6,7 @@ describe('settings schema', () => {
     const s = defaultSettings();
     expect(s.onboardingComplete).toBe(false);
     expect(s.privacy.saveHistory).toBe(false); // history is opt-in
-    expect(s.overlay.contentProtection).toBe(false); // privacy control is opt-in, never assumed
+    expect(s.overlay.contentProtection).toBe(true); // overlay left out of screen shares unless the user turns it off
     expect(s.answer.primaryProvider).toBeNull();
     expect(s.providers.gemini.model).toBe(''); // no hard-coded model ids
     expect(s.budget.dailyAnswerLimit).toBeGreaterThan(0);

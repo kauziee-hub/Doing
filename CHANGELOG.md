@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — 2026-11-21 (unsigned)
+- **The overlay is hidden from screen sharing by default.** You see it; a Meet/Teams/Zoom screen share (and screenshots) leave it out, via Windows' capture exclusion (ADR 0008). Measured with a real `getDisplayMedia` screen share in Edge 158 and Chrome 157 (new `capture.e2e.ts`). Existing profiles keep their setting: turn it on in Settings → Overlay & capture → "Hide the overlay from screen sharing and screenshots". Best-effort: cameras, some remote-desktop and hardware capture never honour it.
 - The "Question end → first answer paint" metric is recorded only while the overlay is visible. A hidden overlay used to report 2–2.5 s "paints" that never reached the screen; with the overlay visible the answer paints 25–73 ms after its first token.
 
 ## 0.2.0 — 2026-11-21 (unsigned)

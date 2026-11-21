@@ -18,7 +18,7 @@
 | Knowledge: PDF/DOCX/TXT/MD/CSV/JSON/code ingestion, dedupe, preview, delete, SQLite FTS5 + optional Gemini embeddings (hybrid RRF), source trace (file/page/chunk), project cards, company/job profiles | **Verified live** — resume fact answered with `[S1] resume p.1`; a missing GPA was flagged instead of invented |
 | Coding mode, screenshot (preview + approve), clipboard (preview + secret redaction), copyable code blocks, Expand / Beginner / Concise | **Verified** (coding answer live; screenshot/clipboard flows by e2e UI tests) |
 | Overlay: translucent, always-on-top, drag/resize, compact mode, multi-monitor move, never steals focus, global hotkeys (hotkey→paint p50 ≈ 7 ms) | **Verified** (single-monitor machine: multi-monitor code path not physically tested) |
-| Screen-capture exclusion (Electron `setContentProtection`) + in-app Capture Compatibility Check | **Measured**: with protection on, the overlay was excluded from GDI BitBlt and Chromium desktopCapturer on this machine. Other tools: *not verified*. Never "invisible". |
+| Screen-capture exclusion (Electron `setContentProtection`, **on by default** since 0.2.1) + in-app Capture Compatibility Check | **Measured** on this machine: with protection on, the overlay was left out of a real browser screen share (`getDisplayMedia` in Edge 158 and Chrome 157, `capture.e2e.ts`), GDI BitBlt and Chromium desktopCapturer. The Meet call itself, Teams/Zoom apps and OBS: *not verified*. Never "invisible". |
 | Security: sandboxed renderer, contextIsolation, Zod-validated allowlisted IPC, CSP, no remote content, DPAPI-encrypted keys, key redaction in logs/errors | **Verified** by e2e + unit tests |
 | Windows installer (NSIS, per-user, unsigned) | **Verified** — silent install → launch → full e2e suite on the installed build → uninstall |
 | Install website (`apps/website`) + relay (`apps/cloud`) | **Deployed** on Vercel at https://hirora-one.vercel.app; the installer is on Vercel Blob, and a full download matched the SHA-256 shown on the page |
@@ -99,6 +99,6 @@ docs/                 ADRs, acceptance, performance, privacy, troubleshooting, r
 - **Hirora Cloud is shared and free-tier.** Everyone using the access code shares Groq's free limits (about 30 requests/min and 1,000 requests/day for answers; about 2,000 transcriptions/day). Behaviour under concurrent use wasn't measured. Questions, résumé snippets and spoken sentences pass through the owner's Vercel function and Groq (nothing is stored on the relay). Transcripts arrive per sentence, with no interim text.
 - **Gemini latency is provider-bound.** Gemini 3.5 Flash-Lite first-token latency was ~8–9 s during a busy period (measured with raw `fetch`, independent of Hirora), 3 s at a quieter moment.
 - The installer is **unsigned** (SmartScreen warning). xAI/DeepSeek answering and xAI STT were not tested live (no keys). Multi-monitor placement wasn't tested on a second physical display. OCR for scanned PDFs is not bundled.
-- Screen-capture exclusion is best-effort and was measured for two capture paths on one machine only.
+- Screen-capture exclusion is best-effort and was measured on one machine only (browser screen share, GDI, desktopCapturer). Cameras and some remote-desktop or hardware capture never honour it.
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) and [docs/PRIVACY.md](docs/PRIVACY.md).

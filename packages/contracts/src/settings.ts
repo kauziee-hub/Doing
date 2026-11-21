@@ -186,7 +186,8 @@ export const AppSettingsSchema = z.object({
       fontScale: z.number().min(0.75).max(1.8).default(1),
       bounds: BoundsSchema.nullable().default(null),
       displayId: z.number().nullable().default(null),
-      contentProtection: z.boolean().default(false),
+      /** Ask Windows to leave the overlay out of screen captures/shares. On by default since 0.2.1 (ADR 0008). */
+      contentProtection: z.boolean().default(true),
       showTranscript: z.boolean().default(true),
       /** Windows 11 acrylic (frosted glass) behind the overlay; falls back to tinted translucency. */
       glass: z.boolean().default(true),

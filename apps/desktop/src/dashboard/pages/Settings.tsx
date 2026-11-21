@@ -406,8 +406,8 @@ function OverlayTab() {
       <Card title="Screen-capture privacy (best-effort)">
         <Toggle
           checked={o.contentProtection}
-          label="Ask Windows to exclude the overlay from screen capture"
-          description="Uses Electron setContentProtection → SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE). Not every capture method honours it (cameras, some remote-desktop and hardware capture never will). This is a privacy convenience — Hirora does not claim the overlay is undetectable and does not try to evade monitoring or proctoring software."
+          label="Hide the overlay from screen sharing and screenshots"
+          description="On by default. You still see the overlay; Windows leaves it out of screen captures (SetWindowDisplayAffinity via Electron setContentProtection), so your own screenshots and recordings won't show it either. Not every capture method honours it (cameras, some remote-desktop and hardware capture never will). This is a privacy convenience — Hirora does not claim the overlay is undetectable and does not try to evade monitoring or proctoring software."
           onChange={(v) => void patch({ overlay: { contentProtection: v } })}
         />
         <div className="vc-row">
