@@ -1,0 +1,41 @@
+# All runtime code is bundled by electron-vite, so no node_modules are packaged.
+appId: app.hirora.desktop
+productName: Hirora
+copyright: Copyright © 2026 Hirora contributors
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**
+  - package.json
+  - "!**/*.map"
+asar: true
+extraResources:
+  - from: ../../native/windows-audio/target/release/hirora-audio.exe
+    to: bin/hirora-audio.exe
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/tray.png
+    to: tray.png
+  - from: resources/tray@2x.png
+    to: tray@2x.png
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+  executableName: Hirora
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Hirora
+  uninstallDisplayName: Hirora
+  deleteAppDataOnUninstall: false
+  artifactName: Hirora-Setup-${version}-x64-unsigned.${ext}
+electronLanguages: [en-US]
+publish: null

@@ -1,0 +1,43 @@
+{
+  "name": "@hirora/desktop",
+  "productName": "Hirora",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Hirora — local-first real-time AI desktop copilot (BYOK)",
+  "author": "Hirora contributors",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "package:win": "electron-builder --win nsis --x64 --publish never",
+    "perf:live": "electron . --hirora-bench"
+  },
+  "devDependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@hirora/contracts": "workspace:^",
+    "@hirora/knowledge": "workspace:^",
+    "@hirora/orchestration": "workspace:^",
+    "@hirora/providers": "workspace:^",
+    "@hirora/settings": "workspace:^",
+    "@hirora/ui": "workspace:^",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "lucide-react": "^1.76.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "vite": "^8.3.8",
+    "zod": "^4.6.7",
+    "zustand": "^5.1.0"
+  },
+  "homepage": "https://example.invalid/hirora"
+}

@@ -1,0 +1,25 @@
+node_modules/
+dist/
+out/
+release/
+coverage/
+*.log
+.DS_Store
+.vite/
+native/windows-audio/target/
+apps/desktop/resources/bin/
+test-results/
+playwright-report/
+tests/performance/results/*.json
+!tests/performance/results/.gitkeep
+# never commit secrets or local env
+.env
+.env.*
+*.secret
+secrets.json
+
+# website build artifacts (installer + screenshots are copied in by prepare-release)
+apps/website/public/download/
+apps/website/public/img/home-*.png
+apps/website/public/img/overlay.png
+apps/website/src/release.json

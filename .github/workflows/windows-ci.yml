@@ -1,0 +1,36 @@
+name: windows-ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-test-package:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      # App + hardware-free e2e (CI runners have no audio devices; hardware.e2e.ts is local-only).
+      - run: npx playwright test -c tests/e2e/playwright.config.ts app.e2e.ts
+      - run: pnpm --filter @hirora/desktop package:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hirora-installer
+          path: apps/desktop/release/*.exe
+          if-no-files-found: error

@@ -1,0 +1,111 @@
+/* Overlay: tinted translucent ink glass over any app (Meet, Teams, IDEs, full-screen).
+   Windows acrylic was measured to fall back to a solid grey slab for unfocused windows,
+   so translucency comes from a transparent window + a tinted panel (see docs/ADR/0006). */
+html.is-overlay, html.is-overlay body, html.is-overlay #root { background: transparent !important; overflow: hidden; }
+
+.ov {
+  --text: #f4f3f9; --text-2: #c9c8d9; --text-3: #8f8ea8; --line: rgba(255, 255, 255, 0.09); --line-strong: rgba(255, 255, 255, 0.16);
+  --surface: rgba(255, 255, 255, 0.06); --surface-2: rgba(255, 255, 255, 0.05); --sunken: rgba(255, 255, 255, 0.08);
+  --ink: #ffffff; --on-ink: #1d1c35; --glass: 0.95;
+  --mint: rgba(143, 220, 202, 0.16); --mint-ink: #8fdcca; --sky: rgba(156, 196, 245, 0.16); --sky-ink: #a9cdf7;
+  --peach: rgba(246, 201, 141, 0.16); --peach-ink: #f6c98d; --blush: rgba(246, 169, 186, 0.18); --blush-ink: #f6a9ba;
+  --lilac: rgba(195, 178, 247, 0.16); --lilac-ink: #c9b9fa; --sand: rgba(255, 255, 255, 0.08);
+  --ok: #8fdcca; --warn: #f6c98d; --error: #ff8ea1;
+  color: var(--text);
+  position: relative; height: 100vh; display: flex; flex-direction: column;
+  background: rgba(21, 20, 39, var(--glass));
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 22px; overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ov.is-solid { --glass: 0.97; }
+.ov-probe { position: fixed; inset: 0; background: #ff00ff; }
+
+.ov-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; -webkit-app-region: drag; user-select: none; }
+.ov-head button, .ov-head select, .ov-src, .ov-chip { -webkit-app-region: no-drag; }
+.ov-brand { display: flex; align-items: center; gap: 8px; flex: none; }
+.ov-state { font-size: .74em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+.ov-state::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.ov-state.is-live { color: #ff9ab0; } .ov-state.is-live::before { background: #ff5c84; box-shadow: 0 0 0 3px rgba(255, 92, 132, .25); animation: vc-pulse 1.6s infinite; }
+.ov-state.is-paused { color: var(--warn); } .ov-state.is-paused::before { background: var(--warn); }
+.ov-sources-bar { display: flex; gap: 6px; flex: 1; min-width: 0; overflow: hidden; }
+.ov-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px; background: var(--surface); min-width: 0; flex: 0 1 auto; }
+.ov-chip .vc-meter { width: 34px; min-width: 24px; height: 4px; }
+.ov-chip.is-mic { background: var(--mint); } .ov-chip.is-mic .vc-meter__fill { background: var(--mint-ink); }
+.ov-chip.is-sys { background: var(--sky); } .ov-chip.is-sys .vc-meter__fill { background: var(--sky-ink); }
+.ov-chip.is-off { opacity: .55; }
+.ov-chip__label { font-size: .74em; color: var(--text-2); white-space: nowrap; }
+.ov-chip__err { width: 7px; height: 7px; border-radius: 50%; background: var(--error); flex: none; }
+.ov-head__actions { display: flex; gap: 4px; margin-left: auto; flex: none; }
+
+.ov-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 0;
+  background: rgba(255, 255, 255, 0.07); color: var(--text-2); cursor: pointer; flex: none; transition: background .12s, color .12s; }
+.ov-icon-btn:hover { background: rgba(255, 255, 255, 0.16); color: var(--text); }
+.ov-chip .ov-icon-btn { width: 22px; height: 22px; background: transparent; }
+.ov-icon-btn.is-start { background: #f4a3b4; color: #1d1c35; }
+.ov-icon-btn.is-start:hover { background: #f8bccb; color: #1d1c35; }
+.ov-icon-btn.is-stop { color: #ff8ea1; }
+.ov-icon-btn.is-send { background: #f4a3b4; color: #1d1c35; width: 34px; height: 34px; }
+.ov-icon-btn.is-send:hover { background: #f8bccb; }
+
+.ov-setup { margin: 0 10px 8px; padding: 9px 12px; font-size: .86em; border-radius: 14px; background: var(--peach); color: var(--text); }
+.ov-link { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+
+.ov-transcript { max-height: 30%; min-height: 50px; overflow-y: auto; margin: 0 10px; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.045); font-size: .9em; display: flex; flex-direction: column; gap: 5px; }
+.ov-line { display: flex; gap: 8px; align-items: baseline; }
+.ov-line.is-interim .ov-line__text { color: var(--text-3); }
+.ov-line.is-question .ov-line__text { color: var(--text); font-weight: 500; }
+.ov-line__src { flex: none; font-size: .68em; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; width: 48px; color: var(--text-3); }
+.ov-line__src.src-mic { color: var(--mint-ink); }
+.ov-line__src.src-system, .ov-line__src.src-app { color: var(--sky-ink); }
+.ov-line__src.src-typed { color: var(--lilac-ink); }
+.ov-line__text { color: var(--text-2); flex: 1; }
+.ov-line__ask { opacity: 0; border: 0; background: var(--sunken); color: var(--text-2); border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; cursor: pointer; flex: none; }
+.ov-line:hover .ov-line__ask, .ov-line__ask:focus-visible { opacity: 1; }
+
+.ov-candidate { display: flex; align-items: center; gap: 10px; margin: 8px 10px 0; padding: 8px 8px 8px 14px; border-radius: 999px; background: var(--blush); font-size: .9em; }
+.ov-candidate__label { font-weight: 600; color: var(--blush-ink); flex: none; }
+.ov-candidate__text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-candidate .vc-btn { height: 28px; }
+
+.ov-body { flex: 1; overflow-y: auto; padding: 12px 16px 14px; font-size: 1.02em; }
+.ov-hint { line-height: 1.6; }
+.ov-answer__meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 9px; }
+.ov-q { color: var(--text-3); font-size: .86em; margin-bottom: 8px; }
+.ov-error { color: var(--error); font-size: .9em; margin-top: 6px; }
+.ov-warn { color: var(--peach-ink); font-size: .9em; padding: 10px 12px; background: var(--peach); border-radius: 14px; margin-bottom: 10px; }
+.ov-muted { color: var(--text-3); }
+.ov-small { font-size: .86em; }
+.ov-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ov-source { font-size: .74em; padding: 3px 9px; border-radius: 999px; background: var(--sand); color: var(--text-2); cursor: help; }
+.ov-source.is-my_facts { background: var(--mint); color: var(--mint-ink); }
+.ov-source.is-company_job { background: var(--lilac); color: var(--lilac-ink); }
+.ov-actions { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 10px; }
+.ov-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.ov-skeleton span { height: 10px; border-radius: 6px; background: var(--sunken); width: 90%; }
+.ov-skeleton span:nth-child(2) { width: 72%; }
+.ov-skeleton span:nth-child(3) { width: 52%; }
+
+.ov-ask { display: flex; gap: 6px; align-items: flex-end; margin: 0 10px 10px; padding: 5px 5px 5px 14px; border-radius: 22px; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); }
+.ov-ask:focus-within { border-color: rgba(244, 163, 180, 0.6); }
+.ov-ask__input { flex: 1; resize: none; max-height: 120px; min-height: 34px; padding: 7px 0; border: 0; background: transparent; outline: none; color: var(--text); }
+.ov-ask__input::placeholder { color: var(--text-3); }
+.ov-mode { width: 92px; height: 34px; border-radius: 999px; border: 0; background: rgba(255, 255, 255, 0.08); font-size: .8em; padding: 0 10px; color: var(--text); cursor: pointer; }
+.ov-mode option { color: #1d1c35; }
+
+/* Modals inside the overlay and the dashboard share these */
+.ov-modal { position: absolute; inset: 0; background: rgba(10, 10, 20, .55); display: flex; align-items: center; justify-content: center; padding: 14px; z-index: 20; }
+.ov-modal__box { background: #ffffff; color: #1d1c35; border-radius: 24px; padding: 22px 22px 18px; box-shadow: 0 30px 70px -20px rgba(0,0,0,.6); max-width: 460px; width: 100%; max-height: 100%; overflow-y: auto;
+  --text: #1d1c35; --text-2: #5f5e72; --text-3: #9b9aab; --line: #e7e5df; --line-strong: #d7d4cc; --surface: #fff; --surface-2: #f7f6f3; --sunken: #efeee9; --ink: #1d1c35; --on-ink: #fff;
+  --peach: #fde5c6; --peach-ink: #8a5a1c; }
+.ov-modal__box--wide { max-width: 660px; }
+.ov-modal h2 { font-size: 1.2em; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 10px; display: flex; gap: 8px; align-items: center; }
+.ov-modal p { margin: 0 0 10px; font-size: .93em; color: var(--text-2); }
+.ov-modal .ov-muted { color: var(--text-3); }
+.ov-modal .ov-error { color: #c2334d; }
+.ov-preview { max-height: 200px; overflow: auto; white-space: pre-wrap; font-family: var(--mono); font-size: .8em; background: var(--surface-2); border-radius: 14px; padding: 10px 12px; margin: 0 0 10px; }
+.ov-shot { width: 100%; border-radius: 14px; margin-bottom: 10px; display: block; }
+.ov.is-compact .ov-body { padding-top: 4px; }
+.ov.is-compact .ov-chip__label { display: none; }
+
+/* Answer view reused in the light dashboard: keep it on dashboard tokens */
+.dash-answer .ov-q, .dash-answer .ov-muted { color: var(--text-3); }

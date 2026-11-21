@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Hirora is a Windows interview copilot. It shows a live transcript of the call you approve and short answer cues drawn from your own résumé, in a quiet overlay. Free, no account, works on any Windows PC — no GPU or paid key needed." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hirora — interview calmer, answer smarter" />
+    <meta property="og:description" content="Live transcripts and résumé-grounded answer cues in a quiet overlay on Windows. Free, no account, no GPU needed." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" as="image" href="/img/hero-person.webp" imagesrcset="/img/hero-person-sm.webp 560w, /img/hero-person.webp 960w" imagesizes="(max-width: 900px) 78vw, 480px" />
+    <title>Hirora — interview calmer, answer smarter</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="nav" data-nav>
+      <div class="nav__inner">
+        <a class="brand" href="#top" aria-label="Hirora home">
+          <svg class="brand__mark" width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="19" fill="#1d1c35"/><path d="M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49" fill="none" stroke="#fff" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="16" r="5.4" fill="#f4a3b4"/></svg>
+          <span class="wordmark">Hirora</span>
+        </a>
+        <nav class="nav__links" aria-label="Sections">
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#local">Run it locally</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <a class="btn btn--ink btn--sm" href="#download">Download</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero__copy">
+          <h1 class="reveal"><span class="thin">Interview</span> <b>Calmer</b>,<br /><span class="mid">Answer</span> <b>Smarter</b></h1>
+          <p class="lede reveal">Hirora listens to the call you approve, shows a live transcript, and slips you short answer cues drawn from your own résumé, in a quiet overlay on Windows.</p>
+
+          <div class="dl-card reveal" role="group" aria-label="Download Hirora for Windows">
+            <div class="dl-field">
+              <span class="dl-field__icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M3 5.5 10.4 4.5v7H3zM11.4 4.36 21 3v8.5h-9.6zM3 12.5h7.4v7L3 18.5zm8.4 0H21V21l-9.6-1.36z"/></svg></span>
+              <span class="dl-field__text"><small>Platform</small><span>Windows 11 · 64-bit</span></span>
+            </div>
+            <div class="dl-field">
+              <span class="dl-field__icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/></svg></span>
+              <span class="dl-field__text"><small>Version</small><span data-release-short>Free download</span></span>
+            </div>
+            <a class="dl-go" href="#download" data-download-link aria-label="Download Hirora for Windows">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5 12 15.5l5-5M5 20h14"/></svg>
+            </a>
+          </div>
+          <p class="hero__note reveal">Free · No sign-up · Works on any Windows PC · Your notes stay on your PC</p>
+
+          <a class="start-card reveal" href="#how">
+            <span class="start-card__icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 64 64"><rect width="64" height="64" rx="19" fill="#1d1c35"/><path d="M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49" fill="none" stroke="#fff" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="16" r="5.4" fill="#f4a3b4"/></svg></span>
+            <span class="start-card__text"><small>Start your prep</small><span>How it works <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 7.5 5 3 8.5z" fill="currentColor"/></svg></span></span>
+          </a>
+        </div>
+
+        <div class="hero__visual">
+          <div class="rings" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="aurora" aria-hidden="true"></div>
+          <img
+            class="hero__person"
+            src="/img/hero-person.webp"
+            srcset="/img/hero-person-sm.webp 560w, /img/hero-person.webp 960w"
+            sizes="(max-width: 900px) 78vw, 480px"
+            width="960"
+            height="1219"
+            alt="A smiling candidate wearing one earbud reads answer cues on her laptop"
+            fetchpriority="high"
+          />
+          <span class="bubble bubble--ink float-a" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></span>
+          <span class="bubble bubble--white float-b" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2.5c.5 4.6 2.9 7 7.5 7.5-4.6.5-7 2.9-7.5 7.5-.5-4.6-2.9-7-7.5-7.5 4.6-.5 7-2.9 7.5-7.5Z" fill="#8b7cf6"/><path d="M19 15.5c.2 1.8 1.1 2.7 2.9 2.9-1.8.2-2.7 1.1-2.9 2.9-.2-1.8-1.1-2.7-2.9-2.9 1.8-.2 2.7-1.1 2.9-2.9Z" fill="#f4a3b4"/></svg></span>
+          <div class="chip chip--live float-c"><span class="chip__dot"></span>Live transcript</div>
+          <div class="chip chip--cite float-d">Answer cites <b>[S1] resume.pdf · p.1</b></div>
+
+          <div class="bracket" aria-hidden="true"><span class="bracket__stem"></span><span class="bracket__bar"></span></div>
+          <dl class="stats">
+            <div class="stat"><dt>1.5–1.8<small>s</small></dt><dd>end of a sentence → its transcript, on Hirora Cloud</dd></div>
+            <div class="stat"><dt>0.55<small>s</small></dt><dd>median, question → first answer word, on Hirora Cloud (no GPU)</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="strip" aria-label="Works with your call app">
+        <p>Hears any call on your PC through Windows audio</p>
+        <ul>
+          <li>Google Meet</li>
+          <li>Microsoft Teams</li>
+          <li>Zoom</li>
+          <li>Webex</li>
+          <li>Slack huddles</li>
+          <li>Any browser tab</li>
+        </ul>
+      </section>
+
+      <section class="section" id="how">
+        <header class="section__head reveal">
+          <p class="kicker">How it works</p>
+          <h2><span class="thin">Ready in</span> <b>three steps</b></h2>
+        </header>
+        <ol class="steps">
+          <li class="step tile--peach reveal">
+            <span class="step__n">1</span>
+            <h3>Install Hirora</h3>
+            <p>Run the installer (no admin rights needed) and paste the <b>Hirora Cloud access code</b> you were given. That's it: transcription and answers run on the free shared server, so any PC works, no GPU or paid key needed.</p>
+          </li>
+          <li class="step tile--lilac reveal">
+            <span class="step__n">2</span>
+            <h3>Add your story</h3>
+            <p>Drop in your résumé, project notes and the job description. They're indexed on your PC, so answers about you quote your own words.</p>
+          </li>
+          <li class="step tile--mint reveal">
+            <span class="step__n">3</span>
+            <h3>Start listening</h3>
+            <p>Confirm everyone has agreed, press Start, and the overlay shows the transcript, the question it heard and a short cue to answer with.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section" id="features">
+        <header class="section__head reveal">
+          <p class="kicker">Features</p>
+          <h2><span class="thin">Built for the</span> <b>hard questions</b></h2>
+        </header>
+        <div class="bento">
+          <article class="card card--wide tile--sky reveal">
+            <div class="card__text">
+              <h3>Hears both sides, separately</h3>
+              <p>A small native helper captures your microphone and your speakers as two labelled streams. The other side's question is detected and answered. No audio is ever saved to disk.</p>
+            </div>
+            <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </article>
+          <article class="card tile--blush reveal">
+            <h3>Won't invent your past</h3>
+            <p>Questions about you are answered only from your materials, with citations. If a fact isn't there, it says “not in your materials”.</p>
+          </article>
+          <article class="card tile--peach reveal">
+            <h3>Coding rounds</h3>
+            <p>Approach, runnable code, complexity and tests, with one-click copy, “explain simply” and “make it shorter”.</p>
+          </article>
+          <article class="card tile--mint reveal">
+            <h3>Practice mode</h3>
+            <p>Rehearse with your own résumé before the real thing. Hirora cues you the way it would in a call.</p>
+          </article>
+          <article class="card tile--lilac reveal">
+            <h3>A quiet overlay</h3>
+            <p>See-through, always on top and never steals focus. Drag it anywhere, compact it, or jump monitors with a hotkey.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section shots" aria-label="Screenshots">
+        <figure class="shot shot--main reveal">
+          <img src="/img/home-light.png" alt="Hirora dashboard: pick a mode and see microphone, system audio, transcription and answer-model status" loading="lazy" width="1267" height="825" />
+          <figcaption>The dashboard, light theme</figcaption>
+        </figure>
+        <figure class="shot shot--overlay reveal">
+          <img src="/img/overlay.png" alt="The Hirora overlay with a coding answer from Hirora Cloud" loading="lazy" width="460" height="640" />
+          <figcaption>The overlay, mid-answer</figcaption>
+        </figure>
+        <figure class="shot shot--dark reveal">
+          <img src="/img/home-dark.png" alt="Hirora dashboard in the dark theme" loading="lazy" width="1267" height="825" />
+          <figcaption>Dark theme</figcaption>
+        </figure>
+      </section>
+
+      <section class="section local" id="local">
+        <div class="local__copy reveal">
+          <p class="kicker kicker--light">Run it locally</p>
+          <h2><span class="thin">Answers from</span> <b>your own GPU</b></h2>
+          <p>Optional, for PCs with an NVIDIA GPU. Choose <b>Ollama</b> in Settings and Hirora writes answers on your own machine: your questions never leave it, and it keeps working if the cloud is busy or offline (Hirora uses it automatically as a fallback when you set it).</p>
+          <ul class="local__facts">
+            <li><b data-local-ttft-long>Under a second</b><span>to the first answer word on our RTX 4060 laptop</span></li>
+            <li><b>No key</b><span>and answers never leave your PC. Transcription can still use Hirora Cloud.</span></li>
+          </ul>
+        </div>
+        <div class="terminal reveal" aria-label="Setting up a local model">
+          <div class="terminal__bar"><i></i><i></i><i></i><span>PowerShell</span></div>
+          <pre><code><span class="c"># 1. Install Ollama from ollama.com, then:</span>
+<span class="p">PS&gt;</span> ollama pull qwen3.5:4b
+pulling manifest
+success
+<span class="c"># 2. Hirora → Settings → Providers → Ollama → Test</span>
+<span class="ok">✓ Ollama is running · 1 local model pulled</span></code></pre>
+        </div>
+      </section>
+
+      <section class="section" id="privacy">
+        <header class="section__head reveal">
+          <p class="kicker">Privacy</p>
+          <h2><span class="thin">Private</span> <b>by default</b></h2>
+        </header>
+        <div class="privacy">
+          <ul class="privacy__list reveal">
+            <li><b>Nothing is captured until you press Start</b> and confirm everyone has agreed.</li>
+            <li><b>No Hirora server, no account, no telemetry.</b> Audio goes only to the transcription provider you chose; questions only to your answer model.</li>
+            <li><b>History is off</b> unless you turn it on, and you can delete it per session or all at once.</li>
+            <li><b>Screenshots and clipboard text</b> are always previewed first, with likely secrets flagged for redaction.</li>
+          </ul>
+          <aside class="note reveal">
+            <h3>About screen sharing</h3>
+            <p>Hirora can ask Windows to leave the overlay out of screen captures. Some capture methods honour that and others never will (cameras, some remote-desktop tools). It's a privacy convenience, not invisibility. Follow the rules of any interview or assessment you take.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section download" id="download">
+        <div class="download__card reveal">
+          <div class="download__aurora" aria-hidden="true"></div>
+          <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="19" fill="#ffffff"/><path d="M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49" fill="none" stroke="#1d1c35" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="16" r="5.4" fill="#f4a3b4"/></svg>
+          <h2>Get Hirora for Windows</h2>
+          <p class="download__meta" data-release-detail>Windows 11 · 64-bit</p>
+          <a class="btn btn--white" href="#download" data-download-link>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.4 4.5v7H3zM11.4 4.36 21 3v8.5h-9.6zM3 12.5h7.4v7L3 18.5zm8.4 0H21V21l-9.6-1.36z"/></svg>
+            Download for Windows
+          </a>
+          <div class="sha" data-sha-wrap hidden>
+            <span>SHA-256</span>
+            <code data-sha></code>
+            <button type="button" class="sha__copy" data-copy-sha>Copy</button>
+          </div>
+          <div class="download__grid">
+            <div>
+              <h3>Windows may warn you</h3>
+              <p>This early build isn't code-signed yet, so SmartScreen may say “Windows protected your PC”. Choose <b>More info → Run anyway</b>, but only if the SHA-256 above matches your file.</p>
+            </div>
+            <div>
+              <h3>What you need</h3>
+              <p>Windows 11 (64-bit), about 350 MB of disk, a microphone or speakers, an internet connection and the Hirora Cloud access code from whoever shared Hirora with you. No GPU and no paid key needed.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <header class="section__head reveal">
+          <p class="kicker">FAQ</p>
+          <h2><span class="thin">Questions,</span> <b>answered</b></h2>
+        </header>
+        <div class="faq">
+          <details class="reveal"><summary>Is Hirora free?</summary><p>Yes. There's no account or subscription. Hirora Cloud — a small always-on server — runs open models and Whisper speech-to-text on Groq's free tier, so everyone who has the access code uses it at no cost. The free tier has daily limits shared by everyone on the server (roughly 1,000 answers and a few hours of transcription a day). Prefer your own quota? Add your own Gemini or xAI key, or run answers on your own GPU with Ollama.</p></details>
+          <details class="reveal"><summary>Is it allowed in interviews?</summary><p>Often not. Many interviews and assessments forbid AI help, so check the rules first. Hirora is great for practice, for mock interviews, and for calls where assistance is permitted. Always tell people when you're transcribing them.</p></details>
+          <details class="reveal"><summary>How fast are the answers?</summary><p>Measured on our test laptop with a fresh install and only the access code: a typed question gets its first answer word in about half a second (median 0.55 s, 0.42–0.82 s over 35 questions). For spoken questions, Hirora Cloud transcribes each sentence when the speaker pauses — the text appeared 1.5–1.8 s after the question ended (two runs) — and the answer then started 0.6–0.7 s later. Speeds vary with the free tier's load; the Performance page in the app shows your own numbers.</p></details>
+          <details class="reveal"><summary>Do I need an API key?</summary><p>No — just the Hirora Cloud access code from whoever shared Hirora with you. Optional extras: your own Gemini or xAI key (transcription and answers on your own quota), DeepSeek or any OpenAI-compatible endpoint for answers, or Ollama on your own PC with no key at all.</p></details>
+          <details class="reveal"><summary>Does it record my calls?</summary><p>No. While you're listening, each spoken sentence is sent to the transcription service you chose (Hirora Cloud by default) and is never written to disk — on your PC or on the server. Transcript history is off unless you turn it on.</p></details>
+          <details class="reveal"><summary>Why does Windows show a warning when I install?</summary><p>The installer isn't code-signed yet. Compare the SHA-256 shown above with your downloaded file (PowerShell: <code>Get-FileHash .\Hirora-Setup-*.exe</code>). If they match, choose More info → Run anyway.</p></details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__inner">
+        <a class="brand" href="#top" aria-label="Hirora home">
+          <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="19" fill="#1d1c35"/><path d="M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49" fill="none" stroke="#fff" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="16" r="5.4" fill="#f4a3b4"/></svg>
+          <span class="wordmark">Hirora</span>
+        </a>
+        <p>Interview copilot for Windows · No account · No telemetry</p>
+        <p class="footer__small">© <span data-year>2026</span> Hirora. Not affiliated with the call apps named on this page.</p>
+      </div>
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

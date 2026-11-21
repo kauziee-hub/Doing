@@ -1,0 +1,160 @@
+import type { DocKind, RetrievedChunk } from '@hirora/contracts';
+import { evidenceClassForKind } from '@hirora/contracts';
+import type { KnowledgeStore } from './store';
+
+const STOPWORDS = new Set(
+  `a an and are as at be been but by can could did do does doing for from had has have having he her hers him his how i if in into is it its
+   just me my myself no nor not of on or our ours out over own same she should so some such than that the their them then there these they
+   this those through to too under until up very was we were what when where which while who whom why will with would you your yours yourself
+   tell describe explain talk walk please about give us something time could would like know think`
+    .split(/\s+/)
+    .filter(Boolean),
+);
+
+export function queryTerms(q: string): string[] {
+  const terms = (q.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}+#.\-_]*/gu) ?? [])
+    .map((t) => t.replace(/[.\-_]+$/, ''))
+    .filter((t) => t.length > 1 && !STOPWORDS.has(t));
+  return [...new Set(terms)].slice(0, 24);
+}
+
+/** Builds a safe FTS5 MATCH expression: every term quoted, OR-combined. */
+export function ftsQuery(q: string): string | null {
+  const terms = queryTerms(q);
+  if (terms.length === 0) return null;
+  return terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(' OR ');
+}
+
+/** First-person experience questions should prefer the user's own evidence. */
+export function isFirstPersonQuestion(q: string): boolean {
+  return /\b(you|your|yourself|tell me about a time|walk me through|have you|did you|what did you|why should we hire)\b/i.test(q);
+}
+
+interface Candidate {
+  id: string;
+  document_id: string;
+  ordinal: number;
+  page: number | null;
+  section: string | null;
+  text: string;
+  title: string;
+  file_name: string;
+  kind: string;
+}
+
+export interface RetrieveOptions {
+  topK: number;
+  queryVector?: Float32Array | null;
+  embeddingModel?: string | null;
+}
+
+export class HybridRetriever {
+  private vecCache: { version: number; model: string; vectors: Map<string, Float32Array> } | null = null;
+
+  constructor(private readonly store: KnowledgeStore) {}
+
+  private vectors(model: string): Map<string, Float32Array> {
+    if (!this.vecCache || this.vecCache.version !== this.store.version || this.vecCache.model !== model) {
+      this.vecCache = { version: this.store.version, model, vectors: this.store.loadEmbeddings(model) };
+    }
+    return this.vecCache.vectors;
+  }
+
+  hasVectors(model: string): boolean {
+    return this.vectors(model).size > 0;
+  }
+
+  /** Warm caches so the first live query does not pay the load cost. */
+  warm(model: string | null): void {
+    if (model) this.vectors(model);
+    this.store.db.prepare("SELECT COUNT(*) AS n FROM chunks_fts WHERE chunks_fts MATCH 'warm'").get();
+  }
+
+  private fetchChunks(ids: string[]): Map<string, Candidate> {
+    const map = new Map<string, Candidate>();
+    if (ids.length === 0) return map;
+    const rows = this.store.db
+      .prepare(
+        `SELECT c.id, c.document_id, c.ordinal, c.page, c.section, c.text, d.title, d.file_name, d.kind
+         FROM chunks c JOIN documents d ON d.id = c.document_id WHERE c.id IN (${ids.map(() => '?').join(',')})`,
+      )
+      .all(...ids) as Candidate[];
+    for (const r of rows) map.set(r.id, r);
+    return map;
+  }
+
+  retrieve(question: string, opts: RetrieveOptions): RetrievedChunk[] {
+    const k = Math.max(1, opts.topK);
+    const ranked = new Map<string, { score: number; by: Set<'fts' | 'vector'> }>();
+    const add = (id: string, rank: number, by: 'fts' | 'vector', weight = 1) => {
+      const cur = ranked.get(id) ?? { score: 0, by: new Set() };
+      cur.score += weight / (60 + rank);
+      cur.by.add(by);
+      ranked.set(id, cur);
+    };
+
+    const match = ftsQuery(question);
+    if (match) {
+      const rows = this.store.db
+        .prepare(`SELECT chunk_id, bm25(chunks_fts, 0.0, 1.0, 0.6, 0.4) AS s FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY s LIMIT 40`)
+        .all(match) as Array<{ chunk_id: string; s: number }>;
+      rows.forEach((r, i) => add(r.chunk_id, i, 'fts'));
+    }
+
+    if (opts.queryVector && opts.embeddingModel) {
+      const vecs = this.vectors(opts.embeddingModel);
+      const q = opts.queryVector;
+      const scored: Array<[string, number]> = [];
+      for (const [id, v] of vecs) {
+        if (v.length !== q.length) continue;
+        let dot = 0;
+        for (let i = 0; i < v.length; i++) dot += (v[i] ?? 0) * (q[i] ?? 0);
+        scored.push([id, dot]);
+      }
+      scored.sort((a, b) => b[1] - a[1]);
+      scored.slice(0, 40).forEach(([id, sim], i) => {
+        if (sim > 0.35) add(id, i, 'vector');
+      });
+    }
+
+    if (ranked.size === 0) return [];
+    const firstPerson = isFirstPersonQuestion(question);
+    const chunks = this.fetchChunks([...ranked.keys()]);
+    const results: RetrievedChunk[] = [];
+    for (const [id, r] of ranked) {
+      const c = chunks.get(id);
+      if (!c) continue;
+      const kind = c.kind as DocKind;
+      const evidence = evidenceClassForKind(kind);
+      let score = r.score;
+      if (firstPerson && evidence === 'my_facts') score *= 1.35;
+      if (r.by.size > 1) score *= 1.15;
+      results.push({
+        chunkId: c.id,
+        documentId: c.document_id,
+        documentTitle: c.title,
+        fileName: c.file_name,
+        kind,
+        evidence,
+        page: c.page,
+        section: c.section,
+        ordinal: c.ordinal,
+        text: c.text,
+        score,
+        matchedBy: [...r.by],
+      });
+    }
+    results.sort((a, b) => b.score - a.score);
+    // Diversity: at most 3 chunks per document in the final set.
+    const perDoc = new Map<string, number>();
+    const out: RetrievedChunk[] = [];
+    for (const r of results) {
+      const n = perDoc.get(r.documentId) ?? 0;
+      if (n >= 3) continue;
+      perDoc.set(r.documentId, n + 1);
+      out.push(r);
+      if (out.length >= k) break;
+    }
+    return out;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "website",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@hirora/website", "preview"],
+      "port": 4317
+    },
+    {
+      "name": "website-4318",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@hirora/website", "exec", "vite", "preview", "--port", "4318", "--strictPort"],
+      "port": 4318
+    }
+  ]
+}
