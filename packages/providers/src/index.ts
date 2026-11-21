@@ -3,7 +3,7 @@ import { HIRORA_CLOUD_DEFAULT_BASE_URL, OLLAMA_DEFAULT_BASE_URL } from '@hirora/
 import { GeminiEmbeddingProvider, GeminiTextProvider } from './gemini';
 import { DEEPSEEK_BASE_URL, OllamaProvider, OpenAICompatibleProvider, XAI_BASE_URL, validateCustomBaseUrl, validateLocalBaseUrl } from './openaiCompatible';
 import { GeminiLiveTranscriber, XaiStreamingTranscriber } from './stt';
-import { CloudWhisperTranscriber } from './whisper';
+import { CloudWhisperTranscriber, LOCAL_WHISPER_DEFAULT_URL, LocalWhisperTranscriber } from './whisper';
 import type { StreamingTranscriptionProvider } from './stt';
 import type { FetchLike, TextModelProvider } from './types';
 import { ProviderError } from './errors';
@@ -87,12 +87,18 @@ export function createTextProvider(id: ProviderId, apiKey: string, opts: CreateP
 /** STT needs the key of the vendor that runs it. */
 export const STT_KEY_PROVIDER: Record<SttProviderId, ProviderId> = {
   'cloud-whisper': 'cloud',
+  'local-whisper': 'ollama', // keyless: runs on this PC
   'gemini-live': 'gemini',
   'xai-stt': 'xai',
 };
 
-export function createTranscriber(id: SttProviderId, apiKey: string, opts: { cloudBaseUrl?: string; fetchImpl?: FetchLike } = {}): StreamingTranscriptionProvider {
+export function createTranscriber(id: SttProviderId, apiKey: string, opts: { cloudBaseUrl?: string; localWhisperUrl?: string; fetchImpl?: FetchLike } = {}): StreamingTranscriptionProvider {
   switch (id) {
+    case 'local-whisper': {
+      const base = validateLocalBaseUrl(opts.localWhisperUrl || LOCAL_WHISPER_DEFAULT_URL);
+      if (!base) throw new ProviderError('local-whisper', 'not_configured', 'Local Whisper must run on this PC (http://127.0.0.1 or http://localhost).');
+      return new LocalWhisperTranscriber(base, opts.fetchImpl ?? fetch);
+    }
     case 'cloud-whisper': {
       const base = validateCustomBaseUrl(opts.cloudBaseUrl || HIRORA_CLOUD_DEFAULT_BASE_URL);
       if (!base) throw new ProviderError('cloud', 'not_configured', 'The Hirora Cloud address must be an https:// URL.');

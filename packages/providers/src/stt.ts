@@ -27,6 +27,8 @@ export interface SttHandlers {
 export interface SttSession {
   sendAudio(pcm16le: Buffer): boolean;
   endOfSpeech(): void;
+  /** The speaker just went quiet (may resume). Utterance transcribers refresh their live text now. */
+  silenceStarted?(): void;
   close(): void;
   readonly isOpen: boolean;
   readonly bufferedBytes: number;
@@ -39,6 +41,8 @@ export interface StreamingTranscriptionProvider {
   readonly maxSessionMs: number | null;
   /** Wants endOfSpeech() when local VAD hears speech stop (Gemini hybrid VAD, Whisper utterances). */
   readonly wantsEndOfSpeech?: boolean;
+  /** Silence that ends an utterance for the local VAD (default 450 ms). Fast local finals use less. */
+  readonly speechEndHangoverMs?: number;
   open(opts: SttOptions, handlers: SttHandlers, signal?: AbortSignal): Promise<SttSession>;
 }
 

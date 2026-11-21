@@ -60,3 +60,94 @@ export function analyzeQuestion(raw: string): QuestionAnalysis {
   score = Math.max(0, Math.min(1, score));
   return { score, isQuestion: score >= 0.5, isFollowUp };
 }
+
+/** Only filler words: "okay", "yeah, sure", "hmm". */
+const FILLER_ONLY =
+  /^(?:(?:hey|hi|hello|oh|ok|okay|alright|so|um+|uh+|hmm+|mm+|yeah|yes|yep|no|nope|right|sure|cool|nice|great|good|perfect|thanks|thank you|got it|i see|makes sense|fine)[\s,.!?]*)+$/i;
+/** Talk that is never meant to be answered: asking someone to wait or come over. */
+const CHATTER = /\b(wait (?:a|one|for a) (?:minute|second|sec|moment|bit)|hold on|one (?:sec|second|moment|minute)|give me (?:a|one) (?:second|sec|minute|moment)|come here|come (?:over|inside|in)|be right back|brb|just a (?:second|sec|minute|moment))\b/i;
+/** Call logistics: audio, video, screen sharing. Usually not an interview question. */
+const LOGISTICS = /\b(hear me|hear you|see my screen|see your screen|share (?:your|my|the) screen|screen ?share|on mute|unmute|you'?re muted|my audio|your audio|my mic|your mic|connection|lagging|frozen|my camera|your camera|video is off|turn on (?:your|the) (?:camera|video))\b/i;
+/** Starts by calling someone by name: "Hey Rahul, …", "Priya, can you …". */
+const VOCATIVE = /^(?:(?:hey|hi|hello|oi|yo|listen|ok|okay|so),?\s+)?[A-Z][a-z]+,\s/;
+/** Casual-question signals worth a closer look even without a "?" ("so ur last company what stack u used"). */
+const CASUAL_SIGNAL = /\?|\b(you|your|yourself|u|ur|urself|what|why|how|when|where|which|who|tell|explain|describe|walk|talk|share|show|give|elaborate|difference|experience|project)\b/i;
+
+/** A question aimed at the candidate, or a classic interview/technical request. */
+const INTERVIEW_SIGNAL = /\b(you|your|yourself|explain|describe|walk me|tell me|compare|design|implement|difference between|how would|how does|how do|what are the|why should)\b/i;
+/** People don't swear at candidates: likely a reaction in the room or on a video. */
+const PROFANITY = /\b(fuck\w*|f\*+k|shit\w*|damn|wtf|crap|bloody|bullshit)\b/i;
+
+export type Triage = 'answer' | 'check' | 'ignore';
+
+/**
+ * First pass over what the other side said, before any answer starts (a new answer
+ * cancels the one on screen, so chatter must never reach the answer engine):
+ * - `ignore`: filler, "wait a minute", "hey Rahul, come here";
+ * - `answer`: an unmistakable, complete question (no extra latency);
+ * - `check`: anything that might be a question (casual, short, addressed by name,
+ *   call logistics). A quick model check decides with the conversation as context.
+ */
+export function triageUtterance(raw: string): { triage: Triage; score: number } {
+  const text = raw.trim().replace(/\s+/g, ' ');
+  const { score } = analyzeQuestion(text);
+  const words = text ? text.split(' ').length : 0;
+  if (!text || FILLER_ONLY.test(text) || isFragment(text)) return { triage: 'ignore', score: 0 };
+  if (CHATTER.test(text) && score < 0.5) return { triage: 'ignore', score };
+  const vocative = VOCATIVE.test(text);
+  const logistics = LOGISTICS.test(text);
+  // Instant answer only for questions clearly aimed at the candidate or clearly interview-style;
+  // anything else that looks like a question (reactions, swearing, small talk) gets the check.
+  const clean = !vocative && !logistics && !PROFANITY.test(text) && INTERVIEW_SIGNAL.test(text);
+  if (clean && ((score >= 0.8 && words >= 5) || (ANSWER_REQUEST.test(text) && score >= 0.5))) return { triage: 'answer', score };
+  if (score >= 0.3 || (words >= 4 && CASUAL_SIGNAL.test(text))) return { triage: 'check', score };
+  return { triage: 'ignore', score };
+}
+
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s']/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Whether live text and the final transcript ask the same thing, so an answer started
+ * from the live text can stand: one contains the other with at most 3 extra words at
+ * the end (the tail the live text hadn't caught yet), or they share almost all words.
+ */
+export function sameQuestion(a: string, b: string): boolean {
+  const A = words(a);
+  const B = words(b);
+  if (A.length === 0 || B.length === 0) return false;
+  const within = (short: string[], long: string[]): boolean => {
+    for (let i = 0; i + short.length <= long.length; i++) {
+      let ok = true;
+      for (let j = 0; j < short.length; j++) {
+        if (short[j] !== long[i + j]) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return long.length - (i + short.length) <= 3;
+    }
+    return false;
+  };
+  if (within(A, B) || within(B, A)) return true;
+  const setA = new Set(A);
+  const setB = new Set(B);
+  let inter = 0;
+  for (const w of setA) if (setB.has(w)) inter++;
+  const jaccard = inter / (setA.size + setB.size - inter);
+  return jaccard >= 0.85 && Math.abs(A.length - B.length) <= 3;
+}
+
+/** Ends on a word that needs more after it: "Can you tell me", "the difference between". */
+const DANGLING = /\b(?:(?:tell|show|give|walk|remind) me|about|the|a|an|to|of|and|or|but|with|for|your|tell|explain|describe|between|regarding|like to)\s*[,.?!…-]*$/i;
+
+/** Speech that stopped mid-question (a pause, not the end): never answered on its own. */
+export function isFragment(text: string): boolean {
+  const t = text.trim();
+  return !t || DANGLING.test(t);
+}

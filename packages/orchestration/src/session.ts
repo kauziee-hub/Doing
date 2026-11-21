@@ -16,7 +16,8 @@ import { pcmLevelDbfs } from './vad';
 import { SttStream } from './sttStream';
 import type { SttConnState } from './sttStream';
 import { TranscriptAssembler } from './transcript';
-import { analyzeQuestion, extractQuestion } from './question';
+import { analyzeQuestion, extractQuestion, isFragment, sameQuestion, triageUtterance } from './question';
+import type { GateDecision } from './gate';
 import type { AnswerEngine } from './answer';
 
 /** Abstraction over the native helper so the controller is testable without hardware. */
@@ -43,6 +44,11 @@ export interface SessionDeps {
   activeProfileName(): string | null;
   perf(sample: PerfSample): void;
   helperInfo(): LiveSnapshot['helper'];
+  /**
+   * Quick model check for lines that might be questions (see triageUtterance).
+   * null = unavailable/failed/timed out: the controller falls back to the score.
+   */
+  gate?(utterance: string, recent: TranscriptSegment[], signal: AbortSignal): Promise<GateDecision | null>;
   now?: () => number;
 }
 
@@ -55,6 +61,8 @@ interface SourceRuntime {
 }
 
 const MAX_SEGMENTS = 400;
+/** A slow check must not hold a real question back for long. */
+const GATE_TIMEOUT_MS = 2500;
 
 export class SessionController {
   private state: SessionState = 'idle';
@@ -65,6 +73,24 @@ export class SessionController {
   private readonly segments: TranscriptSegment[] = [];
   private candidate: LiveSnapshot['questionCandidate'] = null;
   private autoTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Bumped by every auto-answer candidate, so a slow check for an older line can't fire. */
+  private candidateGen = 0;
+  private gateCtl: AbortController | null = null;
+  /**
+   * An answer started from live text while the other side is still talking. It is
+   * revealed when they pause (instant), confirmed by the final transcript, or dropped.
+   */
+  /** Sources whose speaker is currently in a pause (since when they stopped). */
+  private readonly pausedAt = new Map<AudioSource, number>();
+  private spec: {
+    id: string;
+    text: string;
+    source: AudioSource;
+    decision: 'answer' | 'pending';
+    committed: boolean;
+    /** Set when they paused while the check was still running: reveal once it says ANSWER. */
+    pausedAt: number | null;
+  } | null = null;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
   private budgetTimer: ReturnType<typeof setInterval> | null = null;
   private recordHistory = false;
@@ -196,6 +222,8 @@ export class SessionController {
       onInterim: (t) => assembler.interim(t),
       onFinal: (t) => assembler.finalSegment(t),
       onUtteranceEnd: () => assembler.finalize(),
+      onPause: (lastSpeechAt) => this.onPause(source, lastSpeechAt),
+      onResume: () => this.pausedAt.delete(source),
       onState: (st: SttConnState, err: ProviderError | null) => {
         status.sttState = st;
         status.sttError = err ? `${err.message}` : st === 'open' ? null : status.sttError;
@@ -260,29 +288,167 @@ export class SessionController {
 
   private onSegmentUpdate(seg: TranscriptSegment): void {
     this.deps.emit({ type: 'transcript', segment: seg });
+    if (!seg.final && this.state === 'listening' && this.isAutoSource(seg.source)) this.speculate(seg);
+  }
+
+  private isAutoSource(source: TranscriptSegment['source']): boolean {
+    const s = this.deps.settings();
+    return s.answer.autoAnswer && s.answer.mode !== 'meeting_notes' && s.answer.autoAnswerSources.includes(source as AudioSource);
+  }
+
+  /** Live text from the other side: start answering early if it already reads as a question. */
+  private speculate(seg: TranscriptSegment): void {
+    const text = seg.text.trim();
+    if (!text) return;
+    const { triage } = triageUtterance(text);
+    const cur = this.spec;
+    // Still the same question, unless an unfinished fragment just became complete ("…a process and a" →
+    // "…a process and a thread"): then start over from the complete text so it can be shown at the pause.
+    const completed = !!cur && isFragment(cur.text) && !isFragment(text);
+    if (cur && cur.source === seg.source && sameQuestion(cur.text, text) && !(completed && !cur.committed)) return;
+    if (cur && !cur.committed) this.deps.answer.dropPrefetch();
+    if (cur?.committed && cur.source === seg.source) return; // already on screen; the final decides
+    this.spec = null;
+    if (triage === 'ignore') return;
+    if (triage === 'check' && !this.deps.gate && !seg.isQuestion && !analyzeQuestion(text).isQuestion) return;
+    const id = this.deps.answer.prefetch({ question: extractQuestion(text), origin: seg.source as AudioSource });
+    const spec = { id, text, source: seg.source as AudioSource, decision: (triage === 'answer' || !this.deps.gate ? 'answer' : 'pending') as 'answer' | 'pending', committed: false, pausedAt: null as number | null };
+    this.spec = spec;
+    if (spec.decision === 'pending') void this.checkSpec(spec);
+    // The question only became clear after they had already gone quiet: show it now.
+    else if (this.pausedAt.has(spec.source) && !isFragment(spec.text)) this.revealSpec(spec, this.pausedAt.get(spec.source)!);
+  }
+
+  private async checkSpec(spec: NonNullable<SessionController['spec']>): Promise<void> {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), GATE_TIMEOUT_MS);
+    const t0 = this.now();
+    let decision: GateDecision | null;
+    try {
+      decision = (await this.deps.gate?.(spec.text, this.segments.slice(-12), ctl.signal)) ?? null;
+    } catch {
+      decision = null;
+    } finally {
+      clearTimeout(timer);
+      ctl.abort();
+    }
+    if (this.spec !== spec) return;
+    const go = decision ? decision === 'answer' : analyzeQuestion(spec.text).isQuestion;
+    this.deps.perf({ stage: 'question_gate', ms: this.now() - t0, at: this.now(), provider: null, model: null, label: `live:${decision ?? (go ? 'fallback-answer' : 'fallback-skip')}` });
+    if (!go) {
+      this.deps.answer.dropPrefetch();
+      this.spec = null;
+      return;
+    }
+    spec.decision = 'answer';
+    const paused = spec.pausedAt ?? this.pausedAt.get(spec.source) ?? null;
+    if (paused !== null && !isFragment(spec.text)) this.revealSpec(spec, paused);
+  }
+
+  /** The other side went quiet: show the early answer now if it is for this question. */
+  private onPause(source: AudioSource, lastSpeechAt: number): void {
+    this.pausedAt.set(source, lastSpeechAt);
+    const spec = this.spec;
+    if (!spec || spec.committed || spec.source !== source) return;
+    if (isFragment(spec.text)) return; // a pause mid-question ("Can you tell me …"): wait for the rest
+    if (spec.decision === 'pending') spec.pausedAt = lastSpeechAt;
+    else this.revealSpec(spec, lastSpeechAt);
+  }
+
+  private revealSpec(spec: NonNullable<SessionController['spec']>, endedAt: number): void {
+    const ok = this.deps.answer.commit(spec.id, { questionEndedAt: endedAt, question: extractQuestion(spec.text) });
+    if (!ok) {
+      if (this.spec === spec) this.spec = null;
+      return;
+    }
+    spec.committed = true;
+    this.candidate = { text: extractQuestion(spec.text), source: spec.source, score: analyzeQuestion(spec.text).score };
+    this.candidateGen++; // an older pending check must not ask over this
+    this.pushSnapshot();
   }
 
   private onSegmentFinal(seg: TranscriptSegment): void {
     this.segments.push(seg);
     if (this.segments.length > MAX_SEGMENTS) this.segments.splice(0, this.segments.length - MAX_SEGMENTS);
     if (this.recordHistory && this.sessionId) this.deps.history()?.segment(this.sessionId, seg);
-    if (!seg.isQuestion) return;
+    const s = this.deps.settings();
+    const autoSource = s.answer.autoAnswer && s.answer.mode !== 'meeting_notes' && s.answer.autoAnswerSources.includes(seg.source as AudioSource);
+    if (!autoSource) {
+      // Never auto-answered (e.g. the user's own mic): only remembered for the manual Ask hotkey.
+      if (seg.isQuestion) {
+        this.candidate = { text: extractQuestion(this.withLeadIn(seg)), source: seg.source as AudioSource, score: seg.questionScore };
+        this.pushSnapshot();
+      }
+      return;
+    }
+    // When the speaker actually stopped (the pause mark), not when the transcript arrived.
+    const spokeUntil = this.pausedAt.get(seg.source as AudioSource) ?? seg.endedAt ?? this.now();
+    this.pausedAt.delete(seg.source as AudioSource); // the utterance is over
+    // An early answer from live text: keep it if the final transcript is the same question.
+    const spec = this.spec;
+    if (spec && spec.source === seg.source) {
+      if (sameQuestion(spec.text, seg.text)) {
+        if (!spec.committed && spec.decision === 'answer') this.revealSpec(spec, spokeUntil);
+        else if (!spec.committed) spec.pausedAt = spokeUntil; // check still running
+        if (this.spec === spec && spec.committed) this.spec = null;
+        if (spec.committed || spec.decision === 'pending') return;
+      } else {
+        if (!spec.committed) this.deps.answer.dropPrefetch();
+        this.spec = null;
+      }
+    }
+    const { triage } = triageUtterance(seg.text);
+    if (triage === 'ignore') {
+      // Background talk ("wait a minute", "hey Rahul, come here"): never cancels the answer on screen.
+      this.deps.perf({ stage: 'question_gate', ms: 0, at: this.now(), provider: null, model: null, label: 'ignored' });
+      return;
+    }
     const text = extractQuestion(this.withLeadIn(seg));
     this.candidate = { text, source: seg.source as AudioSource, score: seg.questionScore };
     this.pushSnapshot();
-    const s = this.deps.settings();
-    if (!s.answer.autoAnswer || s.answer.mode === 'meeting_notes') return;
-    if (!s.answer.autoAnswerSources.includes(seg.source as AudioSource)) return;
+    const gen = ++this.candidateGen;
+    this.gateCtl?.abort();
+    this.gateCtl = null;
     // Short debounce: a follow-up fragment arriving immediately is merged.
     if (this.autoTimer) clearTimeout(this.autoTimer);
     const finalAt = seg.endedAt ?? this.now();
     this.autoTimer = setTimeout(() => {
       this.autoTimer = null;
       const c = this.candidate;
-      if (!c) return;
-      this.deps.perf({ stage: 'final_to_question', ms: this.now() - finalAt, at: this.now(), provider: null, model: null, label: seg.source });
-      this.deps.answer.ask({ question: c.text, origin: c.source, questionEndedAt: finalAt });
+      if (!c || gen !== this.candidateGen) return;
+      const ask = () => {
+        if (gen !== this.candidateGen || this.state !== 'listening') return;
+        this.deps.perf({ stage: 'final_to_question', ms: this.now() - finalAt, at: this.now(), provider: null, model: null, label: seg.source });
+        this.deps.answer.ask({ question: c.text, origin: c.source, questionEndedAt: Math.min(finalAt, spokeUntil) });
+      };
+      if (triage === 'answer' || !this.deps.gate) {
+        if (triage === 'answer' || seg.isQuestion) ask();
+        return;
+      }
+      void this.checkThenAsk(c.text, seg, gen, ask);
     }, 250);
+  }
+
+  private async checkThenAsk(text: string, seg: TranscriptSegment, gen: number, ask: () => void): Promise<void> {
+    const ctl = new AbortController();
+    this.gateCtl = ctl;
+    const t0 = this.now();
+    const timer = setTimeout(() => ctl.abort(), GATE_TIMEOUT_MS);
+    let decision: GateDecision | null;
+    try {
+      decision = (await this.deps.gate?.(text, this.segments.slice(-12), ctl.signal)) ?? null;
+    } catch {
+      decision = null;
+    } finally {
+      clearTimeout(timer);
+      ctl.abort(); // closes the stream once the one-word reply is in
+      if (this.gateCtl === ctl) this.gateCtl = null;
+    }
+    if (gen !== this.candidateGen) return;
+    // No decision (offline, slow, unparsable): fall back to the deterministic score.
+    const go = decision ? decision === 'answer' : seg.isQuestion;
+    this.deps.perf({ stage: 'question_gate', ms: this.now() - t0, at: this.now(), provider: null, model: null, label: decision ?? (go ? 'fallback-answer' : 'fallback-skip') });
+    if (go) ask();
   }
 
   /** Prepend a short preceding statement from the same source ("I see you used Kafka. Why?"). */
@@ -292,7 +458,7 @@ export class SessionController {
     if (
       prev &&
       prev.source === seg.source &&
-      !prev.isQuestion &&
+      (!prev.isQuestion || isFragment(prev.text)) &&
       prev.endedAt !== null &&
       seg.startedAt - prev.endedAt < 6000 &&
       prev.text.length < 280
@@ -408,6 +574,11 @@ export class SessionController {
     this.pushSnapshot();
     if (this.autoTimer) clearTimeout(this.autoTimer);
     this.autoTimer = null;
+    this.candidateGen++;
+    this.gateCtl?.abort();
+    this.gateCtl = null;
+    this.deps.answer.dropPrefetch();
+    this.spec = null;
     await this.stopSources();
     for (const rt of this.sources.values()) rt.assembler.dispose();
     this.sources.clear();

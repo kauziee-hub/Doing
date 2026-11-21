@@ -233,6 +233,7 @@ function TranscriptionTab() {
     <Card title="Streaming transcription">
       <Field label="Provider" hint="Independent from the answer model. Mic and system audio use separate sessions so transcripts stay distinguishable.">
         <select className="vc-select" value={s.stt.provider} onChange={(e) => void patch({ stt: { provider: e.target.value } })}>
+          <option value="local-whisper">Whisper on this PC — instant (NVIDIA GPU; live text while they speak)</option>
           <option value="cloud-whisper">Hirora Cloud — Whisper (free; text appears when each sentence ends)</option>
           <option value="gemini-live">Google Gemini 3.5 Transcribe Live (needs Gemini key)</option>
           <option value="xai-stt">xAI Grok streaming STT (needs xAI key)</option>

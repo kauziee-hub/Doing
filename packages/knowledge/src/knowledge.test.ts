@@ -78,6 +78,10 @@ describe('KnowledgeStore + HybridRetriever', () => {
       expect(about[0]!.fileName, q).toBe('resume.pdf');
       expect(about[0]!.matchedBy, q).toContain('profile');
     }
+    // The whole (short) résumé comes along, not just its top: the needed section may be anywhere.
+    const resumeChunks = store.getChunks(r1.documentId!).length;
+    const all = retriever.retrieve('so in your last internship what tech stack did you use', { topK: 3 });
+    expect(all.filter((h) => h.fileName === 'resume.pdf').length).toBe(Math.min(resumeChunks, 12));
     // …but not general/technical ones.
     expect(retriever.retrieve('What is the difference between a process and a thread?', { topK: 3 }).some((h) => h.matchedBy.includes('profile'))).toBe(false);
 

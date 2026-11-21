@@ -42,6 +42,11 @@ export class EnergyVad {
     return this.speaking;
   }
 
+  /** Silence so far inside an utterance (0 while loud); Infinity when not speaking. */
+  get silenceMs(): number {
+    return this.speaking ? this.silentMs : Infinity;
+  }
+
   get noiseFloorDb(): number {
     return this.floor;
   }

@@ -13,7 +13,7 @@ export const OLLAMA_DEFAULT_BASE_URL = 'http://127.0.0.1:11434/v1';
 /** The project's free shared server (Vercel relay → Groq open models + Whisper). Overridable in Settings. */
 export const HIRORA_CLOUD_DEFAULT_BASE_URL = 'https://hirora-one.vercel.app/v1';
 
-export const STT_PROVIDER_IDS = ['cloud-whisper', 'gemini-live', 'xai-stt'] as const;
+export const STT_PROVIDER_IDS = ['cloud-whisper', 'local-whisper', 'gemini-live', 'xai-stt'] as const;
 export const SttProviderIdSchema = z.enum(STT_PROVIDER_IDS);
 export type SttProviderId = z.infer<typeof SttProviderIdSchema>;
 
@@ -138,9 +138,9 @@ export const AppSettingsSchema = z.object({
       primaryProvider: ProviderIdSchema.nullable().default(null),
       fallbackProvider: ProviderIdSchema.nullable().default(null),
       mode: ModeSchema.default('interview_practice'),
-      length: z.enum(['short', 'medium', 'long']).default('short'),
+      length: z.enum(['short', 'medium', 'long']).default('medium'),
       tone: z.string().max(200).default('confident, warm, concise'),
-      format: z.enum(['talking_points', 'paragraph', 'star']).default('talking_points'),
+      format: z.enum(['talking_points', 'paragraph', 'star']).default('paragraph'),
       language: z.string().max(40).default('English'),
       technicalDepth: z.enum(['basic', 'intermediate', 'expert']).default('intermediate'),
       codingIncludeTests: z.boolean().default(true),
@@ -150,7 +150,7 @@ export const AppSettingsSchema = z.object({
       // Measured Nov 2026: Gemini flash-lite time-to-first-byte was ~8–9 s under load, so 8 s was too tight.
       firstTokenTimeoutMs: z.number().int().min(1500).max(60_000).default(20_000),
       totalTimeoutMs: z.number().int().min(5000).max(300_000).default(90_000),
-      maxOutputTokens: z.number().int().min(64).max(8192).default(700),
+      maxOutputTokens: z.number().int().min(64).max(8192).default(900),
       deepMaxOutputTokens: z.number().int().min(256).max(32_768).default(2500),
       temperature: z.number().min(0).max(2).default(0.4),
       memoryTurns: z.number().int().min(0).max(12).default(4),
@@ -164,6 +164,8 @@ export const AppSettingsSchema = z.object({
       customVocabulary: z.array(z.string().max(50)).max(100).default([]),
       geminiMode: z.enum(['VERBATIM', 'SMART']).default('VERBATIM'),
       endpointingMs: z.number().int().min(100).max(5000).default(600),
+      /** whisper.cpp server on this PC (loopback only; Hirora starts it when its files are installed). */
+      localWhisperUrl: z.string().max(200).default('http://127.0.0.1:8178'),
     })
     .prefault({}),
   audio: z

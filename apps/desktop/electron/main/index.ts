@@ -1,6 +1,7 @@
 import { app, dialog, powerMonitor, screen, session } from 'electron';
 import { join } from 'node:path';
 import type { HotkeyAction } from '@hirora/contracts';
+import { isKeyless } from '@hirora/contracts';
 import { Logger } from './logger';
 import { AppServices } from './services';
 import { UI_PARTITION, WindowManager } from './windows';
@@ -168,6 +169,9 @@ async function main(): Promise<void> {
   tray.create();
   hotkeys.registerAll();
   services.helper.start();
+  // Instant answers: have local Whisper and a local answer model loaded before the first question.
+  void services.startLocalWhisper();
+  if (isKeyless(services.settings.get().answer.primaryProvider ?? 'cloud')) void services.preconnectLocalModels();
 
   screen.on('display-removed', () => windows.revalidateOverlay());
   screen.on('display-metrics-changed', () => windows.revalidateOverlay());

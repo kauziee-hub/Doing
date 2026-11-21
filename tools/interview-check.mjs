@@ -20,11 +20,26 @@ const APP = resolve('apps/desktop');
 const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/dist/electron.exe');
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows', ...(exeIdx >= 0 ? [] : [APP])];
 
-const QUESTIONS = [
-  'Please introduce yourself.',
-  'Can you tell me about a challenging project you worked on?',
-  'What is the difference between a process and a thread?',
-];
+const scriptIdx = args.indexOf('--script');
+const script = scriptIdx >= 0 ? args[scriptIdx + 1] : 'questions';
+/** [line, should Hirora answer it?] */
+const SCRIPTS = {
+  questions: [
+    ['Please introduce yourself.', true],
+    ['Can you tell me about a challenging project you worked on?', true],
+    ['What is the difference between a process and a thread?', true],
+  ],
+  // Background talk mixed with real (some casual) questions.
+  chatter: [
+    ['Hey Rahul, come here.', false],
+    ['Wait a minute.', false],
+    ["What's happening?", false],
+    ['so in your last internship what tech stack did you use', true],
+    ['Can you hear me okay?', false],
+    ['Can you explain what R B A C is and why companies use it?', true],
+  ],
+};
+const QUESTIONS = SCRIPTS[script];
 
 const ud = join(mkdtempSync(join(tmpdir(), 'hirora-interview-')), 'Hirora');
 // Top-level files only (settings, keys, Local State, db): a running Hirora keeps its Chromium folders locked.
@@ -41,6 +56,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const patch = { privacy: { saveHistory: false }, overlay: { contentProtection: true } };
 if (systemMode === 'all') patch.audio = { systemDeviceId: 'all' };
 if (systemMode === 'default') patch.audio = { systemDeviceId: null };
+// --instant: Whisper on this PC + local Ollama answers (cloud as fallback).
+if (args.includes('--instant')) {
+  patch.stt = { provider: 'local-whisper', language: 'en' };
+  patch.answer = { primaryProvider: 'ollama', fallbackProvider: 'cloud' };
+}
 await call('settings:update', patch);
 const s = await call('settings:get');
 await dash.evaluate(() => {
@@ -59,18 +79,27 @@ for (let i = 0; i < 60; i++) {
   if (open >= snap.snapshot.sources.filter((x) => x.state !== 'off').length && open > 0) break;
   await sleep(250);
 }
+// --instant: wait until the local answer model is loaded (what the app does at launch for local answers).
+for (let i = 0; args.includes('--instant') && i < 120; i++) {
+  const p = await call('perf:summary');
+  // Loaded and résumé pre-read (or 60 s): what a real session has done before the first question.
+  if (p.rows.some((r) => r.stage === 'provider_preconnect' && r.provider === 'ollama') && (p.recent ?? []).some((r) => r.label === 'prompt-preread')) break;
+  await sleep(500);
+}
+await call('perf:clear');
 await sleep(1500);
-for (const q of QUESTIONS) {
+for (const [q, expectAnswer] of QUESTIONS) {
+  const before = Object.keys((await dash.evaluate(() => window.__rec)).answers).length;
   await new Promise((res) => execFile('powershell.exe', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Speech; $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak('${q.replace(/'/g, "''")}'); $s.Dispose()`], () => res()));
-  // Wait for that question's answer to start (or 25 s).
+  // An expected answer: wait for it to finish (or 25 s). Chatter: give it 7 s to (wrongly) start one.
   const t0 = Date.now();
-  while (Date.now() - t0 < 25_000) {
+  while (Date.now() - t0 < (expectAnswer ? 25_000 : 7_000)) {
     const rec = await dash.evaluate(() => window.__rec);
-    const sys = Object.values(rec.answers).filter((a) => a.questionSource === 'system');
-    if (sys.length >= QUESTIONS.indexOf(q) + 1 && sys.every((a) => ['done', 'error', 'cancelled'].includes(a.status))) break;
+    const all = Object.values(rec.answers);
+    if (expectAnswer && all.length > before && all.every((a) => ['done', 'error', 'cancelled'].includes(a.status))) break;
     await sleep(400);
   }
-  await sleep(1500);
+  await sleep(1000);
 }
 const snap = await call('session:snapshot');
 await call('session:stop');
@@ -84,6 +113,10 @@ console.log(JSON.stringify({
   settings: { stt: s.stt.provider, primary: s.answer.primaryProvider, fallback: s.answer.fallbackProvider, mic: s.audio.micDeviceId ? 'pinned' : 'default', system: s.audio.systemDeviceId, autoAnswerSources: s.answer.autoAnswerSources },
   sources: snap.snapshot.sources.map((x) => ({ source: x.source, state: x.state, device: x.deviceName, stt: x.sttState, err: x.sttError })),
   transcript: segs.map((x) => `${x.source}${x.isQuestion ? ' [Q]' : ''}: ${x.text}`),
-  answers: Object.values(rec.answers).map((a) => ({ from: a.questionSource, q: a.question?.slice(0, 70), status: a.status, provider: a.provider, model: a.model, firstTokenMs: a.firstTokenMs, error: a.error, text: (a.text ?? '').slice(0, 160) })),
+  answers: Object.values(rec.answers).map((a) => ({ from: a.questionSource, q: a.question?.slice(0, 70), status: a.status, provider: a.provider, model: a.model, firstTokenMs: a.firstTokenMs, error: a.error, text: (a.text ?? '').slice(0, script === 'chatter' ? 900 : 160) })),
+  expected: QUESTIONS.map(([q, a]) => `${a ? 'ANSWER' : 'skip  '} ${q}`),
+  gate: (perf.recent ?? []).filter((r) => r.stage === 'question_gate').map((r) => `${r.label} (${Math.round(r.ms)} ms)`),
+  // Each answer as it reached the screen: time from the end of the question.
+  visible: (perf.recent ?? []).filter((r) => r.stage === 'question_to_first_paint' || r.stage === 'question_to_first_token').map((r) => `${r.stage} ${r.provider ?? ''} ${r.label ?? ''}: ${Math.round(r.ms)} ms`),
   perf: perf.rows.filter((r) => /question_to_first_(token|paint)|stt_first_partial|speech_end_to_final|final_to_question/.test(r.stage)).map((r) => ({ stage: r.stage, provider: r.provider, n: r.count, p50: Math.round(r.p50), p95: Math.round(r.p95) })),
 }, null, 1));

@@ -1,4 +1,5 @@
 export * from './question';
+export * from './gate';
 export * from './vad';
 export * from './transcript';
 export * from './prompt';

@@ -280,6 +280,7 @@ export type LiveEvent = z.infer<typeof LiveEventSchema>;
 export const PERF_STAGES = [
   'speech_end_to_final',
   'final_to_question',
+  'question_gate',
   'retrieval',
   'request_to_first_token',
   'question_to_first_token',

@@ -50,8 +50,13 @@ interface Candidate {
   kind: string;
 }
 
+/** A typical one- or two-page résumé is 6–14 chunks of ~800 characters. */
+const RESUME_CHUNKS_FOR_CANDIDATE = 12;
+
 export interface RetrieveOptions {
   topK: number;
+  /** Résumé chunks attached to questions about the candidate (default: the whole résumé, up to 12). */
+  maxResumeChunks?: number;
   queryVector?: Float32Array | null;
   embeddingModel?: string | null;
 }
@@ -125,15 +130,20 @@ export class HybridRetriever {
       });
     }
 
-    if (isAboutTheCandidate(question)) {
-      // The top of the newest résumé (name, summary, recent roles) as baseline evidence.
-      const top = this.store.db
+    const aboutCandidate = isAboutTheCandidate(question);
+    let resumeId: string | null = null;
+    if (aboutCandidate) {
+      // The whole newest résumé (it is short): keyword search misses "internship" vs "Intern",
+      // and the section a question needs is often not near the top.
+      const rows = this.store.db
         .prepare(
-          `SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id
-           WHERE d.kind = 'resume' ORDER BY d.created_at DESC, c.ordinal ASC LIMIT 3`,
+          `SELECT c.id, c.document_id FROM chunks c
+           WHERE c.document_id = (SELECT id FROM documents WHERE kind = 'resume' ORDER BY created_at DESC LIMIT 1)
+           ORDER BY c.ordinal ASC LIMIT ${RESUME_CHUNKS_FOR_CANDIDATE}`,
         )
-        .all() as Array<{ id: string }>;
-      top.forEach((r, i) => add(r.id, i, 'profile'));
+        .all() as Array<{ id: string; document_id: string }>;
+      rows.forEach((r, i) => add(r.id, i, 'profile'));
+      resumeId = rows[0]?.document_id ?? null;
     }
 
     if (ranked.size === 0) return [];
@@ -164,15 +174,17 @@ export class HybridRetriever {
       });
     }
     results.sort((a, b) => b.score - a.score);
-    // Diversity: at most 3 chunks per document in the final set.
+    // Diversity: at most 3 chunks per document, except the résumé on questions about the candidate.
     const perDoc = new Map<string, number>();
     const out: RetrievedChunk[] = [];
+    const resumeCap = Math.max(1, Math.min(RESUME_CHUNKS_FOR_CANDIDATE, opts.maxResumeChunks ?? RESUME_CHUNKS_FOR_CANDIDATE));
+    const limit = resumeId ? Math.max(k, resumeCap + 2) : k;
     for (const r of results) {
       const n = perDoc.get(r.documentId) ?? 0;
-      if (n >= 3) continue;
+      if (n >= (r.documentId === resumeId ? resumeCap : 3)) continue;
       perDoc.set(r.documentId, n + 1);
       out.push(r);
-      if (out.length >= k) break;
+      if (out.length >= limit) break;
     }
     return out;
   }

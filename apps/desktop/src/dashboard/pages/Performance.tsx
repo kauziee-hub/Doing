@@ -10,6 +10,7 @@ const STAGE_INFO: Record<string, { label: string; target?: number; p: 50 | 95 }>
   stt_first_partial: { label: 'Speech onset → first transcript text', target: 500, p: 50 },
   speech_end_to_final: { label: 'End of speech → final transcript', p: 50 },
   final_to_question: { label: 'Final transcript → question dispatched', p: 50 },
+  question_gate: { label: 'Question check (answer / skip background talk)', p: 50 },
   retrieval: { label: 'Knowledge retrieval', p: 95 },
   request_to_first_token: { label: 'Model request → first token', p: 50 },
   question_to_first_token: { label: 'Question end → first token', target: 1500, p: 50 },

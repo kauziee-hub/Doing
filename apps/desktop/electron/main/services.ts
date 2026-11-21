@@ -30,6 +30,7 @@ import {
   SessionController,
   answerBudgetCheck,
   estimateCostUsd,
+  runGate,
   sttBudgetCheck,
 } from '@hirora/orchestration';
 import type { AudioInput } from '@hirora/orchestration';
@@ -47,6 +48,7 @@ import type { SecretCipher } from '@hirora/settings';
 import { AudioHelper } from './audioHelper';
 import type { Logger } from './logger';
 import type { WindowManager } from './windows';
+import { LocalWhisperServer } from './localWhisper';
 
 class SafeStorageCipher implements SecretCipher {
   readonly backend = process.platform === 'win32' ? 'Electron safeStorage (Windows DPAPI, current user)' : 'Electron safeStorage';
@@ -91,6 +93,8 @@ export class AppServices {
   private readonly providerCache = new Map<string, TextModelProvider>();
   private readonly modelsCache = new Map<ProviderId, { models: ModelInfo[]; at: number }>();
   windows: WindowManager | null = null;
+  readonly localWhisper: LocalWhisperServer;
+  private keepWarmTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(readonly log: Logger) {
     const userData = app.getPath('userData');
@@ -105,6 +109,7 @@ export class AppServices {
     this.usage = new UsageStore(this.db);
     this.captureResults = new CaptureResultStore(this.db);
     this.helper = new AudioHelper(resolveHelperPath(), log);
+    this.localWhisper = new LocalWhisperServer(log);
     for (const p of PROVIDER_IDS) {
       this.health.set(p, { provider: p, hasKey: this.isReady(p), status: 'unknown', lastError: null, lastErrorCode: null, lastCheckedAt: null, backoffUntil: null });
     }
@@ -112,7 +117,8 @@ export class AppServices {
     this.answer = new AnswerEngine({
       settings: () => this.settings.get(),
       resolveProvider: (id) => this.resolveProvider(id),
-      retrieve: (q, signal) => this.retrieve(q, signal),
+      retrieve: (q, signal, opts) => this.retrieve(q, signal, opts),
+      stableResume: () => this.stableResume(),
       context: () => ({
         personal: this.knowledge.getProfile(),
         session: this.knowledge.getSessionProfile(this.settings.get().activeProfileId),
@@ -145,10 +151,11 @@ export class AppServices {
       settings: () => this.settings.get(),
       createTranscriber: () => {
         const s = this.settings.get().stt.provider;
-        const key = this.vault.get(STT_KEY_PROVIDER[s]);
-        if (!key) return null;
+        // Local Whisper needs no key (it runs on this PC).
+        const key = isKeyless(STT_KEY_PROVIDER[s]) ? '' : this.vault.get(STT_KEY_PROVIDER[s]);
+        if (key === null || key === undefined || (key === '' && !isKeyless(STT_KEY_PROVIDER[s]))) return null;
         try {
-          return createTranscriber(s, key, { cloudBaseUrl: this.settings.get().providers.cloud.baseUrl, fetchImpl: netFetch });
+          return createTranscriber(s, key, { cloudBaseUrl: this.settings.get().providers.cloud.baseUrl, localWhisperUrl: this.settings.get().stt.localWhisperUrl, fetchImpl: netFetch });
         } catch {
           return null;
         }
@@ -169,6 +176,17 @@ export class AppServices {
       activeProfileName: () => this.knowledge.getSessionProfile(this.settings.get().activeProfileId)?.name ?? null,
       perf: (s) => this.recordPerf(s),
       helperInfo: () => ({ running: this.helper.running, version: this.helper.version, error: this.helper.lastError }),
+      // Same provider/model as answers: one fast one-word call for lines that might be questions.
+      gate: async (utterance, recent, signal) => {
+        // A local answer model serves one request at a time: a check there would queue behind
+        // the answer being written, so prefer a cloud model for the check when one is set up.
+        const a = this.settings.get().answer;
+        const ids = [a.primaryProvider, a.fallbackProvider].filter((x): x is ProviderId => !!x);
+        const id = ids.find((x) => !isKeyless(x) && this.resolveProvider(x)) ?? ids[0];
+        const r = id ? this.resolveProvider(id) : null;
+        if (!r) return null;
+        return runGate(r.provider, r.model, { utterance, recent, candidateName: this.candidateName() }, signal);
+      },
     });
 
     this.helper.on('frame', (source: AudioSource, pcm: Buffer) => this.session.onFrame(source, pcm));
@@ -193,6 +211,8 @@ export class AppServices {
       // Every window keeps its own store: tell them all to refresh (theme, mode, overlay options…).
       this.emit({ type: 'command', command: 'settingsChanged' });
       if (JSON.stringify(next.audio) !== JSON.stringify(prev.audio)) void this.session.applyAudioSettings();
+      if (next.stt.provider === 'local-whisper' && prev.stt.provider !== 'local-whisper') void this.startLocalWhisper();
+      if (next.stt.provider !== 'local-whisper' && prev.stt.provider === 'local-whisper') this.localWhisper.stop();
       for (const p of PROVIDER_IDS) {
         const h = this.health.get(p)!;
         h.hasKey = this.isReady(p);
@@ -201,6 +221,15 @@ export class AppServices {
 
     const retention = this.settings.get().privacy;
     if (retention.saveHistory) this.history.applyRetention(retention.historyRetentionDays);
+  }
+
+  /** The user's name for the question check: profile first, else the newest résumé's title ("Jane_Doe_Resume"). */
+  candidateName(): string | null {
+    const fromProfile = this.knowledge.getProfile().fullName?.trim();
+    if (fromProfile) return fromProfile;
+    const resume = this.knowledge.listDocuments().find((d) => d.kind === 'resume');
+    const guess = resume?.title.replace(/[_\-.]+/g, ' ').replace(/\b(resume|résumé|cv|final|updated|new|\d{4})\b/gi, '').replace(/\s+/g, ' ').trim();
+    return guess && guess.split(' ').length <= 5 ? guess : null;
   }
 
   emit(ev: LiveEvent): void {
@@ -304,8 +333,74 @@ export class AppServices {
     }
   }
 
+  /** Starts whisper.cpp when "Whisper on this PC" is selected (no-op if it is already up). */
+  async startLocalWhisper(): Promise<void> {
+    if (this.settings.get().stt.provider !== 'local-whisper') return;
+    const r = await this.localWhisper.ensure(this.settings.get().stt.localWhisperUrl);
+    if (!r.ok) {
+      this.log.warn('local whisper unavailable', { error: r.error });
+      this.emit({ type: 'toast', level: 'error', message: `Whisper on this PC: ${r.error}` });
+    }
+  }
+
+  /**
+   * While listening, keep a local answer model loaded: Ollama unloads idle models after a
+   * few minutes, and reloading costs ~10 s, which would make the next answer slow.
+   */
+  private keepWarm(): void {
+    if (this.keepWarmTimer) return;
+    this.keepWarmTimer = setInterval(() => {
+      if (this.session.sessionState !== 'listening') {
+        if (this.keepWarmTimer) clearInterval(this.keepWarmTimer);
+        this.keepWarmTimer = null;
+        return;
+      }
+      const s = this.settings.get();
+      for (const id of [s.answer.primaryProvider, s.answer.fallbackProvider]) {
+        if (!id || !isKeyless(id) || !s.providers[id].model) continue;
+        void this.getProvider(id)?.preconnect(AbortSignal.timeout(60_000), s.providers[id].model).catch(() => undefined);
+      }
+    }, 4 * 60_000);
+  }
+
+  /** The newest résumé in reading order, capped so prompt + answer fit a 4K local context. */
+  stableResume(): RetrievedChunk[] {
+    const doc = this.knowledge.listDocuments().find((d) => d.kind === 'resume');
+    if (!doc) return [];
+    const out: RetrievedChunk[] = [];
+    let chars = 0;
+    for (const c of this.knowledge.getChunks(doc.id)) {
+      if (chars + c.text.length > 8000) break;
+      chars += c.text.length;
+      out.push({ chunkId: c.id, documentId: doc.id, documentTitle: doc.title, fileName: doc.fileName, kind: 'resume', evidence: 'my_facts', page: c.page, section: c.section, ordinal: c.ordinal, text: c.text, score: 1, matchedBy: ['profile'] });
+    }
+    return out;
+  }
+
+  /** Loads local answer models (Ollama) into memory without touching cloud providers. */
+  async preconnectLocalModels(): Promise<void> {
+    const s = this.settings.get();
+    for (const id of [s.answer.primaryProvider, s.answer.fallbackProvider]) {
+      if (!id || !isKeyless(id) || !s.providers[id].model) continue;
+      const t0 = performance.now();
+      try {
+        await this.getProvider(id)?.preconnect(AbortSignal.timeout(120_000), s.providers[id].model);
+        this.recordPerf({ stage: 'provider_preconnect', ms: performance.now() - t0, at: Date.now(), provider: id, model: s.providers[id].model, label: 'model-load' });
+        // Then have it pre-read the résumé so the first answer only reads the question.
+        if (id === s.answer.primaryProvider) {
+          const p0 = performance.now();
+          if (await this.answer.prime(AbortSignal.timeout(60_000))) this.recordPerf({ stage: 'provider_preconnect', ms: performance.now() - p0, at: Date.now(), provider: id, model: s.providers[id].model, label: 'prompt-preread' });
+        }
+      } catch (err) {
+        this.noteProviderResult(id, toProviderError(id, err));
+      }
+    }
+  }
+
   /** Warm connections for the configured answer providers (best-effort, measured). */
   async preconnect(): Promise<void> {
+    this.keepWarm();
+    void this.startLocalWhisper();
     const s = this.settings.get();
     const ids = [s.answer.primaryProvider, s.answer.fallbackProvider].filter((x): x is ProviderId => !!x);
     await Promise.all(
@@ -318,6 +413,7 @@ export class AppServices {
           const local = isKeyless(id);
           await p.preconnect(AbortSignal.timeout(local ? 120_000 : 8000), local ? s.providers[id].model || undefined : undefined);
           this.recordPerf({ stage: 'provider_preconnect', ms: performance.now() - t0, at: Date.now(), provider: id, model: local ? s.providers[id].model : null, label: local ? 'model-load' : 'text' });
+          if (local && id === s.answer.primaryProvider) await this.answer.prime(AbortSignal.timeout(60_000));
         } catch (err) {
           this.noteProviderResult(id, toProviderError(id, err));
         }
@@ -325,7 +421,7 @@ export class AppServices {
     );
   }
 
-  async retrieve(question: string, signal: AbortSignal): Promise<{ chunks: RetrievedChunk[]; ms: number; usedVectors: boolean }> {
+  async retrieve(question: string, signal: AbortSignal, opts?: { compact?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number; usedVectors: boolean }> {
     const t0 = performance.now();
     const s = this.settings.get();
     let queryVector: Float32Array | null = null;
@@ -343,7 +439,7 @@ export class AppServices {
         }
       }
     }
-    const chunks = this.retriever.retrieve(question, { topK: s.knowledge.topK, queryVector, embeddingModel: queryVector ? model : null });
+    const chunks = this.retriever.retrieve(question, { topK: s.knowledge.topK, queryVector, embeddingModel: queryVector ? model : null, maxResumeChunks: opts?.compact ? 6 : undefined });
     return { chunks, ms: performance.now() - t0, usedVectors: !!queryVector };
   }
 
@@ -382,6 +478,8 @@ export class AppServices {
     } catch {
       /* ignore */
     }
+    if (this.keepWarmTimer) clearInterval(this.keepWarmTimer);
+    this.localWhisper.stop();
     await this.helper.shutdown();
     try {
       this.db.close();

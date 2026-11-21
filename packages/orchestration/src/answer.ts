@@ -12,10 +12,10 @@ import type {
   TranscriptSegment,
   Usage,
 } from '@hirora/contracts';
-import { PROVIDER_ERROR_HINTS } from '@hirora/contracts';
+import { PROVIDER_ERROR_HINTS, isKeyless } from '@hirora/contracts';
 import { ProviderError, toProviderError } from '@hirora/providers';
 import type { ContentPart, TextModelProvider } from '@hirora/providers';
-import { buildMessages } from './prompt';
+import { buildMessages, buildPrimingMessages, missingFacts } from './prompt';
 import type { MemoryTurn } from './prompt';
 
 export interface ResolvedProvider {
@@ -27,7 +27,12 @@ export interface ResolvedProvider {
 export interface AnswerEngineDeps {
   settings(): AppSettings;
   resolveProvider(id: ProviderId): ResolvedProvider | null;
-  retrieve(question: string, signal: AbortSignal): Promise<{ chunks: RetrievedChunk[]; ms: number }>;
+  retrieve(question: string, signal: AbortSignal, opts?: { compact?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number }>;
+  /**
+   * The user's résumé as evidence, identical on every call (local models only). It goes
+   * first in the prompt so the model can keep it pre-read between questions (see prime()).
+   */
+  stableResume?(): RetrievedChunk[];
   context(): { personal: PersonalProfile | null; session: SessionProfile | null; transcript: TranscriptSegment[] };
   budgetCheck(): { ok: true } | { ok: false; reason: string };
   recordUsage(provider: ProviderId, model: string, usage: Usage | null): { costUsd: number | null };
@@ -56,10 +61,21 @@ interface Inflight {
   requestId: string;
   controller: AbortController;
   record: AnswerRecord;
+  /** Speculative: generating while the question may still be in progress; nothing is shown. */
+  hidden: boolean;
+  /** Next delta sequence number and how much of record.text the UI already has. */
+  seq: number;
+  emitted: number;
+  firstTokenAt: number | null;
+  done: boolean;
+  /** Short prompt and answer budget for a local model (set when the run starts). */
+  compact: boolean;
 }
 
 const FATAL_FOR_RETRY: ProviderErrorCode[] = ['invalid_key', 'permission_denied', 'quota_exceeded', 'model_not_found', 'content_filtered', 'bad_request', 'aborted', 'not_configured', 'budget_exceeded'];
 const DELTA_FLUSH_MS = 33;
+/** First answers from a local model: ~300 words, which leaves room for the prompt in a 4K context. */
+const LOCAL_MAX_OUTPUT_TOKENS = 480;
 
 let reqCounter = 0;
 function newRequestId(): string {
@@ -74,6 +90,8 @@ function newRequestId(): string {
  */
 export class AnswerEngine {
   private current: Inflight | null = null;
+  /** At most one hidden, speculative answer (see prefetch/commit). */
+  private speculative: Inflight | null = null;
   private readonly memory: MemoryTurn[] = [];
   private readonly history = new Map<string, AnswerRecord>();
   private readonly now: () => number;
@@ -108,7 +126,99 @@ export class AnswerEngine {
   }
 
   ask(input: AskInput): string {
+    this.dropPrefetch();
     this.cancel('superseded');
+    return this.start(input, false);
+  }
+
+  /**
+   * Starts answering `input` without showing anything, while the speaker may still be
+   * talking. The answer on screen is untouched. Reveal it with commit() once the
+   * question is over, or let the next prefetch/ask/dropPrefetch discard it.
+   */
+  prefetch(input: AskInput): string {
+    this.dropPrefetch();
+    return this.start(input, true);
+  }
+
+  get prefetchId(): string | null {
+    return this.speculative?.requestId ?? null;
+  }
+
+  dropPrefetch(): void {
+    const s = this.speculative;
+    if (!s) return;
+    this.speculative = null;
+    s.controller.abort(new ProviderError('engine', 'aborted', 'Speculative answer dropped'));
+  }
+
+  /**
+   * Shows a prefetched answer now, replacing the one on screen, with everything it
+   * has generated so far. False if it is gone (dropped, failed or replaced).
+   */
+  commit(requestId: string, opts: { questionEndedAt: number; question?: string }): boolean {
+    const f = this.speculative;
+    if (!f || f.requestId !== requestId) return false;
+    this.speculative = null;
+    if (f.record.status === 'error' || f.record.status === 'cancelled') return false;
+    this.cancel('superseded');
+    const now = this.now();
+    f.hidden = false;
+    f.record.questionEndedAt = opts.questionEndedAt;
+    if (opts.question) f.record.question = opts.question;
+    if (f.firstTokenAt !== null) {
+      f.record.firstTokenMs = Math.max(0, now - opts.questionEndedAt);
+      this.deps.perf({ stage: 'question_to_first_token', ms: f.record.firstTokenMs, at: now, provider: f.record.provider, model: f.record.model, label: `${f.record.questionSource}:prefetched` });
+    }
+    if (!f.done) this.current = f;
+    this.deps.emit({ ...f.record, text: '' });
+    if (f.record.text) {
+      this.deps.emitDelta(f.requestId, f.record.text, f.seq++);
+      f.emitted = f.record.text.length;
+    }
+    if (f.done) {
+      this.deps.emit({ ...f.record });
+      this.remember(f);
+    }
+    return true;
+  }
+
+  /**
+   * Has a local answer model read the fixed start of every prompt (instructions, profile,
+   * résumé) ahead of time, so answers only process the new question. No-op for cloud models.
+   */
+  async prime(signal?: AbortSignal): Promise<boolean> {
+    const settings = this.deps.settings();
+    const id = settings.answer.primaryProvider;
+    if (!id || !isKeyless(id) || !this.deps.stableResume) return false;
+    const r = this.deps.resolveProvider(id);
+    if (!r) return false;
+    const ctx = this.deps.context();
+    const messages = buildPrimingMessages({
+      mode: settings.answer.mode,
+      depth: 'fast',
+      settings: settings.answer,
+      includeProfile: settings.privacy.includeProfileInPrompts,
+      personal: ctx.personal,
+      session: ctx.session,
+      evidence: settings.privacy.includeDocumentsInPrompts ? this.deps.stableResume() : [],
+    });
+    try {
+      for await (const chunk of r.provider.stream({ model: r.model, messages, maxOutputTokens: 1, temperature: 0, effort: 'fast', signal: signal ?? new AbortController().signal })) {
+        if (chunk.type === 'done') break;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private remember(f: Inflight): void {
+    this.memory.push({ question: f.record.question, answer: f.record.text });
+    if (this.memory.length > 12) this.memory.shift();
+  }
+
+  private start(input: AskInput, hidden: boolean): string {
     const settings = this.deps.settings();
     const requestId = newRequestId();
     const controller = new AbortController();
@@ -133,27 +243,34 @@ export class AnswerEngine {
       usage: null,
       costUsd: null,
     };
-    const inflight: Inflight = { requestId, controller, record };
-    this.current = inflight;
+    const inflight: Inflight = { requestId, controller, record, hidden, seq: 0, emitted: 0, firstTokenAt: null, done: false, compact: false };
+    if (hidden) this.speculative = inflight;
+    else this.current = inflight;
     this.history.set(requestId, record);
     if (this.history.size > 200) this.history.delete(this.history.keys().next().value as string);
-    this.deps.emit({ ...record });
+    this.show(inflight);
     void this.run(inflight, input, settings);
     return requestId;
   }
 
-  private isCurrent(id: string): boolean {
-    return this.current?.requestId === id;
+  /** Still wanted: the visible answer or the one speculative answer. */
+  private isLive(f: Inflight): boolean {
+    return this.current === f || this.speculative === f;
+  }
+
+  private show(f: Inflight): void {
+    if (!f.hidden) this.deps.emit({ ...f.record });
   }
 
   private fail(f: Inflight, err: ProviderError): void {
-    if (!this.isCurrent(f.requestId)) return;
+    if (!this.isLive(f)) return;
     f.record.status = err.code === 'aborted' ? 'cancelled' : 'error';
     f.record.errorCode = err.code;
     f.record.error = `${err.message}${err.code !== 'aborted' ? ` — ${PROVIDER_ERROR_HINTS[err.code]}` : ''}`;
     f.record.totalMs = this.now() - f.record.createdAt;
-    this.deps.emit({ ...f.record });
-    this.current = null;
+    this.show(f);
+    if (this.current === f) this.current = null;
+    if (this.speculative === f) this.speculative = null;
   }
 
   private async run(f: Inflight, input: AskInput, settings: AppSettings): Promise<void> {
@@ -165,6 +282,9 @@ export class AnswerEngine {
       return;
     }
     const primaryId = settings.answer.primaryProvider;
+    // Local answer models (Ollama) are fast only with short prompts: smaller résumé slice and history.
+    const compact = !!primaryId && isKeyless(primaryId);
+    f.compact = compact;
     const chain: ProviderId[] = [];
     if (primaryId) chain.push(primaryId);
     const fb = settings.answer.fallbackProvider;
@@ -177,18 +297,21 @@ export class AnswerEngine {
 
     // Retrieval (local, fast). Failure never blocks answering.
     f.record.status = 'retrieving';
-    this.deps.emit({ ...f.record });
+    this.show(f);
     let evidence: RetrievedChunk[] = [];
     if (settings.privacy.includeDocumentsInPrompts) {
       try {
-        const r = await this.deps.retrieve(input.question, f.controller.signal);
-        evidence = r.chunks;
+        const r = await this.deps.retrieve(input.question, f.controller.signal, { compact });
+        const stable = compact ? (this.deps.stableResume?.() ?? []) : [];
+        // Local model: the whole résumé in a fixed order first, then up to 3 other passages.
+        const stableDocs = new Set(stable.map((c) => c.documentId));
+        evidence = stable.length ? [...stable, ...r.chunks.filter((c) => !stableDocs.has(c.documentId)).slice(0, 3)] : r.chunks;
         this.deps.perf({ stage: 'retrieval', ms: r.ms, at: this.now(), provider: null, model: null, label: f.record.mode });
       } catch {
         evidence = [];
       }
     }
-    if (!this.isCurrent(f.requestId)) return;
+    if (!this.isLive(f)) return;
     f.record.sources = evidence.map((c, i): AnswerSource => ({
       label: `S${i + 1}`,
       documentTitle: c.documentTitle,
@@ -210,7 +333,9 @@ export class AnswerEngine {
       session: ctx.session,
       evidence,
       recentTranscript: input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
-      memory: input.useMemory === false ? [] : this.memory.slice(-settings.answer.memoryTurns),
+      memory: input.useMemory === false ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
+      compact,
+      missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),
       images: input.images,
       instruction: input.instruction,
       priorAnswer: input.priorAnswer,
@@ -221,16 +346,16 @@ export class AnswerEngine {
       const { id, r } = resolved[i]!;
       const model = depth === 'deep' && r.deepModel ? r.deepModel : r.model;
       for (let attempt = 0; attempt < 2; attempt++) {
-        if (!this.isCurrent(f.requestId)) return;
+        if (!this.isLive(f)) return;
         f.record.provider = id;
         f.record.model = model;
         f.record.usedFallback = i > 0;
         f.record.status = 'waiting';
         f.record.error = i > 0 && lastErr ? `Primary failed (${lastErr.code}); using fallback` : null;
-        this.deps.emit({ ...f.record });
+        this.show(f);
         const result = await this.streamOnce(f, r.provider, id, model, messages, settings, depth, input.questionEndedAt ?? t0);
         // Superseded or cancelled while streaming: say nothing more about this request.
-        if (result !== 'ok' && !this.isCurrent(f.requestId)) return;
+        if (result !== 'ok' && !this.isLive(f)) return;
         if (result === 'ok') {
           this.deps.onProviderResult?.(id, null);
           return;
@@ -274,38 +399,43 @@ export class AnswerEngine {
     );
     const reqStart = this.now();
     let usage: Usage | null = null;
-    let pending = '';
-    let seq = 0;
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
       flushTimer = null;
-      if (!pending || !this.isCurrent(f.requestId)) return;
-      this.deps.emitDelta(f.requestId, pending, seq++);
-      pending = '';
+      if (f.hidden || !this.isLive(f)) return;
+      const delta = f.record.text.slice(f.emitted);
+      if (!delta) return;
+      this.deps.emitDelta(f.requestId, delta, f.seq++);
+      f.emitted = f.record.text.length;
     };
     try {
       for await (const chunk of provider.stream({
         model,
         messages,
-        maxOutputTokens: depth === 'deep' ? settings.answer.deepMaxOutputTokens : settings.answer.maxOutputTokens,
+        // A local model's whole context is ~4K tokens: keep prompt + answer inside it.
+        maxOutputTokens: depth === 'deep' ? settings.answer.deepMaxOutputTokens : f.compact ? Math.min(settings.answer.maxOutputTokens, LOCAL_MAX_OUTPUT_TOKENS) : settings.answer.maxOutputTokens,
         temperature: settings.answer.temperature,
         effort: depth,
         signal: attemptCtl.signal,
       })) {
-        if (!this.isCurrent(f.requestId)) return 'stale';
+        if (!this.isLive(f)) return 'stale';
         if (chunk.type === 'text') {
           if (firstTokenTimer) {
             clearTimeout(firstTokenTimer);
             firstTokenTimer = null;
             const now = this.now();
-            f.record.firstTokenMs = now - f.record.createdAt;
+            f.firstTokenAt = now;
             f.record.status = 'streaming';
-            this.deps.emit({ ...f.record });
             this.deps.perf({ stage: 'request_to_first_token', ms: now - reqStart, at: now, provider: providerId, model, label: depth });
-            this.deps.perf({ stage: 'question_to_first_token', ms: now - questionEndedAt, at: now, provider: providerId, model, label: f.record.questionSource });
+            if (!f.hidden) {
+              // A committed prefetch measures from the real question end set at commit time.
+              const endedAt = f.record.questionEndedAt ?? questionEndedAt;
+              f.record.firstTokenMs = Math.max(0, now - Math.min(endedAt, f.record.createdAt));
+              this.show(f);
+              this.deps.perf({ stage: 'question_to_first_token', ms: Math.max(0, now - endedAt), at: now, provider: providerId, model, label: f.record.questionSource });
+            }
           }
           f.record.text += chunk.text;
-          pending += chunk.text;
           if (!flushTimer) flushTimer = setTimeout(flush, DELTA_FLUSH_MS);
         } else if (chunk.type === 'reasoning') {
           // Keep the first-token timer generous while the model is thinking.
@@ -318,7 +448,7 @@ export class AnswerEngine {
       }
       if (flushTimer) clearTimeout(flushTimer);
       flush();
-      if (!this.isCurrent(f.requestId)) return 'stale';
+      if (!this.isLive(f)) return 'stale';
       if (!f.record.text.trim()) {
         return new ProviderError(providerId, 'server_error', 'Provider returned an empty answer');
       }
@@ -328,10 +458,13 @@ export class AnswerEngine {
       f.record.usage = usage;
       f.record.costUsd = this.deps.recordUsage(providerId, model, usage).costUsd;
       this.deps.perf({ stage: 'answer_total', ms: end - reqStart, at: end, provider: providerId, model, label: depth });
-      this.deps.emit({ ...f.record });
-      this.memory.push({ question: f.record.question, answer: f.record.text });
-      if (this.memory.length > 12) this.memory.shift();
-      this.current = null;
+      f.done = true;
+      if (!f.hidden) {
+        this.show(f);
+        this.remember(f);
+      }
+      if (this.current === f) this.current = null;
+      // A finished hidden answer stays as `speculative` until it is committed or dropped.
       return 'ok';
     } catch (err) {
       if (flushTimer) clearTimeout(flushTimer);

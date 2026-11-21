@@ -45,7 +45,7 @@ export function Home({ go }: { go: (page: string) => void }) {
   if (!settings) return null;
   const primary = settings.answer.primaryProvider;
   const model = primary ? settings.providers[primary].model : '';
-  const sttKeyOk = secrets ? secrets.providers[settings.stt.provider === 'cloud-whisper' ? 'cloud' : settings.stt.provider === 'gemini-live' ? 'gemini' : 'xai'].hasKey : false;
+  const sttKeyOk = settings.stt.provider === 'local-whisper' || (secrets ? secrets.providers[settings.stt.provider === 'cloud-whisper' ? 'cloud' : settings.stt.provider === 'gemini-live' ? 'gemini' : 'xai'].hasKey : false);
   const state = snapshot?.session ?? 'idle';
   const active = state === 'listening' || state === 'paused';
   const answer = currentId ? answers[currentId] : undefined;
@@ -55,7 +55,7 @@ export function Home({ go }: { go: (page: string) => void }) {
   const checks = [
     { ok: !!secrets && Object.values(secrets.providers).some((p) => p.hasKey), title: 'Add an API key', desc: 'Stored encrypted with Windows DPAPI.', page: 'settings' },
     { ok: !!model, title: 'Choose an answer model', desc: 'Picked from the live model list for your key.', page: 'settings' },
-    { ok: sttKeyOk, title: 'Live transcription key', desc: settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud transcribes with your access code — free, no GPU needed.' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live uses your Gemini key.' : 'xAI streaming STT uses your xAI key.', page: 'settings' },
+    { ok: sttKeyOk, title: 'Live transcription key', desc: settings.stt.provider === 'local-whisper' ? 'Whisper runs on this PC’s GPU: live text while they speak, no key.' : settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud transcribes with your access code — free, no GPU needed.' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live uses your Gemini key.' : 'xAI streaming STT uses your xAI key.', page: 'settings' },
     { ok: docs.length > 0, title: 'Add your resume (optional)', desc: 'Grounds answers about you in your real experience.', page: 'knowledge' },
   ];
   const pending = checks.filter((c) => !c.ok);
@@ -126,7 +126,7 @@ export function Home({ go }: { go: (page: string) => void }) {
             <button type="button" className="dash-tile t-lilac" onClick={() => go('settings')}>
               <div className="dash-tile__row"><span className="dash-tile__icon"><Waves size={17} /></span><span className="dash-tile__state">{sttKeyOk ? (sys?.sttState === 'open' || mic?.sttState === 'open' ? 'Streaming' : 'Ready') : 'Needs key'}</span></div>
               <span className="dash-tile__label">Transcription</span>
-              <span className="dash-tile__value">{settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud · Whisper' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live' : 'xAI streaming STT'}</span>
+              <span className="dash-tile__value">{settings.stt.provider === 'local-whisper' ? 'Whisper on this PC' : settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud · Whisper' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live' : 'xAI streaming STT'}</span>
             </button>
             <button type="button" className="dash-tile t-peach" onClick={() => go('settings')}>
               <div className="dash-tile__row"><span className="dash-tile__icon"><Sparkles size={17} /></span><span className="dash-tile__state">{model ? 'Ready' : 'Not set'}</span></div>

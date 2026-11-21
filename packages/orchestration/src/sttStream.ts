@@ -14,6 +14,13 @@ export interface SttStreamDeps {
   onInterim(text: string): void;
   onFinal(text: string): void;
   onUtteranceEnd(): void;
+  /**
+   * The speaker has been quiet for PAUSE_MS: probably done with the sentence (the VAD's
+   * own end-of-speech comes later). `lastSpeechAt` is when they stopped.
+   */
+  onPause?(lastSpeechAt: number): void;
+  /** Speech resumed after onPause (the pause was mid-sentence). */
+  onResume?(): void;
   onState(state: SttConnState, error: ProviderError | null): void;
   onAudioSent(seconds: number): void;
   perf(sample: PerfSample): void;
@@ -23,7 +30,11 @@ export interface SttStreamDeps {
 const FRAME_MS = 20;
 const FRAMES_PER_CHUNK = 5; // 100 ms chunks, as recommended by both STT providers
 const PREROLL_FRAMES = 15; // 300 ms kept while gated so word onsets are not clipped
-const TAIL_MS = 1500; // keep streaming after speech so provider endpointing sees silence
+const TAIL_MS = 1500;
+/** Quiet time that counts as "finished the question" for revealing an early answer. */
+export const PAUSE_MS = 300;
+/** Quiet time after which utterance transcribers refresh their live text. */
+const SILENCE_HINT_MS = 120; // keep streaming after speech so provider endpointing sees silence
 const BACKLOG_CHUNKS = 10; // 1 s buffered while (re)connecting
 const KEEPALIVE_MS = 8000;
 const FATAL: string[] = ['invalid_key', 'permission_denied', 'quota_exceeded', 'model_not_found', 'not_configured', 'budget_exceeded'];
@@ -43,7 +54,7 @@ export class SttStream {
   private chunk: Buffer[] = [];
   private preroll: Buffer[] = [];
   private backlog: Buffer[] = [];
-  private readonly vad = new EnergyVad();
+  private vad = new EnergyVad();
   private sinceSpeechMs = Infinity;
   private gateOpen = false;
   private lastSentAt = 0;
@@ -55,6 +66,10 @@ export class SttStream {
   private speechStartAt: number | null = null;
   private speechEndAt: number | null = null;
   private sentFrames = 0;
+  private pauseSent = false;
+  /** Last frame the VAD heard speech: when the speaker actually stopped. */
+  private lastLoudAt: number | null = null;
+  private silenceHinted = false;
   droppedChunks = 0;
   lastError: ProviderError | null = null;
   private readonly now: () => number;
@@ -111,6 +126,7 @@ export class SttStream {
       return;
     }
     if (!isRotation) this.setState(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
+    if (this.provider.speechEndHangoverMs && !isRotation) this.vad = new EnergyVad(9, 3, this.provider.speechEndHangoverMs);
     const t0 = this.now();
     try {
       const session = await this.provider.open(this.deps.options(), {
@@ -218,8 +234,15 @@ export class SttStream {
     if (ev?.type === 'speech_start') {
       this.speechStartAt = t;
       this.speechEndAt = null;
+      this.pauseSent = false;
+      this.silenceHinted = false;
     } else if (ev?.type === 'speech_end') {
       this.speechEndAt = t;
+      // With a short hangover the utterance can end before the pause mark: still report the pause.
+      if (!this.pauseSent) {
+        this.pauseSent = true;
+        this.deps.onPause?.(this.lastLoudAt ?? t);
+      }
       // Hybrid VAD: tell the provider speech ended so it finalizes quickly.
       if (this.provider?.wantsEndOfSpeech) {
         this.flushChunk();
@@ -228,6 +251,25 @@ export class SttStream {
       if (this.rotatePending) this.rotateNow();
     }
     this.sinceSpeechMs = this.vad.isSpeaking ? 0 : this.sinceSpeechMs + FRAME_MS;
+    if (this.vad.isSpeaking) {
+      const quiet = this.vad.silenceMs;
+      if (quiet === 0) this.lastLoudAt = t;
+      if (quiet === 0) {
+        if (this.pauseSent) this.deps.onResume?.();
+        this.pauseSent = false;
+        this.silenceHinted = false;
+      } else {
+        if (quiet >= SILENCE_HINT_MS && !this.silenceHinted) {
+          this.silenceHinted = true;
+          this.flushChunk();
+          this.session?.silenceStarted?.();
+        }
+        if (quiet >= PAUSE_MS && !this.pauseSent) {
+          this.pauseSent = true;
+          this.deps.onPause?.(t - quiet);
+        }
+      }
+    }
 
     const gate = this.deps.gateDb();
     const gatingDisabled = gate <= -89;
