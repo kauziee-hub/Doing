@@ -113,6 +113,10 @@ mod windows_main {
                     let gain = cmd.get("gain").and_then(Value::as_f64).unwrap_or(1.0) as f32;
                     let target = match source {
                         Some(SourceId::Mic) => Some(CaptureTarget::Mic { device_id }),
+                        // deviceId "all" = every output endpoint, mixed (CaptureTarget::SystemAll).
+                        Some(SourceId::System) if device_id.as_deref() == Some("all") => {
+                            Some(CaptureTarget::SystemAll)
+                        }
                         Some(SourceId::System) => Some(CaptureTarget::System { device_id }),
                         Some(SourceId::App) => cmd
                             .get("pid")

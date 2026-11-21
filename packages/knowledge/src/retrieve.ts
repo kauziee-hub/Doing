@@ -25,6 +25,14 @@ export function ftsQuery(q: string): string | null {
   return terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(' OR ');
 }
 
+/**
+ * Questions about the candidate themself. Their résumé is attached even when no word
+ * matches ("Please introduce yourself" shares no keywords with a résumé).
+ */
+export function isAboutTheCandidate(q: string): boolean {
+  return /\b(yourself|about you\b|your (?:experience|background|projects?|roles?|resume|résumé|cv|strengths?|weakness(?:es)?|career|education|degree|skills?|team|work|jobs?|internships?|achievements?|last|current|previous|biggest|greatest|favou?rite)|you(?:'ve| have)? (?:worked|built|led|did|handled|faced|used|managed|designed|shipped|learned|done)|about a time|walk me through your|why should we hire|why do you want|where do you see yourself|what makes you|introduce|introduction)\b/i.test(q);
+}
+
 /** First-person experience questions should prefer the user's own evidence. */
 export function isFirstPersonQuestion(q: string): boolean {
   return /\b(you|your|yourself|tell me about a time|walk me through|have you|did you|what did you|why should we hire)\b/i.test(q);
@@ -85,8 +93,8 @@ export class HybridRetriever {
 
   retrieve(question: string, opts: RetrieveOptions): RetrievedChunk[] {
     const k = Math.max(1, opts.topK);
-    const ranked = new Map<string, { score: number; by: Set<'fts' | 'vector'> }>();
-    const add = (id: string, rank: number, by: 'fts' | 'vector', weight = 1) => {
+    const ranked = new Map<string, { score: number; by: Set<'fts' | 'vector' | 'profile'> }>();
+    const add = (id: string, rank: number, by: 'fts' | 'vector' | 'profile', weight = 1) => {
       const cur = ranked.get(id) ?? { score: 0, by: new Set() };
       cur.score += weight / (60 + rank);
       cur.by.add(by);
@@ -115,6 +123,17 @@ export class HybridRetriever {
       scored.slice(0, 40).forEach(([id, sim], i) => {
         if (sim > 0.35) add(id, i, 'vector');
       });
+    }
+
+    if (isAboutTheCandidate(question)) {
+      // The top of the newest résumé (name, summary, recent roles) as baseline evidence.
+      const top = this.store.db
+        .prepare(
+          `SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id
+           WHERE d.kind = 'resume' ORDER BY d.created_at DESC, c.ordinal ASC LIMIT 3`,
+        )
+        .all() as Array<{ id: string }>;
+      top.forEach((r, i) => add(r.id, i, 'profile'));
     }
 
     if (ranked.size === 0) return [];

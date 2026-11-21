@@ -300,9 +300,10 @@ function AudioTab() {
         <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '14px 0' }} />
         <Toggle checked={s.audio.systemEnabled} label="Capture system audio (WASAPI loopback)" description="What plays through your speakers/headphones, e.g. the other meeting participants (labelled “System”)." onChange={(v) => void patch({ audio: { systemEnabled: v } })} />
         <div className="vc-grid2">
-          <Field label="Output device to capture">
+          <Field label="Output device to capture" hint="“All” hears the other side wherever the call app plays it, even when a Bluetooth headset switches to its hands-free mode.">
             <select className="vc-select" value={s.audio.systemDeviceId ?? ''} onChange={(e) => void patch({ audio: { systemDeviceId: e.target.value || null } })}>
-              <option value="">Windows default{devices?.render.find((d) => d.isDefault) ? ` (${devices.render.find((d) => d.isDefault)!.name})` : ''}</option>
+              <option value="all">All speakers & headphones (recommended)</option>
+              <option value="">Windows default only{devices?.render.find((d) => d.isDefault) ? ` (${devices.render.find((d) => d.isDefault)!.name})` : ''}</option>
               {devices?.render.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </Field>
@@ -406,8 +407,8 @@ function OverlayTab() {
       <Card title="Screen-capture privacy (best-effort)">
         <Toggle
           checked={o.contentProtection}
-          label="Hide the overlay from screen sharing and screenshots"
-          description="On by default. You still see the overlay; Windows leaves it out of screen captures (SetWindowDisplayAffinity via Electron setContentProtection), so your own screenshots and recordings won't show it either. Not every capture method honours it (cameras, some remote-desktop and hardware capture never will). This is a privacy convenience — Hirora does not claim the overlay is undetectable and does not try to evade monitoring or proctoring software."
+          label="Hide Hirora from screen sharing and screenshots"
+          description="On by default. Covers the overlay and this main window. You still see them; Windows leaves them out of screen captures (SetWindowDisplayAffinity via Electron setContentProtection), so your own screenshots and recordings won't show it either. Not every capture method honours it (cameras, some remote-desktop and hardware capture never will). This is a privacy convenience — Hirora does not claim the overlay is undetectable and does not try to evade monitoring or proctoring software."
           onChange={(v) => void patch({ overlay: { contentProtection: v } })}
         />
         <div className="vc-row">

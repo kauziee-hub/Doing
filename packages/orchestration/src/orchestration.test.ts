@@ -30,6 +30,21 @@ describe('question detection', () => {
     ['okay', false],
     ['Thanks, that makes sense.', false],
     ['We shipped the release last Friday.', false],
+    // Interviewer prompts that are questions without a question mark.
+    ["I'd like to hear about your last project.", true],
+    ["Let's talk about your experience with React.", true],
+    ['Please introduce yourself.', true],
+    ['Why should we hire you.', true],
+    ['What about scaling it to millions of users.', true],
+    ['Okay great. Moving on.', false],
+    // Real Whisper output from a loopback test with a live call around it (Nov 2026).
+    ['Hello, Katty, give me a brief introduction about yourself.', true],
+    ["because if i'm going to use it what is the difference between a process and a thread", true],
+    ['Thank you.', false],
+    ["I'll speak into that.", false],
+    ['I know what is needed for the release.', false],
+    ['So, we shipped it, and then the team moved on.', false],
+    ['I worked on the payments team for two years.', false],
   ])('%s → %s', (text, expected) => {
     expect(analyzeQuestion(text).isQuestion).toBe(expected);
   });

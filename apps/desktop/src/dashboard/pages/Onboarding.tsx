@@ -70,7 +70,8 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
             </Field>
             <Field label="System audio from">
               <select className="vc-select" value={settings.audio.systemDeviceId ?? ''} onChange={(e) => void patch({ audio: { systemDeviceId: e.target.value || null } })}>
-                <option value="">Windows default output</option>
+                <option value="all">All speakers & headphones (recommended)</option>
+                <option value="">Windows default output only</option>
                 {devices?.render.map((d) => <option key={d.id} value={d.id}>{d.name}{d.isDefault ? ' (default)' : ''}</option>)}
               </select>
             </Field>

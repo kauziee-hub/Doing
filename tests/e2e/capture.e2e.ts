@@ -164,4 +164,40 @@ test('the overlay is left out of a real browser screen share, on by default', as
   expect(dist(byDefault, PROBE), 'default: overlay must not appear in the share').toBeGreaterThan(120);
   expect(dist(turnedOn, PROBE), 'toggled back on: overlay must not appear in the share').toBeGreaterThan(120);
   expect(dist(afterReshow, PROBE), 'after hide/show: overlay must not appear in the share').toBeGreaterThan(120);
+
+  // The main window follows the same setting (it can show the résumé, transcript and answers).
+  await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle')); // hide the overlay
+  const dashGeo = await app.evaluate(({ BrowserWindow, screen }) => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora')!;
+    const d = screen.getPrimaryDisplay().bounds;
+    w.setBounds({ x: d.x + Math.round(d.width * 0.45), y: d.y + Math.round(d.height * 0.2), width: 920, height: 620 });
+    w.setAlwaysOnTop(true, 'screen-saver');
+    w.show();
+    return { b: w.getBounds(), d };
+  });
+  await dash.evaluate((rgb) => {
+    const el = document.createElement('div');
+    el.id = 'dash-probe';
+    el.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    document.body.appendChild(el);
+  }, PROBE);
+  const dashFrac = {
+    x: (dashGeo.b.x - dashGeo.d.x + dashGeo.b.width * 0.25) / dashGeo.d.width,
+    y: (dashGeo.b.y - dashGeo.d.y + dashGeo.b.height * 0.25) / dashGeo.d.height,
+    w: (dashGeo.b.width * 0.5) / dashGeo.d.width,
+    h: (dashGeo.b.height * 0.5) / dashGeo.d.height,
+  };
+  const sampleDash = async (): Promise<Rgb> => {
+    await sleep(700);
+    return page.evaluate((f) => (window as unknown as { __sample: (...a: number[]) => Promise<Rgb> }).__sample(f.x, f.y, f.w, f.h), dashFrac);
+  };
+  const dashOn = await sampleDash();
+  await setProtection(false);
+  const dashOff = await sampleDash();
+  await setProtection(true);
+  const dashBackOn = await sampleDash();
+  console.log(`main window: protection on ${fmt(dashOn)}; off ${fmt(dashOff)}; back on ${fmt(dashBackOn)}`);
+  expect(dist(dashOff, PROBE), 'baseline: with protection off the share must show the main window').toBeLessThan(60);
+  expect(dist(dashOn, PROBE), 'main window must not appear in the share').toBeGreaterThan(120);
+  expect(dist(dashBackOn, PROBE), 'main window, toggled back on: must not appear in the share').toBeGreaterThan(120);
 });

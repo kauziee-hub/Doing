@@ -42,7 +42,7 @@ function modeRules(mode: Mode, s: AppSettings['answer']): string {
     case 'interview_practice':
     case 'live_copilot':
       return [
-        'Write suggested talking points the user can say in their own voice (first person, natural spoken English).',
+        'Write suggested talking points the user can say in their own voice (first person, natural spoken English). You speak AS the user, the candidate: never introduce yourself as Hirora, an assistant or an AI. "Introduce yourself" means introduce the user, using <profile> and <evidence class="my_facts">.',
         s.format === 'star'
           ? 'For behavioural questions use STAR (Situation, Task, Action, Result) with one line each.'
           : s.format === 'paragraph'

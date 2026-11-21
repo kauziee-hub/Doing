@@ -209,6 +209,35 @@ pub fn rms_dbfs(frame: &[i16]) -> f32 {
 
 pub const TARGET_RATE: u32 = OUTPUT_SAMPLE_RATE;
 
+/// Sums the next `out.len()` samples of every queue into `out` (missing samples count as
+/// silence). Returns false when no queue had any audio, i.e. the frame is pure padding.
+/// Used to mix several loopback endpoints ("all outputs") into one stream.
+pub fn mix_queues(queues: &mut [&mut std::collections::VecDeque<f32>], out: &mut [f32]) -> bool {
+    out.iter_mut().for_each(|x| *x = 0.0);
+    let mut any = false;
+    for q in queues.iter_mut() {
+        let take = out.len().min(q.len());
+        if take > 0 {
+            any = true;
+        }
+        for slot in out.iter_mut().take(take) {
+            *slot += q.pop_front().unwrap_or(0.0);
+        }
+    }
+    any
+}
+
+/// Bounds a mixer input queue when its device clock runs faster than ours: above `max`
+/// samples, drops the oldest so `keep` remain. Returns how many samples were dropped.
+pub fn trim_queue(q: &mut std::collections::VecDeque<f32>, max: usize, keep: usize) -> usize {
+    if q.len() <= max {
+        return 0;
+    }
+    let drop = q.len() - keep.min(max);
+    q.drain(..drop);
+    drop
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,5 +347,36 @@ mod tests {
             .map(|i| if i % 2 == 0 { 32767 } else { -32767 })
             .collect();
         assert!(rms_dbfs(&full) > -0.1);
+    }
+
+    #[test]
+    fn mixes_queues_with_silence_for_missing_samples() {
+        use std::collections::VecDeque;
+        let mut a: VecDeque<f32> = vec![0.1, 0.2, 0.3].into();
+        let mut b: VecDeque<f32> = vec![0.5].into();
+        let mut c: VecDeque<f32> = VecDeque::new();
+        let mut out = [9.0f32; 4];
+        assert!(mix_queues(&mut [&mut a, &mut b, &mut c], &mut out));
+        assert!((out[0] - 0.6).abs() < 1e-6);
+        assert!((out[1] - 0.2).abs() < 1e-6);
+        assert!((out[2] - 0.3).abs() < 1e-6);
+        assert_eq!(out[3], 0.0);
+        assert!(a.is_empty() && b.is_empty());
+        // Nothing left anywhere: a pure-padding frame.
+        assert!(!mix_queues(&mut [&mut a, &mut b, &mut c], &mut out));
+        assert!(out.iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
+    fn trims_only_runaway_queues() {
+        use std::collections::VecDeque;
+        let mut q: VecDeque<f32> = (0..10).map(|x| x as f32).collect();
+        assert_eq!(trim_queue(&mut q, 10, 4), 0);
+        q.push_back(10.0);
+        assert_eq!(trim_queue(&mut q, 10, 4), 7);
+        assert_eq!(
+            q.iter().copied().collect::<Vec<_>>(),
+            vec![7.0, 8.0, 9.0, 10.0]
+        );
     }
 }

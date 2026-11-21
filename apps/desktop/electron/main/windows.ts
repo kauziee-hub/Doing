@@ -89,6 +89,8 @@ export class WindowManager {
       },
     });
     hardenWebContents(win, this.log);
+    // The dashboard can show your résumé, transcript and answers too: same capture rule as the overlay.
+    this.applyContentProtection(win, this.settings.get().overlay.contentProtection);
     const target = rendererUrl('index');
     void (target.url ? win.loadURL(target.url) : win.loadFile(target.file!));
     win.once('ready-to-show', () => {
@@ -175,9 +177,10 @@ export class WindowManager {
   }
 
   applyOverlaySettings(): void {
+    const s = this.settings.get().overlay;
+    this.applyContentProtection(this.dashboard, s.contentProtection);
     const w = this.overlay;
     if (!w || w.isDestroyed()) return;
-    const s = this.settings.get().overlay;
     w.setOpacity(s.opacity);
     w.setAlwaysOnTop(s.alwaysOnTop, 'screen-saver');
     this.applyContentProtection(w, s.contentProtection);

@@ -7,6 +7,8 @@ export type ProviderId = z.infer<typeof ProviderIdSchema>;
 /** Providers that run on this PC and need no API key. */
 export const KEYLESS_PROVIDERS: readonly ProviderId[] = ['ollama'];
 export const isKeyless = (p: ProviderId): boolean => KEYLESS_PROVIDERS.includes(p);
+/** `audio.systemDeviceId` value meaning "every output device, mixed". */
+export const SYSTEM_ALL_OUTPUTS = 'all';
 export const OLLAMA_DEFAULT_BASE_URL = 'http://127.0.0.1:11434/v1';
 /** The project's free shared server (Vercel relay → Groq open models + Whisper). Overridable in Settings. */
 export const HIRORA_CLOUD_DEFAULT_BASE_URL = 'https://hirora-one.vercel.app/v1';
@@ -169,7 +171,12 @@ export const AppSettingsSchema = z.object({
       micEnabled: z.boolean().default(true),
       systemEnabled: z.boolean().default(true),
       micDeviceId: z.string().max(512).nullable().default(null),
-      systemDeviceId: z.string().max(512).nullable().default(null),
+      /**
+       * Output to capture. SYSTEM_ALL_OUTPUTS mixes every speaker/headphone endpoint (default:
+       * survives Bluetooth headsets switching to hands-free and call apps on another device);
+       * null follows the Windows default; anything else is one endpoint id.
+       */
+      systemDeviceId: z.string().max(512).nullable().default('all'),
       /** Optional per-application loopback instead of whole-device loopback. */
       appCapturePid: z.number().int().positive().nullable().default(null),
       appCaptureName: z.string().max(260).nullable().default(null),

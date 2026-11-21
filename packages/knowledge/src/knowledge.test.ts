@@ -71,6 +71,16 @@ describe('KnowledgeStore + HybridRetriever', () => {
 
     expect(retriever.retrieve('quantum chromodynamics lattice', { topK: 3 })).toEqual([]);
 
+    // Questions about the candidate get the résumé even with no shared keywords.
+    for (const q of ['Please introduce yourself.', 'Can you tell me about a challenging project you worked on?', 'Hello, give me a brief introduction about yourself.']) {
+      const about = retriever.retrieve(q, { topK: 3 });
+      expect(about.length, q).toBeGreaterThan(0);
+      expect(about[0]!.fileName, q).toBe('resume.pdf');
+      expect(about[0]!.matchedBy, q).toContain('profile');
+    }
+    // …but not general/technical ones.
+    expect(retriever.retrieve('What is the difference between a process and a thread?', { topK: 3 }).some((h) => h.matchedBy.includes('profile'))).toBe(false);
+
     const docId = r1.documentId!;
     store.saveEmbeddings('test-model', store.getChunks(docId).map((c) => ({ chunkId: c.id, vector: new Float32Array([1, 0, 0]) })));
     expect(store.stats().embedded).toBeGreaterThan(0);

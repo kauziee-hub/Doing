@@ -22,6 +22,10 @@ pub enum CaptureTarget {
     Mic { device_id: Option<String> },
     /// Loopback of an output endpoint. `None` follows the Windows default.
     System { device_id: Option<String> },
+    /// Loopback of every active output endpoint, mixed into one stream. Robust to
+    /// Bluetooth headsets switching between their stereo and hands-free endpoints and
+    /// to call apps that play to a device other than the Windows default.
+    SystemAll,
     /// Per-process loopback (Windows 10 build 20348+).
     App { pid: u32 },
 }
@@ -30,7 +34,7 @@ impl CaptureTarget {
     pub fn source(&self) -> SourceId {
         match self {
             CaptureTarget::Mic { .. } => SourceId::Mic,
-            CaptureTarget::System { .. } => SourceId::System,
+            CaptureTarget::System { .. } | CaptureTarget::SystemAll => SourceId::System,
             CaptureTarget::App { .. } => SourceId::App,
         }
     }
@@ -110,7 +114,12 @@ fn run(
     let mut failures: u32 = 0;
     status(&out, source, "starting", json!({}));
     while !stop.load(Ordering::SeqCst) {
-        match session(&target, &out, &tracker, &stop, &gain, &mut failures) {
+        let ended = if matches!(target, CaptureTarget::SystemAll) {
+            session_all(&out, &stop, &gain, &mut failures)
+        } else {
+            session(&target, &out, &tracker, &stop, &gain, &mut failures)
+        };
+        match ended {
             Ok(SessionEnd::Stopped) => break,
             Ok(SessionEnd::DefaultChanged) => {
                 status(
@@ -191,6 +200,7 @@ fn open(target: &CaptureTarget) -> Result<Opened, String> {
             let client = AudioClient::new_application_loopback_client(*pid, true).map_err(e)?;
             (client, format!("process {pid}"), None, None, true)
         }
+        CaptureTarget::SystemAll => return Err("SystemAll opens one leg per endpoint".into()),
     };
 
     // 100 ms device buffer gives headroom against scheduling hiccups.
@@ -412,4 +422,219 @@ fn session(
 fn finish(opened: &Opened, r: Result<SessionEnd, String>) -> Result<SessionEnd, String> {
     let _ = opened.client.stop_stream();
     r
+}
+
+/// One loopback endpoint feeding the "all outputs" mixer.
+struct Leg {
+    opened: Opened,
+    capture: wasapi::AudioCaptureClient,
+    _event: wasapi::Handle,
+    resampler: Resampler,
+    raw: VecDeque<u8>,
+    queue: VecDeque<f32>,
+}
+
+/// Mixing delay: lets every endpoint deliver its packet for a frame before we sum it.
+const MIX_LATENCY_SAMPLES: u64 = OUTPUT_SAMPLE_RATE as u64 * 80 / 1000;
+/// A faster device clock can't grow a queue past 300 ms (trimmed back to 100 ms).
+const MIX_QUEUE_MAX: usize = OUTPUT_SAMPLE_RATE as usize * 300 / 1000;
+const MIX_QUEUE_KEEP: usize = OUTPUT_SAMPLE_RATE as usize * 100 / 1000;
+
+fn active_render_ids() -> Result<Vec<String>, String> {
+    let e = |x: wasapi::WasapiError| x.to_string();
+    let enumerator = DeviceEnumerator::new().map_err(e)?;
+    let collection = enumerator
+        .get_device_collection(Direction::Render)
+        .map_err(e)?;
+    let n = collection.get_nbr_devices().map_err(e)?;
+    let mut ids = Vec::new();
+    for i in 0..n {
+        if let Ok(d) = collection.get_device_at_index(i) {
+            if let Ok(id) = d.get_id() {
+                ids.push(id);
+            }
+        }
+    }
+    ids.sort();
+    Ok(ids)
+}
+
+fn drain_leg(
+    leg: &mut Leg,
+    flags: &mut u8,
+    stats: &crate::output::SourceStats,
+) -> Result<(), String> {
+    let mut got = false;
+    loop {
+        let n = leg
+            .capture
+            .get_next_packet_size()
+            .map_err(|x| x.to_string())?
+            .unwrap_or(0);
+        if n == 0 {
+            break;
+        }
+        let info = leg
+            .capture
+            .read_from_device_to_deque(&mut leg.raw)
+            .map_err(|x| x.to_string())?;
+        if info.flags.data_discontinuity {
+            stats.discontinuities.fetch_add(1, Ordering::Relaxed);
+            *flags |= FLAG_DISCONTINUITY;
+        }
+        got = true;
+    }
+    if !got {
+        return Ok(());
+    }
+    let o = &leg.opened;
+    let block_align = (o.bits as usize / 8) * o.channels;
+    let whole = leg.raw.len() - leg.raw.len() % block_align;
+    let bytes: Vec<u8> = leg.raw.drain(..whole).collect();
+    let mut interleaved = Vec::with_capacity(bytes.len() / 2);
+    dsp::bytes_to_f32(&bytes, o.bits, o.is_float, &mut interleaved);
+    let mut mono = Vec::with_capacity(interleaved.len());
+    dsp::downmix_to_mono(&interleaved, o.channels, &mut mono);
+    let mut resampled = Vec::with_capacity(mono.len());
+    leg.resampler.process(&mono, &mut resampled);
+    leg.queue.extend(resampled);
+    Ok(())
+}
+
+fn open_leg(id: &str) -> Result<Leg, String> {
+    let opened = open(&CaptureTarget::System {
+        device_id: Some(id.to_string()),
+    })?;
+    let event = opened
+        .client
+        .set_get_eventhandle()
+        .map_err(|x| x.to_string())?;
+    let capture = opened
+        .client
+        .get_audiocaptureclient()
+        .map_err(|x| x.to_string())?;
+    if (opened.bits as usize / 8) * opened.channels == 0 {
+        return Err("unsupported capture format".into());
+    }
+    opened.client.start_stream().map_err(|x| x.to_string())?;
+    Ok(Leg {
+        resampler: Resampler::new(opened.rate, OUTPUT_SAMPLE_RATE),
+        opened,
+        capture,
+        _event: event,
+        raw: VecDeque::with_capacity(48_000),
+        queue: VecDeque::with_capacity(16_000),
+    })
+}
+
+/// "All outputs": loopback of every active render endpoint, mixed at a real-time
+/// cadence. Reopens itself when the set of endpoints changes (a Bluetooth headset
+/// switching to hands-free adds/removes endpoints) or one of them fails.
+fn session_all(
+    out: &Arc<Output>,
+    stop: &Arc<AtomicBool>,
+    gain: &Arc<AtomicU32>,
+    failures: &mut u32,
+) -> Result<SessionEnd, String> {
+    let source = SourceId::System;
+    let stats = out.stats_for(source);
+    let ids = active_render_ids()?;
+    let mut legs: Vec<Leg> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+    for id in &ids {
+        match open_leg(id) {
+            Ok(l) => legs.push(l),
+            Err(err) => skipped.push(err),
+        }
+    }
+    if legs.is_empty() {
+        return Err(format!(
+            "no output device could be captured ({})",
+            skipped.join("; ")
+        ));
+    }
+    let names: Vec<String> = legs.iter().map(|l| l.opened.device_name.clone()).collect();
+    status(
+        out,
+        source,
+        "streaming",
+        json!({
+            "deviceName": format!("All outputs: {}", names.join(" + ")),
+            "deviceId": "all",
+            "followsDefault": false,
+            "devices": names,
+            "skipped": skipped,
+            "outputFormat": {"sampleRate": OUTPUT_SAMPLE_RATE, "channels": 1, "bits": 16, "frameMs": FRAME_MS},
+        }),
+    );
+    *failures = 0;
+
+    let started = Instant::now();
+    let mut emitted: u64 = 0;
+    let mut flags: u8 = 0;
+    let mut last_enum = Instant::now();
+    let mut mix = [0f32; FRAME_SAMPLES];
+    let mut pcm: Vec<i16> = Vec::with_capacity(FRAME_SAMPLES);
+
+    let result = loop {
+        if stop.load(Ordering::SeqCst) {
+            break Ok(SessionEnd::Stopped);
+        }
+        thread::sleep(Duration::from_millis(10));
+
+        let mut failed = false;
+        for leg in legs.iter_mut() {
+            if drain_leg(leg, &mut flags, stats).is_err() {
+                failed = true;
+                break;
+            }
+            if dsp::trim_queue(&mut leg.queue, MIX_QUEUE_MAX, MIX_QUEUE_KEEP) > 0 {
+                flags |= FLAG_DISCONTINUITY;
+            }
+        }
+        if failed {
+            // An endpoint went away (e.g. a headset changed profile): reopen the set.
+            break Ok(SessionEnd::DefaultChanged);
+        }
+
+        let expected = (started.elapsed().as_micros() as u64 * OUTPUT_SAMPLE_RATE as u64
+            / 1_000_000)
+            .saturating_sub(MIX_LATENCY_SAMPLES);
+        // After a long stall, don't burst more than 1 s of frames.
+        if expected > emitted + 50 * FRAME_SAMPLES as u64 {
+            emitted = expected - 50 * FRAME_SAMPLES as u64;
+        }
+        while emitted + FRAME_SAMPLES as u64 <= expected {
+            let mut queues: Vec<&mut VecDeque<f32>> =
+                legs.iter_mut().map(|l| &mut l.queue).collect();
+            if dsp::mix_queues(&mut queues, &mut mix) {
+                pcm.clear();
+                let g = f32::from_bits(gain.load(Ordering::Relaxed));
+                if dsp::to_i16_with_gain(&mix, g, &mut pcm) {
+                    flags |= FLAG_CLIPPED;
+                    stats.clipped_frames.fetch_add(1, Ordering::Relaxed);
+                }
+                stats.frames_captured.fetch_add(1, Ordering::Relaxed);
+                out.send_audio(source, flags, &pcm);
+            } else {
+                stats.frames_padded.fetch_add(1, Ordering::Relaxed);
+                out.send_audio(source, FLAG_SILENCE_PADDED | flags, &[0i16; FRAME_SAMPLES]);
+            }
+            flags = 0;
+            emitted += FRAME_SAMPLES as u64;
+        }
+
+        if last_enum.elapsed() > Duration::from_secs(2) {
+            last_enum = Instant::now();
+            if let Ok(now_ids) = active_render_ids() {
+                if now_ids != ids {
+                    break Ok(SessionEnd::DefaultChanged);
+                }
+            }
+        }
+    };
+    for leg in &legs {
+        let _ = leg.opened.client.stop_stream();
+    }
+    result
 }

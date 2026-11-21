@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 2026-11-22 (unsigned)
+- **Hears the other side wherever the call plays.** New default system-audio source, "All speakers & headphones": the helper loops back every active output endpoint and mixes them (`deviceId: "all"`, `CaptureTarget::SystemAll`). It reopens when endpoints appear or disappear. A Bluetooth headset switching to its hands-free endpoint, or Meet playing to a non-default device, no longer silences the interviewer. Measured with OnePlus Buds 4 and their hands-free mic open: a spoken question reached the mix at -8 dBFS.
+- **Main window hidden from screen sharing too.** "Hide Hirora from screen sharing and screenshots" now covers the dashboard as well as the overlay. `capture.e2e.ts` checks both against a real Chrome 157 `getDisplayMedia` share.
+- **More interviewer phrasings count as questions**, many of them requests without a "?": "I'd like to hear about…", "Let's talk about…", "Please introduce yourself", "give me a brief introduction about yourself" after a greeting, and wh-clauses mid-sentence ("…what is the difference between a process and a thread"). Taken from real Whisper output; statements like "Thank you." stay non-questions.
+- `tools/interview-check.mjs`: speaks interviewer questions into a copy of a real profile and reports transcripts, auto-answers and latency. `tools/bt-route-check.mjs`: shows which outputs carry audio while a Bluetooth mic is open.
+
 ## 0.2.1 — 2026-11-21 (unsigned)
 - **The overlay is hidden from screen sharing by default.** You see it; a Meet/Teams/Zoom screen share (and screenshots) leave it out, via Windows' capture exclusion (ADR 0008). Measured with a real `getDisplayMedia` screen share in Edge 158 and Chrome 157 (new `capture.e2e.ts`). Existing profiles keep their setting: turn it on in Settings → Overlay & capture → "Hide the overlay from screen sharing and screenshots". Best-effort: cameras, some remote-desktop and hardware capture never honour it.
 - The "Question end → first answer paint" metric is recorded only while the overlay is visible. A hidden overlay used to report 2–2.5 s "paints" that never reached the screen; with the overlay visible the answer paints 25–73 ms after its first token.

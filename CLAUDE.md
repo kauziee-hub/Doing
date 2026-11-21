@@ -27,9 +27,11 @@ Website preview: launch config `website-4318` (port 4317 may be held by another 
 - Never overwrite a published Blob installer; upload each build to a new versioned path so cached copies match the page's SHA-256.
 - `.npmrc` `virtual-store-dir-max-length=40` is required (NSIS fails on long pnpm paths).
 
-## Status (2026-11-21)
-See `docs/PERF_RESULTS.md` (measured numbers), `docs/ACCEPTANCE.md`, `CHANGELOG.md` 0.2.0.
-Deployed: site + relay at https://hirora-one.vercel.app; installer 0.2.1 (sha256 `075e0c6d…c7b411`, `releases/0.2.1/`) on Blob; 0.2.0 stays at its own path. The user's own profile is set to Hirora Cloud (gpt-oss-20b, Whisper), with Ollama as fallback and Gemini disabled (its key is still in the vault); its stored `overlay.contentProtection` was `false` (new default only affects new profiles). The user runs Hirora from `Desktop\Hirora`, so don't silent-install over it; e2e the packaged build via `HIRORA_E2E_EXE=apps/desktop/release/win-unpacked/Hirora.exe`.
+## Status (2026-11-22)
+See `docs/PERF_RESULTS.md` (measured numbers), `docs/ACCEPTANCE.md`, `CHANGELOG.md` 0.2.2.
+Deployed: site + relay at https://hirora-one.vercel.app; the site still serves installer 0.2.1 (sha256 `075e0c6d…c7b411`, `releases/0.2.1/`) on Blob. 0.2.2 is built locally and installed only on this PC. The user runs Hirora from `Desktop\Hirora` (an NSIS install with no uninstall registry entry). Update it with `Hirora-Setup-<v>.exe /S /D=%USERPROFILE%\Desktop\Hirora` after closing the app; e2e the packaged build via `HIRORA_E2E_EXE=apps/desktop/release/win-unpacked/Hirora.exe`.
+The user's profile: Hirora Cloud answers (gpt-oss-20b) + cloud Whisper STT, Ollama fallback, Gemini disabled (key still in vault). Since 0.2.2 it has `overlay.contentProtection: true` and `audio.systemDeviceId: "all"` (backup of the previous settings: `settings.json.before-0.2.2`). Mic is pinned to the OnePlus Buds 4 hands-free endpoint, which forces Bluetooth call mode while listening.
+Real-use findings (2026-11-22): pinned single-output loopback missed the interviewer, so the default is now all outputs mixed. FTS-only retrieval missed the résumé on "introduce yourself", so candidate questions now always attach the top résumé chunks. Check with `node tools/interview-check.mjs --exe <Hirora.exe> --system keep` (speaks questions; copies the profile).
 
 The user's Gemini key is in the legacy DPAPI vault `%APPDATA%\VeyraCue` (and, once migrated, `%APPDATA%\Hirora`). Live tests copy the profile to a temp folder (`HIRORA_LIVE_PROFILE`, migrated via `HIRORA_MIGRATE_FROM`), never modify it, and never print the key. Ollama 0.40 is installed per-user on this machine with `qwen3.5:4b` (RTX 4060 Laptop, 8 GB).
 
