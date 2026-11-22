@@ -17,11 +17,23 @@ GPU tier as below (RTX 4060 Laptop, `qwen3.5:4b`, 2 slots), laptop on AC, dev bu
 
 Installed 0.3.1 (`--exe Desktop\Hirora\Hirora.exe`), same check: 1979 ms and 1487 ms with the screen (captures 473 and 676 ms; both answers named all five routes), 506 ms for "What is RBAC?".
 
-**Typed questions, installed 0.3.1** (`tools/quiet-check.mjs`, copy of the owner's profile, AC, two runs with the first-person and code-layout lines; the final build adds one sentence to the system prompt, which is pre-read at warm-up): p50 **0.45 s**; 416, 425, 441, 444, 445, 453, 456, 458, 461, 483, 1174, 1320 ms (n=12; the owner was using the PC during these runs). Every question about the user answered in the first person. Whisper large-v3-turbo on the WAV questions: 116–168 ms once warm (first request 585–588 ms). First question after launch: 11–12 s. Earlier runs: before the first-person line 410–465 ms (n=6), and it answered "What are your strengths and weaknesses?" with "Your main strength is…"; with it but before the code line 497–762 ms (n=12).
+**Typed questions, installed 0.3.1** (`tools/quiet-check.mjs`, copy of the owner's profile, AC, two runs with the first-person and code-layout lines; the final build adds one sentence to the system prompt, which is pre-read at warm-up): p50 **0.45 s**; 416, 425, 441, 444, 445, 453, 456, 458, 461, 483, 1174, 1320 ms (n=12). Every question about the user answered in the first person. Whisper large-v3-turbo on the WAV questions: 116–168 ms once warm (first request 585–588 ms). First question after launch: 11–12 s. Earlier runs: before the first-person line 410–465 ms (n=6), and it answered "What are your strengths and weaknesses?" with "Your main strength is…"; with it but before the code line 497–762 ms (n=12).
 
 **Code layout** (dev build with the code line, AC): "Write a function that checks whether a string has balanced brackets." → **Answer**/**Approach**/**Complexity**/**Tests** with a code block, first token 476 ms (592 ms installed); before the line it was prose with no code. "Can you establish an RBAC protocol in this?" with the router on screen → **Answer**/**Approach**/**Code** naming `issueRefund`, `deleteOrder`, `/orders/:id`, first token 1977 ms.
 
-**Screen while the PC was in use** (installed, the owner's chat window in front of the test page, so the capture showed that window): screen questions 2.2–5.1 s to the first token with 1.0–1.5 s captures. Before the "not visible" line the model invented routes (`/admin/config`, `/users/manage`); with it, it said the routes can't be told from that window. Not re-run with the code page in front on the final build (the PC was in use).
+**Another window in front** (installed): in three runs the capture showed the window that had been active when the check started (a chat app, then the Claude app) instead of Edge, because Windows doesn't let a background process take the foreground. Screen questions then took 2.1–5.1 s with 0.8–1.5 s captures. Before the "not visible" line the model invented routes (`/admin/config`, `/users/manage`); with it, it said the screen showed something else. `screen-check.mjs` now pins its Edge window on top (`SetWindowPos` topmost) and clears the answer memory before the no-code question.
+
+**Final installed build, Edge pinned on top** (two runs, AC):
+
+| Question | First token | Capture | From the screen |
+|---|---|---|---|
+| "Can you establish an RBAC protocol in this?" | 3058 / 3295 ms | 1078 / 1117 ms | `issueRefund`, `deleteOrder`, `/refunds`, `/orders/:id`, `router`; code block |
+| "What is RBAC?" (no screen) | 604 / 680 ms | — | — |
+| "Which of these routes should only an admin be allowed to call?" | 2280 / 2411 ms | 1060 / 1195 ms | `/refunds/:orderId`, `/orders/:id` |
+| "Write a function that checks…balanced brackets." (no screen) | 598 / 734 ms | — | code block; the code-layout labels in the first run only |
+| Same route question with a notes page on screen, memory cleared (second run) | 2325 ms | 1597 ms | "I can't see any code or routes on that screen; it's just a team offsite notice…", then general examples labelled as general knowledge |
+
+Captures were slower in these runs (1.1–1.6 s) than in the earlier ones (0.47–0.76 s); across all runs with code in front, screen questions started in 1.5–3.3 s.
 
 Capture width vs first token, raw Ollama with the same image (laptop on battery): 1600 px 2.9 s, 1280 px 1.3 s, 1024 px 0.85 s; the same image again 0.25–0.35 s. 1280 px keeps 28 px code legible. Once, at 1600 px, the first image request stalled in Ollama's image step after a context-checkpoint restore until the 30 s first-token timeout (the retry on the other slot answered); not reproduced at 1280 px, and image requests now time out after 15 s so the retry comes sooner.
 

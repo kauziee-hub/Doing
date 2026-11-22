@@ -4,6 +4,7 @@
 // unrelated, and reports whether the screen was used, the latency and the answer. Fresh profile.
 //   node tools/screen-check.mjs [--exe <Hirora.exe>]
 import { _electron as electron, chromium } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -14,6 +15,16 @@ const APP = resolve('apps/desktop');
 const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/dist/electron.exe');
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', ...(exeIdx >= 0 ? [] : [APP])];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Windows doesn't let a background process take the foreground, so a window that was active
+// when the check started (the terminal, a chat app) can stay in front of Edge and end up in the
+// capture instead. Pin the test window above other windows (topmost) and maximise it.
+const pinOnTop = (title) => {
+  const ps = `Add-Type -Name W -Namespace H -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr h, System.IntPtr a, int x, int y, int cx, int cy, uint f); [DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h);'
+$p = Get-Process msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like '${title}*' } | Select-Object -First 1
+if ($p) { [void][H.W]::ShowWindow($p.MainWindowHandle, 3); [void][H.W]::SetWindowPos($p.MainWindowHandle, [System.IntPtr](-1), 0, 0, 0, 0, 3); [void][H.W]::SetForegroundWindow($p.MainWindowHandle); 'pinned' } else { 'not found' }`;
+  return execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' }).trim() === 'pinned';
+};
+const TITLE = 'Hirora screen check';
 
 const CODE = `// orders-service/routes.js
 const express = require('express');
@@ -30,7 +41,7 @@ module.exports = router;`;
 const browser = await chromium.launch({ channel: 'msedge', headless: false, args: ['--start-maximized'] });
 const ctx = await browser.newContext({ viewport: null });
 const page = await ctx.newPage();
-await page.setContent(`<!doctype html><title>Shared screen</title><body style="margin:0;background:#1e1e1e;color:#d4d4d4;font:28px/1.5 Consolas,monospace;padding:48px"><pre>${CODE.replace(/</g, '&lt;')}</pre></body>`);
+await page.setContent(`<!doctype html><title>${TITLE}</title><body style="margin:0;background:#1e1e1e;color:#d4d4d4;font:28px/1.5 Consolas,monospace;padding:48px"><pre>${CODE.replace(/</g, '&lt;')}</pre></body>`);
 await sleep(800);
 
 const ud = mkdtempSync(join(tmpdir(), 'hirora-screen-'));
@@ -51,6 +62,8 @@ await dash.evaluate(() => {
 });
 // Keep Edge in front, like a call app showing a shared screen (Hirora's windows are left out of captures anyway).
 await page.bringToFront();
+const edgeOnTop = pinOnTop(TITLE);
+await sleep(500);
 const ask = async (text) => {
   const r = await call('ask:text', { text });
   for (let i = 0; i < 480; i++) {
@@ -68,7 +81,9 @@ for (const q of ['Can you establish an RBAC protocol in this?', 'What is RBAC?',
   out.push({ q, status: a?.status, usedScreen: !!a?.usedScreen, firstTokenMs: a?.firstTokenMs, totalMs: a?.totalMs, hasCode: /```/.test(a?.text ?? ''), sections: ['Answer', 'Approach', 'Code', 'Complexity', 'Tests'].filter((h) => a?.text?.includes(`**${h}**`)), mentions: ['issueRefund', 'deleteOrder', '/refunds', '/orders/:id', 'router'].filter((w) => a?.text?.includes(w)), text: (a?.text ?? '').replace(/\s+/g, ' ').slice(0, 400) });
 }
 // Same question with no code on screen: the answer should say it can't see any routes, not invent them.
-await page.setContent('<!doctype html><title>Notes</title><body style="margin:0;background:#fff;color:#222;font:26px/1.6 Georgia,serif;padding:64px"><h1>Team offsite</h1><p>Lunch is at 12:30 in the main hall. Please bring a laptop charger and a notebook. The afternoon session covers the hiring plan for next quarter.</p></body>');
+// Clear the transcript and answer memory first, or the model can repeat its earlier answer about the routes.
+await call('session:clearTranscript');
+await page.setContent(`<!doctype html><title>${TITLE}</title><body style="margin:0;background:#fff;color:#222;font:26px/1.6 Georgia,serif;padding:64px"><h1>Team offsite</h1><p>Lunch is at 12:30 in the main hall. Please bring a laptop charger and a notebook. The afternoon session covers the hiring plan for next quarter.</p></body>`);
 await page.bringToFront();
 await sleep(600);
 {
@@ -80,4 +95,4 @@ const perf = await call('perf:summary');
 await app.close();
 await browser.close();
 rmSync(ud, { recursive: true, force: true });
-console.log(JSON.stringify({ engine: { tier: engine.tier, answers: engine.answerModel }, results: out, screenCapture: (perf.recent ?? []).filter((r) => r.stage === 'screen_capture').map((r) => `${Math.round(r.ms)} ms ${r.label}`) }, null, 1));
+console.log(JSON.stringify({ engine: { tier: engine.tier, answers: engine.answerModel }, edgeOnTop, results: out, screenCapture: (perf.recent ?? []).filter((r) => r.stage === 'screen_capture').map((r) => `${Math.round(r.ms)} ms ${r.label}`) }, null, 1));
