@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Download Hirora for Windows 11. Free installer, system requirements, install steps and checksum." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Download Hirora for Windows" />
+    <meta property="og:description" content="Free installer, requirements and setup steps for Hirora, the meeting assistant that runs on your PC." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Download Hirora for Windows</title>
+  </head>
+  <body>
+    <!--@header-->
+    <main id="main">
+      <header class="page-head">
+        <div class="wrap">
+          <p class="eyebrow">Download</p>
+          <h1>Get Hirora for Windows</h1>
+          <p class="lede">One installer, then a one-time setup inside the app that downloads the speech and answer models for your PC.</p>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="wrap">
+          <section class="dl" aria-label="Download">
+            <div class="dl__main">
+              <h2>Hirora for Windows</h2>
+              <p class="muted" style="margin: 8px 0 24px" data-release-detail>Windows 11 · 64-bit</p>
+              <a class="btn btn--primary btn--lg" href="#" data-download-link>Download installer</a>
+              <p class="small muted" style="margin-top: 18px">The installer isn't code-signed yet, so Windows SmartScreen may show “Windows protected your PC”. Choose <strong>More info → Run anyway</strong>, but only after the checksum on this page matches your file.</p>
+            </div>
+            <dl class="dl__side">
+              <div><dt>Price</dt><dd>Free. No account, no subscription.</dd></div>
+              <div><dt>Installer</dt><dd><span data-release-short>Latest version</span></dd></div>
+              <div><dt>First-run download</dt><dd>6.2 GB with an NVIDIA graphics card (6 GB or more), 3.2 GB otherwise</dd></div>
+              <div data-sha-wrap hidden>
+                <dt>SHA-256</dt>
+                <dd class="sha"><code data-sha></code><button type="button" data-copy-sha>Copy</button></dd>
+              </div>
+            </dl>
+          </section>
+
+          <div class="doc" style="margin-top: clamp(56px, 7vw, 88px)">
+            <nav class="toc" aria-label="On this page">
+              <strong>On this page</strong>
+              <a href="#requirements">Requirements</a>
+              <a href="#install">Install</a>
+              <a href="#verify">Verify the download</a>
+              <a href="#first-run">First run</a>
+              <a href="#update">Update</a>
+              <a href="#uninstall">Uninstall</a>
+            </nav>
+            <article class="prose">
+              <h2 id="requirements">Requirements</h2>
+              <p>Hirora runs its AI on your computer, so the hardware decides how fast it is. It picks one of two setups automatically, and you can switch in Settings → Engine.</p>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th></th><th>Fast setup</th><th>Processor setup</th></tr></thead>
+                  <tbody>
+                    <tr><td>Used when</td><td>NVIDIA graphics card with 6 GB of memory or more</td><td>Any other PC</td></tr>
+                    <tr><td>Speech model</td><td>Whisper large-v3-turbo on the graphics card</td><td>Whisper small on the processor</td></tr>
+                    <tr><td>Answer model</td><td>Qwen 3.5 4B (also reads screenshots)</td><td>Qwen 3 1.7B</td></tr>
+                    <tr><td>Speed (measured)</td><td>Answer starts 0.3–2.7 s after a spoken question, ~0.55 s after a typed one</td><td>Answer starts 2.3–3.6 s after a spoken question</td></tr>
+                    <tr><td>One-time download</td><td>6.2 GB</td><td>3.2 GB</td></tr>
+                    <tr><td>Free disk space</td><td>About 10 GB during setup</td><td>About 6 GB during setup</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li><strong>Windows 11, 64-bit.</strong> Other versions haven't been tested.</li>
+                <li><strong>Memory:</strong> tested with 16 GB of RAM.</li>
+                <li><strong>Internet</strong> only for the one-time setup. After that Hirora works offline.</li>
+                <li><strong>Audio:</strong> a microphone and speakers or headphones. Headphones keep your mic from picking up the other side.</li>
+                <li><strong>Laptops:</strong> keep it plugged in during calls. On battery the graphics card slows down a lot.</li>
+              </ul>
+
+              <h2 id="install">Install</h2>
+              <ol class="numbered">
+                <li><div><h3>Download the installer</h3><p>Use the button above. It's about 110 MB.</p></div></li>
+                <li><div><h3>Run it</h3><p>Double-click <code>Hirora-Setup-…-x64-unsigned.exe</code>. If SmartScreen appears, check the file (next section), then choose <strong>More info → Run anyway</strong>. It installs for your user only; no admin rights are needed.</p></div></li>
+                <li><div><h3>Open Hirora and press Set up</h3><p>The first screen shows your hardware and what will be downloaded. Press <strong>Set up Hirora</strong>; progress is shown for each part and interrupted downloads resume.</p></div></li>
+                <li><div><h3>Add your documents (optional)</h3><p>Notes, specs, a job description or your résumé make answers specific to you. They are indexed on your PC.</p></div></li>
+                <li><div><h3>Start listening</h3><p>Press Start (or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>L</kbd>) and confirm everyone has agreed to be transcribed.</p></div></li>
+              </ol>
+
+              <h2 id="verify">Verify the download</h2>
+              <p>Compare the file's SHA-256 with the one shown above. In PowerShell:</p>
+              <ol class="numbered">
+                <li><div><h3>Open PowerShell in your Downloads folder</h3><pre>cd $env:USERPROFILE\Downloads
+Get-FileHash .\Hirora-Setup-*.exe -Algorithm SHA256</pre></div></li>
+                <li><div><h3>Compare</h3><p>The <code>Hash</code> value must match the SHA-256 above exactly. If it doesn't, delete the file and download it again.</p></div></li>
+              </ol>
+
+              <h2 id="first-run">What the first run downloads</h2>
+              <p>Everything comes from the projects' official sources and is checked against a published SHA-256 before it is used:</p>
+              <ul>
+                <li><strong>Answer engine</strong>: the Ollama runtime (1.6 GB) from GitHub. If you already have Ollama installed, Hirora reuses it and its models.</li>
+                <li><strong>Speech recognition</strong>: whisper.cpp from GitHub (685 MB with NVIDIA CUDA, 9 MB for the processor).</li>
+                <li><strong>Speech model</strong>: Whisper from Hugging Face (574 MB or 190 MB).</li>
+                <li><strong>Answer model</strong>: Qwen from the Ollama library (3.3 GB or 1.4 GB).</li>
+              </ul>
+              <p>On a home connection the processor setup took about 17 minutes in our test.</p>
+
+              <h2 id="update">Update</h2>
+              <p>Download the new installer and run it; your settings, documents and the downloaded models are kept. Release notes are in the <a href="/changelog">changelog</a>.</p>
+
+              <h2 id="uninstall">Uninstall</h2>
+              <p>Windows Settings → Apps → Installed apps → Hirora → Uninstall. Your data stays so a reinstall keeps your setup. To remove everything, also delete <code>%APPDATA%\Hirora</code> (settings, documents, history) and <code>%LOCALAPPDATA%\Hirora</code> (speech and answer models).</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </main>
+    <!--@footer-->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

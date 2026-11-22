@@ -22,4 +22,5 @@ secrets.json
 apps/website/public/download/
 apps/website/public/img/home-*.png
 apps/website/public/img/overlay.png
+apps/website/public/img/engine.png
 apps/website/src/release.json

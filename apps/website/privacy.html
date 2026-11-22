@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Hirora's privacy policy: no account, no server, no telemetry. What is stored on your PC and what the one-time setup downloads." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Privacy — Hirora" />
+    <meta property="og:description" content="No account, no server, no telemetry. Everything runs on your PC." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Privacy — Hirora</title>
+  </head>
+  <body>
+    <!--@header-->
+    <main id="main">
+      <header class="page-head">
+        <div class="wrap">
+          <p class="eyebrow">Privacy</p>
+          <h1>Your calls stay on your PC.</h1>
+          <p class="lede">Hirora has no account system, no server and no analytics. Speech recognition and answers run on your computer, so nothing you say, type or add is sent anywhere.</p>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="wrap doc">
+          <nav class="toc" aria-label="On this page">
+            <strong>Privacy</strong>
+            <a href="#collect">What we collect</a>
+            <a href="#stored">Stored on your PC</a>
+            <a href="#network">Network use</a>
+            <a href="#capture">Audio and screen</a>
+            <a href="#delete">Deleting data</a>
+            <a href="#website">This website</a>
+            <a href="#consent">Consent</a>
+          </nav>
+          <article class="prose">
+            <h2 id="collect">What we collect</h2>
+            <p>Nothing. Hirora doesn't have accounts, keys, telemetry, crash reporting or usage analytics. There is no Hirora server that your audio, transcripts, documents or questions could reach.</p>
+
+            <h2 id="stored">What is stored on your PC</h2>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Data</th><th>Where</th><th>When</th></tr></thead>
+                <tbody>
+                  <tr><td>Settings</td><td><code>%APPDATA%\Hirora\settings.json</code></td><td>Always</td></tr>
+                  <tr><td>Documents you add</td><td><code>hirora.db</code>: extracted text and a search index, never a copy of the file</td><td>Only what you add</td></tr>
+                  <tr><td>Profiles</td><td><code>hirora.db</code></td><td>Only what you enter</td></tr>
+                  <tr><td>Transcripts and answers</td><td><code>hirora.db</code></td><td>Off by default; kept for the period you choose</td></tr>
+                  <tr><td>Timings</td><td><code>hirora.db</code>, no content</td><td>Always; clearable on the Performance page</td></tr>
+                  <tr><td>Logs</td><td><code>%APPDATA%\Hirora\logs</code>, metadata only</td><td>Always, rotated at 5 MB</td></tr>
+                  <tr><td>Speech and answer models</td><td><code>%LOCALAPPDATA%\Hirora</code> (or your existing Ollama folder)</td><td>After setup</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>Raw audio is never written to disk. Screenshots you take as context are held in memory for up to five minutes while you preview them, then discarded.</p>
+
+            <h2 id="network">Network use</h2>
+            <p>The app connects to the internet only for the one-time engine setup, to download:</p>
+            <ul>
+              <li>the Ollama runtime and whisper.cpp from GitHub,</li>
+              <li>the Whisper speech model from Hugging Face,</li>
+              <li>the Qwen answer model from the Ollama library.</li>
+            </ul>
+            <p>These are ordinary file downloads: no account, key or personal data is involved, and each file is checked against its published SHA-256. Hirora's speech and answer engines then run on <code>127.0.0.1</code> and accept no connections from other computers.</p>
+
+            <h2 id="capture">Audio and screen</h2>
+            <ul>
+              <li>Nothing is captured until you press Start and confirm the consent prompt. A “Listening” badge shows while capture is on.</li>
+              <li>Your microphone and the call's audio are captured as separate streams and transcribed in memory.</li>
+              <li>Clipboard text and screenshots are used only after you preview them and press Send. Likely passwords and keys are flagged so you can redact them.</li>
+            </ul>
+
+            <h2 id="delete">Deleting data</h2>
+            <ul>
+              <li>A document: Knowledge → delete. Its text and index are removed.</li>
+              <li>History: the History page, per session or all at once.</li>
+              <li>Everything: Settings → Privacy &amp; data → Delete all data.</li>
+              <li>The app and its models: uninstall, then delete <code>%APPDATA%\Hirora</code> and <code>%LOCALAPPDATA%\Hirora</code>.</li>
+            </ul>
+
+            <h2 id="website">This website</h2>
+            <p>This site is a set of static pages hosted on Vercel, with no cookies, analytics or third-party scripts. The installer is served from Vercel Blob storage. Like any web host, Vercel processes standard request data (such as IP addresses) to deliver pages.</p>
+
+            <h2 id="consent">Consent and acceptable use</h2>
+            <p>Transcribing other people requires their consent in many places. Many interviews and assessments forbid AI assistance. Hirora's option to stay out of screen shares is a privacy convenience that some capture methods ignore; it is not a way to hide the use of AI from anyone entitled to know.</p>
+          </article>
+        </div>
+      </div>
+    </main>
+    <!--@footer-->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

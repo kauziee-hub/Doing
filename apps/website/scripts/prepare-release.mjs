@@ -50,6 +50,7 @@ const want = {
   'home-light.png': ['local-home-light.png'],
   'home-dark.png': ['local-home-dark.png'],
   'overlay.png': ['local-overlay.png'],
+  'engine.png': ['local-engine.png'],
 };
 mkdirSync(join(site, 'public', 'img'), { recursive: true });
 for (const [dest, candidates] of Object.entries(want)) {

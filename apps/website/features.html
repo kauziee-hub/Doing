@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Hirora features: live transcription, instant answers, meeting notes, answers grounded in your documents, a quiet overlay and a private AI engine that runs on your PC." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hirora features" />
+    <meta property="og:description" content="Live transcripts, instant answers and meeting notes, with AI that runs on your own PC." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Features — Hirora</title>
+  </head>
+  <body>
+    <!--@header-->
+    <main id="main">
+      <header class="page-head">
+        <div class="wrap">
+          <p class="eyebrow">Features</p>
+          <h1>Listen, understand, answer. Locally.</h1>
+          <p class="lede">Hirora combines live speech recognition, a small fast language model and your own documents, all running on your computer.</p>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="wrap doc">
+          <nav class="toc" aria-label="On this page">
+            <strong>Features</strong>
+            <a href="#transcript">Live transcript</a>
+            <a href="#answers">Instant answers</a>
+            <a href="#modes">Modes</a>
+            <a href="#documents">Your documents</a>
+            <a href="#overlay">Overlay and shortcuts</a>
+            <a href="#engine">The engine</a>
+            <a href="#privacy">Privacy</a>
+          </nav>
+          <article class="prose">
+            <h2 id="transcript">Live transcript</h2>
+            <p>Hirora captures your microphone and what plays through your speakers or headphones as two separate streams, so you always know who said what. It hears the call wherever it plays: Meet in a browser tab, the Teams or Zoom app, or a Bluetooth headset that switches to its hands-free mode.</p>
+            <ul>
+              <li>Text appears while people speak and is finalised when they pause.</li>
+              <li>A custom vocabulary teaches it names, products and acronyms.</li>
+              <li>Background chatter (“wait a minute”, someone in the room) is recognised as such and doesn't trigger answers.</li>
+              <li>Audio is processed in memory and never written to disk.</li>
+            </ul>
+
+            <h2 id="answers">Instant answers</h2>
+            <p>When the other side asks a question, Hirora starts writing the answer before they finish speaking and shows it the moment they pause. You can also type a question, paste text from the clipboard, or share a screenshot after previewing it.</p>
+            <ul>
+              <li>Answers read like a person explaining, not a chatbot: connected sentences, no filler.</li>
+              <li>Follow-ups in one click: Expand, Explain simply, Make it shorter.</li>
+              <li>Coding answers include working code and test cases, with a Copy button.</li>
+            </ul>
+
+            <h2 id="modes">Modes</h2>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>Mode</th><th>What you get</th></tr></thead>
+                <tbody>
+                  <tr><td>Meeting Notes</td><td>Stays quiet during the call; when you ask, summarises decisions, action items with owners and open questions from the transcript.</td></tr>
+                  <tr><td>General Q&amp;A</td><td>Short, direct answers to whatever comes up.</td></tr>
+                  <tr><td>Explain / Teach</td><td>Plain-language explanations with an example, for lectures and learning.</td></tr>
+                  <tr><td>Coding</td><td>Explanation, code, complexity and tests for programming questions.</td></tr>
+                  <tr><td>Interview Practice</td><td>Answers built from your résumé for mock interviews.</td></tr>
+                  <tr><td>Live Copilot</td><td>Quiet cues for calls where AI assistance is permitted.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 id="documents">Your documents</h2>
+            <p>Add PDFs, Word files, text, Markdown or code: notes, specs, a job description, a résumé. Hirora indexes them on your PC and uses the most relevant passages in its answers, citing the file and page. If an answer would need a fact that isn't in your materials, it says so instead of inventing one.</p>
+
+            <h2 id="overlay">Overlay and shortcuts</h2>
+            <p>The overlay is a small translucent window that floats above your call and never takes focus away from it. Drag it anywhere, make it compact, or move it to another monitor.</p>
+            <img class="frame frame--dark" src="/img/overlay.png" alt="The Hirora overlay with a streamed coding answer" width="460" height="640" loading="lazy" style="max-width: 360px" />
+            <p>By default Windows is asked to leave Hirora's windows out of screen shares and screenshots: you see them, a shared screen doesn't. This works with Chrome, Edge and other apps that use Windows' standard capture, but cameras and some remote-desktop tools ignore it, so treat it as a privacy convenience, not invisibility.</p>
+            <p>Every action has a global shortcut, for example <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Space</kbd> to show the overlay. The full list is in the <a href="/guide#shortcuts">guide</a>.</p>
+
+            <h2 id="engine">The engine</h2>
+            <p>Hirora installs and runs its own engine: whisper.cpp for speech and an Ollama runtime for answers, both listening only on <code>127.0.0.1</code>. On first launch it checks your hardware and picks the right models.</p>
+            <img class="frame" src="/img/engine.png" alt="Hirora settings showing the engine installed on this PC" width="1267" height="825" loading="lazy" />
+            <p>With an NVIDIA graphics card (6 GB or more) it uses Whisper large-v3-turbo and Qwen 3.5 4B; elsewhere Whisper small and Qwen 3 1.7B on the processor. See the <a href="/download#requirements">requirements</a> for measured speeds.</p>
+
+            <h2 id="privacy">Privacy</h2>
+            <p>No account, no keys, no analytics. Nothing you say, type or add is sent anywhere; the only network use is the one-time engine download. History is off unless you turn it on. Read the <a href="/privacy">privacy page</a> for details.</p>
+          </article>
+        </div>
+      </div>
+    </main>
+    <!--@footer-->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

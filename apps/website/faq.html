@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Answers to common questions about Hirora: price, privacy, speed, hardware, supported apps and responsible use." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FAQ — Hirora" />
+    <meta property="og:description" content="Price, privacy, speed, hardware and more." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>FAQ — Hirora</title>
+  </head>
+  <body>
+    <!--@header-->
+    <main id="main">
+      <header class="page-head">
+        <div class="wrap">
+          <p class="eyebrow">FAQ</p>
+          <h1>Questions, answered</h1>
+          <p class="lede">Can't find yours? The <a href="/guide">guide</a> covers setup and troubleshooting in detail.</p>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="wrap">
+          <div class="faq">
+            <h2>General</h2>
+            <details><summary>What is Hirora?</summary><div><p>A desktop assistant for calls on Windows. It transcribes the call live, answers questions as they come up, and summarises decisions and action items when you ask, using AI models that run on your own computer.</p></div></details>
+            <details><summary>Is it really free?</summary><div><p>Yes. There's no account, subscription or key. Because everything runs on your PC there's no server to pay for and no usage limit.</p></div></details>
+            <details><summary>Which apps does it work with?</summary><div><p>Any call whose audio plays on your PC: Google Meet, Microsoft Teams, Zoom, Webex, Slack huddles, a browser tab or a video. Hirora listens to your speakers and headphones, not to the app itself, so nothing needs to be installed in the call app.</p></div></details>
+            <details><summary>Does it work on Mac or Linux?</summary><div><p>Not yet. Hirora uses Windows audio capture and is tested on Windows 11 (64-bit).</p></div></details>
+            <details><summary>Which languages does it understand?</summary><div><p>Whisper recognises many languages and detects them automatically; you can set yours in Settings → Engine for slightly faster results. Answers are written in the language you choose in Settings → Answers. Most testing has been in English.</p></div></details>
+
+            <h2>Privacy</h2>
+            <details><summary>Does anything I say leave my computer?</summary><div><p>No. Speech recognition and answers run on your PC. The only internet use is the one-time download of the engine. See the <a href="/privacy">privacy page</a>.</p></div></details>
+            <details><summary>Does it record my calls?</summary><div><p>No. Audio is transcribed in memory and never written to disk. Transcript history is off unless you turn it on.</p></div></details>
+            <details><summary>Can other people on the call see Hirora when I share my screen?</summary><div><p>By default Hirora asks Windows to leave its windows out of screen shares and screenshots, and that worked with Chrome and Edge screen sharing in our tests. Cameras, some remote-desktop tools and hardware capture ignore it, so don't rely on it.</p></div></details>
+
+            <h2>Speed and hardware</h2>
+            <details><summary>How fast are the answers?</summary><div><p>Measured with Hirora 0.3.0 on an RTX 4060 laptop, plugged in: a typed question gets its first answer word after a median 0.55 s (0.50–1.97 s over 12 questions), and Whisper transcribes a 2.4–3.5 s spoken question in 0.14–0.25 s. With spoken questions, when the question was clear before the speaker finished, the answer appeared 0.3 s after they stopped; otherwise it started 1.2–2.7 s after.</p><p>The first question after pressing Start waits about 15–20 s while the model loads, so start a minute before the call.</p></div></details>
+            <details><summary>Do I need a graphics card?</summary><div><p>No, but it helps a lot. With an NVIDIA card with 6 GB or more, Hirora uses larger models on the card. On other PCs it uses smaller models on the processor: in our test (graphics card switched off, laptop on battery) spoken questions were transcribed correctly and answers started 2.3–3.6 s after the speaker stopped. Reading screenshots needs the graphics-card setup.</p></div></details>
+            <details><summary>Why is it slow on my laptop?</summary><div><p>Most often the laptop is on battery: graphics cards slow down sharply to save power. Plug it in. Settings → Engine shows which setup is in use.</p></div></details>
+            <details><summary>How much does it download?</summary><div><p>6.2 GB with an NVIDIA card, 3.2 GB otherwise, once. If you already use Ollama, Hirora reuses it and its models.</p></div></details>
+            <details><summary>How good are the answers?</summary><div><p>They come from small models (4B or 1.7B parameters) chosen for speed, not from a large cloud model. They're good at explanations, definitions, code and answers grounded in your documents, and they're instructed to say when your materials don't cover something rather than invent it. Check anything important.</p></div></details>
+
+            <h2>Install and use</h2>
+            <details><summary>Why does Windows warn me when I install?</summary><div><p>The installer isn't code-signed yet. Compare the SHA-256 on the <a href="/download#verify">download page</a> with your file (<code>Get-FileHash .\Hirora-Setup-*.exe</code> in PowerShell). If they match, choose More info → Run anyway.</p></div></details>
+            <details><summary>Do I need to be online?</summary><div><p>Only for the first setup. After that Hirora works without an internet connection.</p></div></details>
+            <details><summary>Is Hirora allowed in interviews?</summary><div><p>Often not. Many interviews and assessments forbid AI help, so check the rules first. Hirora is meant for meetings, learning, practice and calls where assistance is permitted. Always tell people when you're transcribing them.</p></div></details>
+            <details><summary>Is the source code available?</summary><div><p>Yes, on <a href="https://github.com/kauziee-hub/hirora" rel="noopener">GitHub</a>.</p></div></details>
+          </div>
+        </div>
+      </div>
+    </main>
+    <!--@footer-->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

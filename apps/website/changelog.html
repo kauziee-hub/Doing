@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="What's new in each Hirora release." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Changelog — Hirora" />
+    <meta property="og:description" content="What's new in each Hirora release." />
+    <meta property="og:image" content="/img/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Changelog — Hirora</title>
+  </head>
+  <body>
+    <!--@header-->
+    <main id="main">
+      <header class="page-head">
+        <div class="wrap">
+          <p class="eyebrow">Changelog</p>
+          <h1>What's new</h1>
+          <p class="lede">Every release of Hirora, newest first. The full technical log is in the <a href="https://github.com/kauziee-hub/hirora/blob/main/CHANGELOG.md" rel="noopener">repository</a>.</p>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="wrap">
+          <section class="release">
+            <div><h2>0.3.0</h2><time datetime="2026-11-22">22 November 2026</time><span class="badge">Latest</span></div>
+            <ul>
+              <li><strong>Everything runs on your PC.</strong> Speech recognition and answers now always run locally. Cloud services, API keys and provider settings are gone.</li>
+              <li><strong>One-click setup.</strong> On first launch Hirora checks your hardware and downloads the right models, verifying every file. Interrupted downloads resume.</li>
+              <li><strong>Sized to your PC.</strong> NVIDIA graphics cards with 6 GB or more get the fast setup; other PCs get smaller models that run on the processor.</li>
+              <li>Questions asked right after starting wait for the engine instead of failing.</li>
+              <li>A cleaner app: a shorter first-run guide and simpler settings.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.2.4</h2><time datetime="2026-11-22">22 November 2026</time></div>
+            <ul>
+              <li>Answers start before the speaker finishes and appear as soon as they pause.</li>
+              <li>Live transcription with Whisper on the graphics card.</li>
+              <li>Questions that assume facts missing from your documents are answered honestly instead of invented.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.2.3</h2><time datetime="2026-11-22">22 November 2026</time></div>
+            <ul>
+              <li>Background talk in the room no longer triggers answers, while casual questions still do.</li>
+              <li>Answers read like a person explaining: connected paragraphs instead of bullet lists.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.2.2</h2><time datetime="2026-11-22">22 November 2026</time></div>
+            <ul>
+              <li>Hears the other side on every output, including Bluetooth headsets in hands-free mode.</li>
+              <li>The main window is left out of screen shares too.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.2.1</h2><time datetime="2026-11-21">21 November 2026</time></div>
+            <ul>
+              <li>The overlay is left out of screen shares and screenshots by default.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.2.0</h2><time datetime="2026-11-21">21 November 2026</time></div>
+            <ul>
+              <li>New name and look: VeyraCue became Hirora. Existing settings and documents carry over.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.1.0</h2><time datetime="2026-11-19">19 November 2026</time></div>
+            <ul>
+              <li>First release: live transcription, answers grounded in your documents, coding help and the translucent overlay.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </main>
+    <!--@footer-->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
