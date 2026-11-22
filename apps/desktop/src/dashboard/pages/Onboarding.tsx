@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { ArrowRight, Check, FileText, Lock, Mic, Zap } from 'lucide-react';
-import { MODES, MODE_LABELS } from '@hirora/contracts';
-import { Button, Field, cx } from '@hirora/ui';
+import { ArrowRight, Check, FileText, Lock, Mic, MonitorUp, Zap } from 'lucide-react';
+import { Button, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
 import { EngineSetup } from '../EngineSetup';
@@ -36,14 +35,10 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
             <div className="ob-points">
               <div><Zap size={16} /><span><strong>Fast.</strong> Answers usually start within half a second of the question ending.</span></div>
               <div><Lock size={16} /><span><strong>Private.</strong> Everything runs on this PC. No account, no keys, nothing you say is sent anywhere.</span></div>
-              <div><Mic size={16} /><span><strong>Only when you say so.</strong> Nothing is captured until you press Start and confirm. Audio is never saved.</span></div>
+              <div><MonitorUp size={16} /><span><strong>Sees what's shared.</strong> When someone shows code or a slide and asks about it, Hirora looks at your screen too.</span></div>
+              <div><Mic size={16} /><span><strong>Only when you say so.</strong> Nothing is captured until you press Start and confirm. Audio and screen captures are never saved.</span></div>
             </div>
             <p className="dash-small">Use it for practice and for calls where it is allowed. Respect the rules of any interview or assessment, and other people’s consent.</p>
-            <Field label="What will you use Hirora for first?">
-              <select className="vc-select" value={settings.answer.mode} onChange={(e) => void patch({ answer: { mode: e.target.value } })}>
-                {MODES.map((m) => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
-              </select>
-            </Field>
           </>
         ) : null}
 

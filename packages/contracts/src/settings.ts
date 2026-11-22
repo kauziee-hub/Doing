@@ -32,7 +32,12 @@ export const AUDIO_SOURCES = ['mic', 'system', 'app'] as const;
 export const AudioSourceSchema = z.enum(AUDIO_SOURCES);
 export type AudioSource = z.infer<typeof AudioSourceSchema>;
 
+/**
+ * Since 0.3.1 there is one mode, `assistant`: it works out what each request needs. The older
+ * values stay valid only so saved history and profiles keep loading.
+ */
 export const MODES = [
+  'assistant',
   'interview_practice',
   'live_copilot',
   'coding',
@@ -44,6 +49,7 @@ export const ModeSchema = z.enum(MODES);
 export type Mode = z.infer<typeof ModeSchema>;
 
 export const MODE_LABELS: Record<Mode, string> = {
+  assistant: 'Assistant',
   interview_practice: 'Interview Practice',
   live_copilot: 'Live Authorised Copilot',
   coding: 'Coding',
@@ -53,6 +59,7 @@ export const MODE_LABELS: Record<Mode, string> = {
 };
 
 export const MODE_SHORT_LABELS: Record<Mode, string> = {
+  assistant: 'Assistant',
   interview_practice: 'Practice',
   live_copilot: 'Copilot',
   coding: 'Coding',
@@ -107,7 +114,13 @@ export const AppSettingsSchema = z.object({
     .prefault({}),
   answer: z
     .object({
-      mode: ModeSchema.default('interview_practice'),
+      /** Always `assistant` (one mode does everything); older saved values are read as it. */
+      mode: z.literal('assistant').catch('assistant').default('assistant'),
+      /**
+       * Look at the screen with a question: `auto` when the question refers to something shown
+       * ("this code", "what's on the slide"), `always`, or `off`. Needs a model that reads images.
+       */
+      screen: z.enum(['auto', 'always', 'off']).default('auto'),
       length: z.enum(['short', 'medium', 'long']).default('medium'),
       tone: z.string().max(200).default('confident, warm, concise'),
       format: z.enum(['talking_points', 'paragraph', 'star']).default('paragraph'),

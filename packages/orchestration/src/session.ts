@@ -284,7 +284,7 @@ export class SessionController {
 
   private isAutoSource(source: TranscriptSegment['source']): boolean {
     const s = this.deps.settings();
-    return s.answer.autoAnswer && s.answer.mode !== 'meeting_notes' && s.answer.autoAnswerSources.includes(source as AudioSource);
+    return s.answer.autoAnswer && s.answer.autoAnswerSources.includes(source as AudioSource);
   }
 
   /** Live text from the other side: start answering early if it already reads as a question. */
@@ -363,7 +363,7 @@ export class SessionController {
     if (this.segments.length > MAX_SEGMENTS) this.segments.splice(0, this.segments.length - MAX_SEGMENTS);
     if (this.recordHistory && this.sessionId) this.deps.history()?.segment(this.sessionId, seg);
     const s = this.deps.settings();
-    const autoSource = s.answer.autoAnswer && s.answer.mode !== 'meeting_notes' && s.answer.autoAnswerSources.includes(seg.source as AudioSource);
+    const autoSource = s.answer.autoAnswer && s.answer.autoAnswerSources.includes(seg.source as AudioSource);
     if (!autoSource) {
       // Never auto-answered (e.g. the user's own mic): only remembered for the manual Ask hotkey.
       if (seg.isQuestion) {

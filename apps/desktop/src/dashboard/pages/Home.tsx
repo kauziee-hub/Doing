@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowUp, BookOpen, Check, Code2, Eye, Headphones, HelpCircle, Lightbulb, MessagesSquare, Mic, NotebookPen, Pause, Play, Radio, Sparkles, Square, UserRound, Waves,
+  ArrowUp, BookOpen, Check, Code2, Eye, Headphones, Lightbulb, MessagesSquare, Mic, MonitorUp, NotebookPen, Pause, Play, Sparkles, Square, UserRound, Waves,
 } from 'lucide-react';
-import type { DocumentSummary, Mode } from '@hirora/contracts';
-import { MODE_LABELS } from '@hirora/contracts';
+import type { DocumentSummary } from '@hirora/contracts';
 import { Button, Card, LevelMeter, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
@@ -11,13 +10,14 @@ import { AnswerView, ConsentModal, TranscriptLine } from '../../overlay/Overlay'
 import { PageHeader } from '../App';
 import { EngineSetup } from '../EngineSetup';
 
-const MODE_TILES: Array<{ mode: Mode; icon: typeof Mic; hint: string }> = [
-  { mode: 'interview_practice', icon: MessagesSquare, hint: 'Rehearse answers' },
-  { mode: 'live_copilot', icon: Radio, hint: 'Authorised calls' },
-  { mode: 'coding', icon: Code2, hint: 'Code, tests, Big-O' },
-  { mode: 'explain', icon: Lightbulb, hint: 'Teach me simply' },
-  { mode: 'general', icon: HelpCircle, hint: 'Quick facts' },
-  { mode: 'meeting_notes', icon: NotebookPen, hint: 'Decisions & actions' },
+/** What the one assistant does; information only (there is nothing to pick). */
+const ABILITIES: Array<{ icon: typeof Mic; label: string; hint: string }> = [
+  { icon: MessagesSquare, label: 'Answers as they ask', hint: 'Questions about you, concepts, anything' },
+  { icon: MonitorUp, label: 'Reads the shared screen', hint: '“Add RBAC to this code”' },
+  { icon: Code2, label: 'Writes and fixes code', hint: 'Code, complexity, tests' },
+  { icon: BookOpen, label: 'Uses your documents', hint: 'Résumé, notes, job description' },
+  { icon: NotebookPen, label: 'Summarises on request', hint: 'Decisions and action items' },
+  { icon: Lightbulb, label: 'Explains simply', hint: 'One click: simpler, shorter, deeper' },
 ];
 
 function stateText(s: string | undefined): string {
@@ -27,7 +27,6 @@ function stateText(s: string | undefined): string {
 
 export function Home({ go }: { go: (page: string) => void }) {
   const settings = useLive((s) => s.settings);
-  const setSettings = useLive((s) => s.setSettings);
   const snapshot = useLive((s) => s.snapshot);
   const segments = useLive((s) => s.segments);
   const answers = useLive((s) => s.answers);
@@ -58,7 +57,7 @@ export function Home({ go }: { go: (page: string) => void }) {
       <PageHeader
         light="Ready when"
         bold="you are."
-        sub="Pick what you're doing, start listening, and Hirora cues you in quietly — here or in the floating overlay."
+        sub="Start listening and ask anything. Answers appear here and in the floating overlay."
         right={
           <span className="dash-status-pill">
             <span className={cx('dot', state === 'listening' && 'is-live', state === 'paused' && 'is-paused')} />
@@ -75,22 +74,15 @@ export function Home({ go }: { go: (page: string) => void }) {
       ) : null}
       <div className="dash-cols">
         <Card>
-          <h2 className="dash-section-title">What are you doing?</h2>
-          <p className="dash-section-sub">The mode shapes every answer — length, format and what counts as evidence.</p>
-          <div className="dash-modes" role="radiogroup" aria-label="Mode">
-            {MODE_TILES.map(({ mode, icon: Icon, hint }) => (
-              <button
-                key={mode}
-                type="button"
-                role="radio"
-                aria-checked={settings.answer.mode === mode}
-                className={cx('dash-mode', settings.answer.mode === mode && 'is-active')}
-                onClick={async () => setSettings(await invoke('settings:update', { answer: { mode } }))}
-              >
-                <span className="dash-mode__icon"><Icon size={24} strokeWidth={1.6} /></span>
-                <span className="dash-mode__label">{MODE_LABELS[mode]}</span>
+          <h2 className="dash-section-title">Ask anything</h2>
+          <p className="dash-section-sub">One assistant for the whole call. It works out what each question needs, and looks at your screen when someone shows something and asks about it.</p>
+          <div className="dash-modes" aria-label="What Hirora does">
+            {ABILITIES.map(({ icon: Icon, label, hint }) => (
+              <div key={label} className="dash-mode is-static">
+                <span className="dash-mode__icon"><Icon size={22} strokeWidth={1.6} /></span>
+                <span className="dash-mode__label">{label}</span>
                 <span className="dash-mode__hint">{hint}</span>
-              </button>
+              </div>
             ))}
           </div>
           <div className="dash-start">

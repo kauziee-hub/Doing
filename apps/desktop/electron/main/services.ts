@@ -22,7 +22,7 @@ import {
   migrate,
 } from '@hirora/knowledge';
 import type { SqlDatabase } from '@hirora/knowledge';
-import { AnswerEngine, SessionController, runGate } from '@hirora/orchestration';
+import { AnswerEngine, SessionController, refersToScreen, runGate } from '@hirora/orchestration';
 import type { AudioInput } from '@hirora/orchestration';
 import { createAnswerProvider, createTranscriber, toProviderError } from '@hirora/providers';
 import type { FetchLike, TextModelProvider } from '@hirora/providers';
@@ -31,6 +31,7 @@ import { AudioHelper } from './audioHelper';
 import type { Logger } from './logger';
 import type { WindowManager } from './windows';
 import { EngineManager } from './engine';
+import { captureScreen } from './screenCapture';
 
 export function resolveHelperPath(): string | null {
   const exe = 'hirora-audio.exe';
@@ -89,6 +90,7 @@ export class AppServices {
       stableResume: () => this.stableResume(),
       lean: () => this.engine.tier === 'cpu',
       ready: () => this.ensureEngine(),
+      screen: (question) => this.screenFor(question),
       context: () => ({
         personal: this.knowledge.getProfile(),
         session: this.knowledge.getSessionProfile(this.settings.get().activeProfileId),
@@ -278,6 +280,21 @@ export class AppServices {
     } catch (err) {
       this.log.warn('answer model warm-up failed', { error: toProviderError(LOCAL_ENGINE, err).message });
     }
+  }
+
+  /**
+   * The screen for a question that points at something shown ("add RBAC to this code"), or
+   * every question with the `always` setting. Only for an answer model that reads images.
+   * Held in memory for this one request; never written to disk.
+   */
+  async screenFor(question: string): Promise<Array<{ type: 'image'; mimeType: 'image/jpeg'; base64: string }> | null> {
+    const mode = this.settings.get().answer.screen;
+    if (mode === 'off' || !this.engine.answerModelReadsImages) return null;
+    if (mode === 'auto' && !refersToScreen(question)) return null;
+    const t0 = performance.now();
+    const shot = await captureScreen(this.windows);
+    this.recordPerf({ stage: 'screen_capture', ms: performance.now() - t0, at: Date.now(), provider: null, model: null, label: shot ? `${shot.width}x${shot.height}` : 'failed' });
+    return shot ? [{ type: 'image', mimeType: 'image/jpeg', base64: shot.base64 }] : null;
   }
 
   /** For an answer about to be sent: waits for a warm-up in progress, or starts the engine if it is down. */

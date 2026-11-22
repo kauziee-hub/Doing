@@ -32,7 +32,8 @@
             <strong>Features</strong>
             <a href="#transcript">Live transcript</a>
             <a href="#answers">Instant answers</a>
-            <a href="#modes">Modes</a>
+            <a href="#assistant">One assistant</a>
+            <a href="#screen">Reads the shared screen</a>
             <a href="#documents">Your documents</a>
             <a href="#overlay">Overlay and shortcuts</a>
             <a href="#engine">The engine</a>
@@ -49,27 +50,38 @@
             </ul>
 
             <h2 id="answers">Instant answers</h2>
-            <p>When the other side asks a question, Hirora starts writing the answer before they finish speaking and shows it the moment they pause. You can also type a question, paste text from the clipboard, or share a screenshot after previewing it.</p>
+            <p>When the other side asks a question, Hirora starts writing the answer before they finish speaking and shows it the moment they pause. You can also type a question or paste text from the clipboard, and when a question is about something on screen, Hirora looks at it.</p>
             <ul>
               <li>Answers read like a person explaining, not a chatbot: connected sentences, no filler.</li>
-              <li>Follow-ups in one click: Expand, Explain simply, Make it shorter.</li>
+              <li>Follow-ups in one click: Expand, Beginner, Concise, Retry.</li>
               <li>Coding answers include working code and test cases, with a Copy button.</li>
             </ul>
 
-            <h2 id="modes">Modes</h2>
+            <h2 id="assistant">One assistant for everything</h2>
+            <p>There are no modes to pick. Ask in your own words and Hirora works out what kind of answer you need:</p>
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>Mode</th><th>What you get</th></tr></thead>
+                <thead><tr><th>You ask</th><th>What you get</th></tr></thead>
                 <tbody>
-                  <tr><td>Meeting Notes</td><td>Stays quiet during the call; when you ask, summarises decisions, action items with owners and open questions from the transcript.</td></tr>
-                  <tr><td>General Q&amp;A</td><td>Short, direct answers to whatever comes up.</td></tr>
-                  <tr><td>Explain / Teach</td><td>Plain-language explanations with an example, for lectures and learning.</td></tr>
-                  <tr><td>Coding</td><td>Explanation, code, complexity and tests for programming questions.</td></tr>
-                  <tr><td>Interview Practice</td><td>Answers built from your résumé for mock interviews.</td></tr>
-                  <tr><td>Live Copilot</td><td>Quiet cues for calls where AI assistance is permitted.</td></tr>
+                  <tr><td>A question about you or your work</td><td>An answer in the first person, built from your résumé and notes. If they don't cover it, Hirora says so.</td></tr>
+                  <tr><td>A coding or design task</td><td>The answer first, then the approach, working code, complexity and test cases.</td></tr>
+                  <tr><td>“What is…”, “How does…”</td><td>A plain explanation with a short example.</td></tr>
+                  <tr><td>“Summarise”, “What did we decide?”</td><td>Decisions, action items with owners and open questions, from the transcript so far.</td></tr>
+                  <tr><td>Anything else</td><td>A short, direct answer.</td></tr>
                 </tbody>
               </table>
             </div>
+            <p>In Settings you choose only how answers read: length, language and tone.</p>
+
+            <h2 id="screen">Reads the shared screen</h2>
+            <p>When someone shares code, a diagram or a slide and asks about it (“can you add role-based access to this?”, “which of these routes should be admin-only?”), Hirora takes one picture of the screen you're looking at and answers about what's actually on it, using the names it sees. Questions that don't point at the screen skip it and stay as fast as before.</p>
+            <ul>
+              <li>Hirora's own windows are left out of the picture.</li>
+              <li>The picture stays in memory, goes only to the answer model on your PC and is discarded after the answer. It is never saved.</li>
+              <li>In our tests on an RTX 4060 laptop (plugged in), a typed question about code shown in a browser started answering in 1.5–2.4 s, including a 0.5–0.8 s screen capture, and named the routes on screen. A question without the screen started in 0.5–0.6 s. In runs while the PC was in use, screen questions took up to 5 s.</li>
+              <li>If what you ask about isn't on the screen, it says so instead of guessing.</li>
+              <li>Settings → Answers → Your screen: <em>when a question refers to it</em> (default), <em>with every question</em>, or <em>never</em>. Needs the graphics-card setup; the processor-only model can't read images.</li>
+            </ul>
 
             <h2 id="documents">Your documents</h2>
             <p>Add PDFs, Word files, text, Markdown or code: notes, specs, a job description, a résumé. Hirora indexes them on your PC and uses the most relevant passages in its answers, citing the file and page. If an answer would need a fact that isn't in your materials, it says so instead of inventing one.</p>

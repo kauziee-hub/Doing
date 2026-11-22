@@ -42,7 +42,7 @@ export function HistoryPage() {
                 {list.map((s) => (
                   <tr key={s.id}>
                     <td>{new Date(s.startedAt).toLocaleString()}</td>
-                    <td><button type="button" className="dash-link" onClick={async () => setDetail(await invoke('history:get', { sessionId: s.id }))}>{s.title}</button><div className="dash-small">{s.mode}{s.profileName ? ` · ${s.profileName}` : ''}</div></td>
+                    <td><button type="button" className="dash-link" onClick={async () => setDetail(await invoke('history:get', { sessionId: s.id }))}>{s.title}</button>{s.profileName ? <div className="dash-small">{s.profileName}</div> : null}</td>
                     <td className="dash-num">{s.segmentCount}</td>
                     <td className="dash-num">{s.answerCount}</td>
                     <td><Button size="sm" variant="ghost" icon={<Trash2 size={13} />} aria-label="Delete session" onClick={async () => { await invoke('history:delete', { sessionId: s.id }); if (detail?.session.id === s.id) setDetail(null); await refresh(); }} /></td>

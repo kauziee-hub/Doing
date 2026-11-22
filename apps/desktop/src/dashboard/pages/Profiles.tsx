@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Save, Trash2, CheckCircle2 } from 'lucide-react';
 import type { PersonalProfile, ProjectCard, SessionProfile } from '@hirora/contracts';
-import { MODES, MODE_LABELS } from '@hirora/contracts';
 import { Badge, Button, Card, EmptyState, Field } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
@@ -120,7 +119,7 @@ export function Profiles() {
               <div key={p.id} className="dash-check">
                 <div className="dash-check__body">
                   <div className="dash-check__title">{p.name}</div>
-                  <div className="dash-check__desc">{[p.company, p.role, p.interviewType, p.mode ? MODE_LABELS[p.mode] : ''].filter(Boolean).join(' · ')}</div>
+                  <div className="dash-check__desc">{[p.company, p.role, p.interviewType].filter(Boolean).join(' · ')}</div>
                 </div>
                 {sessions.activeId === p.id ? <Badge tone="ok"><CheckCircle2 size={11} /> active</Badge> : <Button size="sm" onClick={async () => { setSessions(await invoke('sessionProfiles:setActive', { id: p.id })); await refreshSettings(); }}>Use</Button>}
                 <Button size="sm" onClick={() => setSession(p)}>Edit</Button>
@@ -135,12 +134,6 @@ export function Profiles() {
                 <Field label="Company"><input className="vc-input" value={session.company} onChange={(e) => setSession({ ...session, company: e.target.value })} /></Field>
                 <Field label="Role"><input className="vc-input" value={session.role} onChange={(e) => setSession({ ...session, role: e.target.value })} /></Field>
                 <Field label="Interview / meeting type"><input className="vc-input" value={session.interviewType} placeholder="system design, behavioural, standup…" onChange={(e) => setSession({ ...session, interviewType: e.target.value })} /></Field>
-                <Field label="Default mode">
-                  <select className="vc-select" value={session.mode ?? ''} onChange={(e) => setSession({ ...session, mode: (e.target.value || null) as SessionProfile['mode'] })}>
-                    <option value="">(keep current)</option>
-                    {MODES.map((m) => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
-                  </select>
-                </Field>
                 <Field label="Desired tone"><input className="vc-input" value={session.tone} onChange={(e) => setSession({ ...session, tone: e.target.value })} /></Field>
                 <Field label="Allowed resources / rules"><input className="vc-input" value={session.allowedResources} placeholder="e.g. practice only; notes allowed" onChange={(e) => setSession({ ...session, allowedResources: e.target.value })} /></Field>
               </div>

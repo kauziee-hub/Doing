@@ -159,3 +159,6 @@
 .ob-points > div { display: flex; gap: 10px; align-items: flex-start; background: var(--sunken); border-radius: 14px; padding: 11px 14px; font-size: 14px; }
 .ob-points svg { flex: none; margin-top: 2px; }
 .ob-link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+/* Home: what the one assistant does (not selectable). */
+.dash-mode.is-static { cursor: default; }
+.dash-mode.is-static:hover { border-color: var(--line); box-shadow: none; }

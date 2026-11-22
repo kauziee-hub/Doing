@@ -42,6 +42,11 @@ export interface AnswerEngineDeps {
   lean?(): boolean;
   /** Resolves once the answer engine can take requests (e.g. still loading right after launch). */
   ready?(): Promise<void>;
+  /**
+   * A capture of the user's screen for this question, when it refers to something shown
+   * ("add RBAC to this code"). null = no screen for this one (setting, no match, or no vision).
+   */
+  screen?(question: string, signal: AbortSignal): Promise<ContentPart[] | null>;
   /** Counts answers for the Home page (local engine: no cost). */
   recordUsage(provider: ProviderId, model: string, usage: Usage | null): void;
   perf(sample: PerfSample): void;
@@ -79,6 +84,9 @@ interface Inflight {
   /** Short prompt and answer budget for a local model (set when the run starts). */
   compact: boolean;
 }
+
+/** First-token limit for a request carrying a screen capture (see streamOnce). */
+export const IMAGE_FIRST_TOKEN_TIMEOUT_MS = 15_000;
 
 const FATAL_FOR_RETRY: ProviderErrorCode[] = ['invalid_key', 'permission_denied', 'quota_exceeded', 'model_not_found', 'content_filtered', 'bad_request', 'aborted', 'not_configured', 'budget_exceeded'];
 const DELTA_FLUSH_MS = 33;
@@ -202,7 +210,6 @@ export class AnswerEngine {
     if (!r) return false;
     const ctx = this.deps.context();
     const messages = buildPrimingMessages({
-      mode: settings.answer.mode,
       depth: 'fast',
       settings: settings.answer,
       includeProfile: settings.privacy.includeProfileInPrompts,
@@ -233,7 +240,7 @@ export class AnswerEngine {
       requestId,
       question: input.question,
       questionSource: input.origin,
-      mode: input.mode ?? settings.answer.mode,
+      mode: 'assistant',
       depth: input.depth ?? 'fast',
       provider: null,
       model: null,
@@ -303,9 +310,12 @@ export class AnswerEngine {
       return;
     }
 
-    // Retrieval (local, fast). Failure never blocks answering.
+    // Retrieval (local, fast) and, when the question points at something shown, a screen
+    // capture, side by side. Neither failing blocks answering.
     f.record.status = 'retrieving';
     this.show(f);
+    const screenShot: Promise<ContentPart[] | null> =
+      !input.images?.length && this.deps.screen ? this.deps.screen(input.question, f.controller.signal).catch(() => null) : Promise.resolve(null);
     let evidence: RetrievedChunk[] = [];
     if (settings.privacy.includeDocumentsInPrompts) {
       try {
@@ -319,7 +329,9 @@ export class AnswerEngine {
         evidence = [];
       }
     }
+    const screen = await screenShot;
     if (!this.isLive(f)) return;
+    if (screen?.length) f.record.usedScreen = true;
     f.record.sources = evidence.map((c, i): AnswerSource => ({
       label: `S${i + 1}`,
       documentTitle: c.documentTitle,
@@ -344,7 +356,7 @@ export class AnswerEngine {
       memory: input.useMemory === false || lean ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
       compact,
       missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),
-      images: input.images,
+      images: input.images?.length ? input.images : (screen ?? undefined),
       instruction: input.instruction,
       priorAnswer: input.priorAnswer,
     });
@@ -397,9 +409,13 @@ export class AnswerEngine {
     const attemptCtl = new AbortController();
     const onParentAbort = () => attemptCtl.abort(f.controller.signal.reason);
     f.controller.signal.addEventListener('abort', onParentAbort, { once: true });
+    // A request with a screen capture normally starts in 1–3 s; the engine has been seen to stall
+    // on one (until cancelled), so give up sooner and let the retry (another slot) take it.
+    const hasImage = messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image'));
+    const firstTokenMs = hasImage ? Math.min(settings.answer.firstTokenTimeoutMs, IMAGE_FIRST_TOKEN_TIMEOUT_MS) : depth === 'deep' ? settings.answer.firstTokenTimeoutMs * 3 : settings.answer.firstTokenTimeoutMs;
     let firstTokenTimer: ReturnType<typeof setTimeout> | null = setTimeout(
-      () => attemptCtl.abort(new ProviderError(providerId, 'timeout', `No response within ${settings.answer.firstTokenTimeoutMs} ms`)),
-      depth === 'deep' ? settings.answer.firstTokenTimeoutMs * 3 : settings.answer.firstTokenTimeoutMs,
+      () => attemptCtl.abort(new ProviderError(providerId, 'timeout', `No response within ${firstTokenMs} ms`)),
+      firstTokenMs,
     );
     const totalTimer = setTimeout(
       () => attemptCtl.abort(new ProviderError(providerId, 'timeout', `Answer exceeded ${settings.answer.totalTimeoutMs} ms`)),

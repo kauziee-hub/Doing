@@ -268,6 +268,8 @@ export interface AnswerRecord {
   totalMs: number | null;
   usage: Usage | null;
   costUsd: number | null;
+  /** A capture of the user's screen went to the model with this question. */
+  usedScreen?: boolean;
 }
 
 export interface LiveSnapshot {
@@ -323,6 +325,7 @@ export const PERF_STAGES = [
   'stt_first_partial',
   'app_cold_start',
   'provider_preconnect',
+  'screen_capture',
 ] as const;
 export type PerfStage = (typeof PERF_STAGES)[number];
 

@@ -22,11 +22,11 @@ describe('SettingsStore', () => {
     const dir = tmp();
     const path = join(dir, 'settings.json');
     const s = new SettingsStore(path);
-    s.update({ overlay: { opacity: 0.8 }, answer: { mode: 'coding' } });
+    s.update({ overlay: { opacity: 0.8 }, answer: { length: 'long' } });
     expect(() => s.update({ overlay: { opacity: 9 } })).toThrow();
     const reloaded = new SettingsStore(path);
     expect(reloaded.get().overlay.opacity).toBe(0.8);
-    expect(reloaded.get().answer.mode).toBe('coding');
+    expect(reloaded.get().answer.length).toBe('long');
     expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
   });
 
@@ -36,8 +36,8 @@ describe('SettingsStore', () => {
     writeFileSync(path, '{not json');
     expect(new SettingsStore(path).get().schemaVersion).toBe(2);
     expect(readdirSync(dir).some((f) => f.includes('corrupt'))).toBe(true);
-    const lenient = parseSettingsLenient({ overlay: { opacity: 99 }, answer: { mode: 'coding' } });
-    expect(lenient.answer.mode).toBe('coding');
+    const lenient = parseSettingsLenient({ overlay: { opacity: 99 }, answer: { length: 'long' } });
+    expect(lenient.answer.length).toBe('long');
     expect(lenient.overlay.opacity).toBe(0.98);
   });
 });

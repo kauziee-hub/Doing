@@ -341,7 +341,6 @@ export function registerIpc(ctx: IpcContext): void {
       const { id } = IpcRequestSchemas['sessionProfiles:setActive'].parse(p);
       const prof = svc.knowledge.getSessionProfile(id);
       const patch: Record<string, unknown> = { activeProfileId: prof ? prof.id : null };
-      if (prof?.mode) patch.answer = { mode: prof.mode };
       svc.settings.update(patch);
       svc.emit({ type: 'snapshot', snapshot: svc.session.snapshot() });
       return { profiles: svc.knowledge.listSessionProfiles(), activeId: svc.settings.get().activeProfileId };
@@ -497,7 +496,6 @@ function runLocalBench(svc: AppServices): LocalBenchResult[] {
       buildMessages({
         question: queries[0]!,
         questionOrigin: 'bench',
-        mode: 'interview_practice',
         depth: 'fast',
         settings: settings.answer,
         includeProfile: true,

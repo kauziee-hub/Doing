@@ -107,6 +107,10 @@ test('every page is navigable without keys', async () => {
     await dash.getByRole('tab', { name: tab }).click();
     await expect(dash.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
   }
+  // One assistant: no mode picker, just how answers read and whether it may look at the screen.
+  await dash.getByRole('tab', { name: 'Answers' }).click();
+  await expect(dash.getByText('Your screen', { exact: true })).toBeVisible();
+  await expect(dash.getByText(/^(Mode|Default mode)$/)).toHaveCount(0);
   await dash.getByRole('tab', { name: 'Audio' }).click();
   // Real device enumeration through the native helper.
   await expect(dash.locator('select').first()).toBeVisible();

@@ -151,9 +151,8 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
 .note strong { color: var(--ink); }
 
 /* Numbers */
-.figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.figures > div { padding: 26px 26px 28px; border-right: 1px solid var(--line); }
-.figures > div:last-child { border-right: 0; }
+.figures { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.figures > div { padding: 26px 24px 28px; background: var(--bg); }
 .figures b { display: block; font-size: 36px; font-weight: 600; letter-spacing: -0.03em; }
 .figures span { color: var(--muted); font-size: 15px; }
 
@@ -254,7 +253,7 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
   .hero__grid { grid-template-columns: 1fr; }
   .hero__visual { min-height: 0; margin-top: 8px; overflow: hidden; }
   .hero__person { width: min(400px, 78vw); }
-  .grid--3, .steps { grid-template-columns: 1fr 1fr; }
+  .grid--3, .steps, .figures { grid-template-columns: 1fr 1fr; }
   .showcase { grid-template-columns: 1fr; }
   .showcase .figure:last-child { max-width: 380px; }
   .doc { grid-template-columns: 1fr; }
@@ -265,8 +264,6 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
 @media (max-width: 640px) {
   body { font-size: 16px; }
   .grid--3, .grid--2, .steps, .figures { grid-template-columns: 1fr; }
-  .figures > div { border-right: 0; border-bottom: 1px solid var(--line); }
-  .figures > div:last-child { border-bottom: 0; }
   .usecase, .release { grid-template-columns: 1fr; gap: 10px; }
   .footer__cols { grid-template-columns: 1fr 1fr; }
   .hero__actions .btn { width: 100%; }

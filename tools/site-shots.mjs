@@ -27,7 +27,7 @@ const byTitle = async (t) => {
 };
 const dash = await byTitle('Hirora');
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
-await call('settings:update', { onboardingComplete: true, answer: { mode: 'coding' } });
+await call('settings:update', { onboardingComplete: true });
 // Settings changes re-apply screen-capture protection, and a window behind others stops
 // painting: before every shot, bring the window forward with protection off (this capture only).
 // Electron's own capture of the window's last frame (Playwright's screenshot can wait forever).
@@ -80,7 +80,7 @@ for (let i = 0; i < 240; i++) {
   if ((p.recent ?? []).some((r) => r.label === 'model-load')) break;
   await sleep(500);
 }
-const r = await call('ask:text', { text: 'Write a function that checks whether a string has balanced brackets.', mode: 'coding' });
+const r = await call('ask:text', { text: 'Write a function that checks whether a string has balanced brackets.' });
 await dash.evaluate((id) => new Promise((res) => {
   const off = window.hirora.onLive((e) => {
     if (e.type === 'answer' && e.answer.requestId === id && ['done', 'error'].includes(e.answer.status)) {

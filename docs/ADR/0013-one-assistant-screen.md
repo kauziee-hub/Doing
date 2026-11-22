@@ -1,0 +1,14 @@
+# ADR 0013 — One assistant, and it can read the shared screen
+
+**Status:** accepted · 2026-11-22 (0.3.1). Amends ADR 0012.
+
+**Context.** Hirora had six answer modes (Meeting Notes, General Q&A, Explain / Teach, Coding, Interview Practice, Live Copilot), each with its own prompt rules, picked on Home, in the overlay, in onboarding and per profile. The owner found that too many options: "whatever they ask to do, a single option should be able to do it." They also asked that when someone shares a code snippet in a call and asks "establish an RBAC protocol in this", Hirora should look at what is being shown.
+
+**Decision.**
+1. **One assistant.** `answer.mode` is the literal `assistant` (older saved values are read as it). The system prompt has one `REQUESTS:` section that tells the model how to shape each kind of request (about the user, code/technical, concept, summary of the call, anything else) and one `FORMAT:` section. Length, language and tone stay as settings.
+2. **Screen on demand.** `refersToScreen(question)` (deictic references such as "this code", "which of these", "on the screen", "add X to this") decides, under the default `answer.screen = 'auto'`, whether the answer gets a picture of the screen. `always` attaches one to every question, `off` never. The capture is the display nearest the cursor, 1280 px wide JPEG, taken by the main process with `desktopCapturer` while content protection is forced on for Hirora's windows, then restored to the user's setting.
+3. **Privacy.** The picture exists only in memory for the request, goes only to the loopback answer model, and is not stored in history or logs; only its size and capture time go to the perf table. A question must come from the user (typed) or from a session they started with consent. The CPU tier's model reads no images, so the setting is disabled there.
+
+4. **Explicit hints where the 4B model slipped.** Measured on the merged prompt: a typed "What are your strengths?" came back as "Your main strength…", and "Write a function…" came back as prose without code. The user message now adds one line for questions asked of the user (`isAskedOfTheUser`: answer in the first person) and one for code tasks (`isCodeTask`: use the code layout). With a capture attached, the model is told to say when the thing asked about isn't visible rather than guess.
+
+**Consequences.** One prompt instead of six means less to choose and less to maintain; the model infers the answer shape from the question, with the two hint lines above for the cases it got wrong. Screen questions cost 1.6–2.4 s to the first word instead of ~0.6 s (image tokens), so `auto` keeps every other question fast. The keyword match can miss an oblique reference ("what about the second one?"); the user can choose `always`. Capturing the screen can include other people's data that is on it: the privacy page says to ask about shared screens only where everyone is fine with that.

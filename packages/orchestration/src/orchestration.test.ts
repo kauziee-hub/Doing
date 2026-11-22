@@ -103,7 +103,6 @@ describe('prompt builder', () => {
     const msgs = buildMessages({
       question: 'Tell me about your Kafka work',
       questionOrigin: 'heard on system audio',
-      mode: 'interview_practice',
       depth: 'fast',
       settings: defaultSettings().answer,
       includeProfile: true,
@@ -124,9 +123,38 @@ describe('prompt builder', () => {
     expect(escapeData('<previous_answers>x')).toBe('‹previous_answers›x');
   });
   it('states explicitly when no evidence exists', () => {
-    const msgs = buildMessages({ question: 'q', questionOrigin: 'typed', mode: 'coding', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] });
+    const msgs = buildMessages({ question: 'q', questionOrigin: 'typed', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] });
     expect(msgs[1]!.content).toContain('no matching passages');
     expect(msgs[0]!.content).toMatch(/\*\*Complexity\*\*/);
+  });
+  it('one assistant covers every kind of request, including what is on screen', () => {
+    const sys = buildMessages({ question: 'q', questionOrigin: 'typed', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] })[0]!.content as string;
+    expect(sys).toContain('You speak AS the user'); // questions about the user
+    expect(sys).toContain('**Code**'); // coding tasks
+    expect(sys).toContain('what it is, why it exists'); // concepts
+    expect(sys).toContain('never invent attendees or decisions'); // summaries
+    expect(sys).toMatch(/If a screenshot is attached .*read the code or text in it/);
+    expect(sys).toMatch(/not visible in it, say in one sentence that you can't see it/);
+    expect(sys).not.toMatch(/Interview Practice|Meeting Notes|session while they talk/);
+  });
+  it('sends a screenshot as an image part next to the question', () => {
+    const msgs = buildMessages({ question: 'add RBAC to this', questionOrigin: 'heard on system audio', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [], images: [{ type: 'image', mimeType: 'image/jpeg', base64: 'AAAA' }] });
+    const content = msgs[1]!.content as Array<{ type: string }>;
+    expect(content.map((c) => c.type)).toEqual(['text', 'image']);
+  });
+  it('questions about the user, even typed ones, are answered in the first person', () => {
+    const user = (question: string) => buildMessages({ question, questionOrigin: 'typed by the user', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] })[1]!.content as string;
+    for (const q of ['What are your strengths and weaknesses?', 'Please introduce yourself.', 'Tell me about a time you failed.', 'Why do you want this role?']) expect(user(q), q).toContain('ANSWER AS THE USER');
+    for (const q of ['What is RBAC?', 'Can you add RBAC to this?', 'How would you design a URL shortener?', 'Summarise the call so far.']) expect(user(q), q).not.toContain('ANSWER AS THE USER');
+  });
+  it('code requests ask for the code layout; questions and stories do not', () => {
+    const user = (question: string, images?: Array<{ type: 'image'; mimeType: 'image/jpeg'; base64: string }>) => {
+      const c = buildMessages({ question, questionOrigin: 'typed by the user', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [], images })[1]!.content;
+      return typeof c === 'string' ? c : (c[0] as { text: string }).text;
+    };
+    for (const q of ['Write a function that checks whether a string has balanced brackets.', 'Fix this SQL query', 'Implement an LRU cache in Python.']) expect(user(q), q).toContain('CODE TASK');
+    expect(user('Can you establish an RBAC protocol in this?', [{ type: 'image', mimeType: 'image/jpeg', base64: 'AAAA' }])).toContain('CODE TASK');
+    for (const q of ['What is RBAC?', 'Can you establish an RBAC protocol in this?', 'Tell me about a time you had to fix a bug in production code.', 'Why do companies use caching?']) expect(user(q), q).not.toContain('CODE TASK');
   });
 });
 
@@ -714,7 +742,7 @@ describe('fragments and the pre-read prompt', () => {
     const { buildMessages, buildPrimingMessages } = await import('./prompt');
     const chunk = (i: number): RetrievedChunk => ({ chunkId: `d:${i}`, documentId: 'd', documentTitle: 'resume', fileName: 'resume.pdf', kind: 'resume', evidence: 'my_facts', page: 1, section: null, ordinal: i, text: `Resume part ${i}`, score: 1, matchedBy: ['profile'] });
     const stable = [chunk(0), chunk(1)];
-    const base = { mode: 'interview_practice' as const, depth: 'fast' as const, settings: defaultSettings().answer, includeProfile: true, personal: null, session: null };
+    const base = { depth: 'fast' as const, settings: defaultSettings().answer, includeProfile: true, personal: null, session: null };
     const prime = buildPrimingMessages({ ...base, evidence: stable });
     const real = buildMessages({ ...base, evidence: [...stable, { ...chunk(9), documentId: 'jd', kind: 'job_description', evidence: 'company_job' }], question: 'Why this role?', questionOrigin: 'heard on system audio', recentTranscript: [], memory: [], compact: true });
     expect(real[0]!.content).toBe(prime[0]!.content);
@@ -737,12 +765,63 @@ describe('answer voice', () => {
   it('asks for natural paragraphs and bans chatbot phrasing', async () => {
     const { buildSystemPrompt } = await import('./prompt');
     const settings = defaultSettings().answer;
-    const sys = buildSystemPrompt({ mode: 'interview_practice', depth: 'fast', settings });
+    const sys = buildSystemPrompt({ depth: 'fast', settings });
+    expect(settings.mode).toBe('assistant');
     expect(settings.format).toBe('paragraph');
     expect(settings.length).toBe('medium');
     expect(sys).toContain('Do not use bullet points');
     expect(sys).toContain('Great question');
     expect(sys).toContain('You speak AS the user');
     expect(sys).not.toMatch(/at most 4 tight bullet points/);
+  });
+});
+
+describe('screen context', () => {
+  it('knows which questions point at something on screen', async () => {
+    const { refersToScreen } = await import('./screen');
+    for (const q of ['Can you establish an RBAC protocol in this?', 'Add RBAC to this code', 'What does this function do?', 'How would you optimize this query', 'Look at the screen and find the bug', 'Explain the code I am sharing', 'In this design, where would caching go?', 'Fix this', 'Which of these routes should only an admin call?']) {
+      expect(refersToScreen(q), q).toBe(true);
+    }
+    for (const q of ['What is RBAC?', 'Tell me about yourself', 'Why do you want to join this company?', 'Tell me about a challenging project you worked on', 'What did we agree on in this meeting?', 'Write a function that reverses a string', 'Can you hear me okay?']) {
+      expect(refersToScreen(q), q).toBe(false);
+    }
+  });
+
+  it('attaches the screen to the request and marks the answer', async () => {
+    const seen: StreamRequest[] = [];
+    const provider: TextModelProvider = {
+      id: 'ollama',
+      label: 'fake',
+      listModels: async () => [],
+      preconnect: async () => undefined,
+      async *stream(req: StreamRequest) {
+        seen.push(req);
+        yield { type: 'text', text: 'Wrap each route in a role check.' } as StreamChunk;
+      },
+    };
+    const records = new Map<string, AnswerRecord>();
+    const asked: string[] = [];
+    const s = defaultSettings();
+    const { AnswerEngine } = await import('./answer');
+    const e = new AnswerEngine({
+      settings: () => s,
+      resolveProvider: () => ({ provider, model: 'm', deepModel: 'm' }),
+      retrieve: async () => ({ chunks: [], ms: 1 }),
+      context: () => ({ personal: null, session: null, transcript: [] }),
+      screen: async (q) => {
+        asked.push(q);
+        return [{ type: 'image', mimeType: 'image/jpeg', base64: 'SCREEN' }];
+      },
+      recordUsage: () => undefined,
+      perf: () => undefined,
+      emit: (r) => records.set(r.requestId, r),
+      emitDelta: () => undefined,
+    });
+    const id = e.ask({ question: 'Add RBAC to this code', origin: 'system' });
+    await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
+    expect(asked).toEqual(['Add RBAC to this code']);
+    expect(records.get(id)?.usedScreen).toBe(true);
+    const user = seen[0]!.messages[1]!.content as Array<{ type: string; base64?: string }>;
+    expect(user.find((p) => p.type === 'image')?.base64).toBe('SCREEN');
   });
 });

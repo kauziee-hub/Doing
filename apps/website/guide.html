@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="How to set up and use Hirora: first run, starting a call, shortcuts, modes, documents, tips and troubleshooting." />
+    <meta name="description" content="How to set up and use Hirora: first run, starting a call, shortcuts, asking about the shared screen, documents, tips and troubleshooting." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Hirora guide" />
-    <meta property="og:description" content="Set up Hirora and use it on your calls: shortcuts, modes, documents and troubleshooting." />
+    <meta property="og:description" content="Set up Hirora and use it on your calls: shortcuts, asking anything, the shared screen, documents and troubleshooting." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -33,7 +33,7 @@
             <a href="#first-run">First run</a>
             <a href="#call">On a call</a>
             <a href="#shortcuts">Shortcuts</a>
-            <a href="#modes">Choosing a mode</a>
+            <a href="#asking">Asking anything</a>
             <a href="#documents">Adding documents</a>
             <a href="#settings">Settings</a>
             <a href="#tips">Tips</a>
@@ -44,7 +44,7 @@
             <h2 id="first-run">First run</h2>
             <p>After installing (see <a href="/download#install">Download</a>), open Hirora. A short setup walks you through:</p>
             <ol class="numbered">
-              <li><div><h3>Welcome</h3><p>Pick what you'll use Hirora for first. You can change the mode any time.</p></div></li>
+              <li><div><h3>Welcome</h3><p>What Hirora does and what stays on your PC.</p></div></li>
               <li><div><h3>Set up</h3><p>Hirora shows your hardware and the four parts it needs: answer engine, speech recognition, speech model and answer model. Press <strong>Set up Hirora</strong>. You can keep working while it downloads; if it stops, press <strong>Resume setup</strong> and it continues where it left off.</p></div></li>
               <li><div><h3>Your documents</h3><p>Optionally add notes or a résumé so answers can use them.</p></div></li>
               <li><div><h3>Ready</h3><p>The main shortcuts are listed. Start listening from Home or the overlay.</p></div></li>
@@ -79,14 +79,19 @@
               </table>
             </div>
 
-            <h2 id="modes">Choosing a mode</h2>
+            <h2 id="asking">Asking anything</h2>
+            <p>There's one assistant and nothing to switch. Ask out loud, or type with <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, in your own words:</p>
             <ul>
-              <li><strong>Meeting Notes</strong>: quiet during the call; ask for a summary of decisions, action items and open questions.</li>
-              <li><strong>General Q&amp;A</strong>: short answers to whatever comes up.</li>
-              <li><strong>Explain / Teach</strong>: plain explanations with an example.</li>
-              <li><strong>Coding</strong>: explanation, code, complexity and tests.</li>
-              <li><strong>Interview Practice</strong> and <strong>Live Copilot</strong>: answers built from your résumé, for practice and permitted calls.</li>
+              <li><strong>About you</strong> (“tell me about your last project”): answered in the first person from your résumé and notes.</li>
+              <li><strong>Code and design</strong> (“write a function that…”, “how would you scale this?”): answer, approach, code, complexity and tests.</li>
+              <li><strong>Concepts</strong> (“what is RBAC?”): a plain explanation with an example.</li>
+              <li><strong>The call so far</strong> (“summarise”, “what are the action items?”): decisions, owners and open questions from the transcript.</li>
             </ul>
+            <p>Under any answer, <strong>Expand</strong>, <strong>Beginner</strong>, <strong>Concise</strong> and <strong>Retry</strong> rewrite it in one click.</p>
+
+            <h3 id="screen">When someone shares their screen</h3>
+            <p>Questions that point at something shown, like “can you establish an RBAC protocol in this?” or “which of these routes should be admin-only?”, make Hirora take one picture of the monitor you're using and answer about what's on it. The overlay marks those answers with <em>screen</em>. Keep the shared screen visible on that monitor when the question is asked.</p>
+            <p>The picture is kept in memory only and sent to the answer model on your PC. Change when it's used in Settings → Answers → Your screen. To send a specific screenshot yourself, press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> and preview it first.</p>
 
             <h2 id="documents">Adding documents</h2>
             <p>Open <strong>Knowledge</strong> and drop in PDF, Word, text, Markdown, CSV, JSON or code files, and set each one's type (résumé, project notes, job description, notes…). They're parsed and indexed on your PC. Use <strong>Test retrieval</strong> to see which passages a question would use. Deleting a document removes its text and index.</p>
@@ -96,7 +101,7 @@
             <ul>
               <li><strong>Engine</strong>: what's installed, which hardware is used, transcription language and custom vocabulary.</li>
               <li><strong>Audio</strong>: microphone, which output to listen to (all speakers and headphones by default), device tests.</li>
-              <li><strong>Answers</strong>: length, format, tone and which sources trigger automatic answers.</li>
+              <li><strong>Answers</strong>: length, language, tone, when to look at your screen, and which sources trigger automatic answers.</li>
               <li><strong>Overlay &amp; capture</strong>: opacity, size, always on top, and hiding Hirora from screen shares.</li>
               <li><strong>Hotkeys</strong> and <strong>Privacy &amp; data</strong>: shortcuts, history, and deleting your data.</li>
             </ul>
@@ -122,6 +127,8 @@
             <p>Another app owns it. Pick a different one in Settings → Hotkeys.</p>
             <h3>“The engine did not start”</h3>
             <p>Restart Hirora; Settings → Engine shows what's missing and <strong>Set up</strong> reinstalls it. An old NVIDIA driver can stop the graphics-card setup: update the driver or choose <em>Processor only</em> in Settings → Engine.</p>
+            <h3>The answer ignored what was shared</h3>
+            <p>Check Settings → Answers → Your screen isn't set to <em>Never</em>, and that the shared window is on the monitor where your mouse is. Mention it in the question (“this code”, “on the screen”) or choose <em>With every question</em>. The processor-only setup can't read the screen.</p>
             <h3>Where are the logs?</h3>
             <p><code>%APPDATA%\Hirora\logs\hirora.log</code> (no transcripts or answers) and <code>%LOCALAPPDATA%\Hirora\ollama\server.log</code> for the answer engine.</p>
 

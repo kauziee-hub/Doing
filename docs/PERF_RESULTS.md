@@ -4,6 +4,27 @@ Machine: Windows 11 (build 26300) laptop, Intel i9-14900HX, 16 GB RAM, Realtek m
 
 Sample sizes are small. Treat p95 values with fewer than 20 samples as indicative only.
 
+## 0.3.1 — one assistant, screen reading (2026-11-22)
+
+GPU tier as below (RTX 4060 Laptop, `qwen3.5:4b`, 2 slots), laptop on AC, dev build, fresh profile (no résumé). `tools/screen-check.mjs` shows an 11-line Express router full-screen in Edge (28 px Consolas; captured at 1280×800) and asks typed questions; Hirora's windows are excluded from the capture.
+
+| Question | Screen | First answer token (run 1 / run 2) | Names from the screen in the answer |
+|---|---|---|---|
+| "Can you establish an RBAC protocol in this?" | captured | 2356 / 1898 ms | `issueRefund`, `deleteOrder`, `/refunds`, `/orders/:id`, `router` |
+| "What is RBAC?" | not used | 611 / 592 ms | — |
+| "Which of these routes should only an admin be allowed to call?" | captured | 1663 / 1631 ms | all five routes |
+| Screen capture (`desktopCapturer`, JPEG 82, 1280×800) | | 483 + 756 / 480 + 710 ms | |
+
+Installed 0.3.1 (`--exe Desktop\Hirora\Hirora.exe`), same check: 1979 ms and 1487 ms with the screen (captures 473 and 676 ms; both answers named all five routes), 506 ms for "What is RBAC?".
+
+**Typed questions, installed 0.3.1** (`tools/quiet-check.mjs`, copy of the owner's profile, AC, two runs with the first-person and code-layout lines; the final build adds one sentence to the system prompt, which is pre-read at warm-up): p50 **0.45 s**; 416, 425, 441, 444, 445, 453, 456, 458, 461, 483, 1174, 1320 ms (n=12; the owner was using the PC during these runs). Every question about the user answered in the first person. Whisper large-v3-turbo on the WAV questions: 116–168 ms once warm (first request 585–588 ms). First question after launch: 11–12 s. Earlier runs: before the first-person line 410–465 ms (n=6), and it answered "What are your strengths and weaknesses?" with "Your main strength is…"; with it but before the code line 497–762 ms (n=12).
+
+**Code layout** (dev build with the code line, AC): "Write a function that checks whether a string has balanced brackets." → **Answer**/**Approach**/**Complexity**/**Tests** with a code block, first token 476 ms (592 ms installed); before the line it was prose with no code. "Can you establish an RBAC protocol in this?" with the router on screen → **Answer**/**Approach**/**Code** naming `issueRefund`, `deleteOrder`, `/orders/:id`, first token 1977 ms.
+
+**Screen while the PC was in use** (installed, the owner's chat window in front of the test page, so the capture showed that window): screen questions 2.2–5.1 s to the first token with 1.0–1.5 s captures. Before the "not visible" line the model invented routes (`/admin/config`, `/users/manage`); with it, it said the routes can't be told from that window. Not re-run with the code page in front on the final build (the PC was in use).
+
+Capture width vs first token, raw Ollama with the same image (laptop on battery): 1600 px 2.9 s, 1280 px 1.3 s, 1024 px 0.85 s; the same image again 0.25–0.35 s. 1280 px keeps 28 px code legible. Once, at 1600 px, the first image request stalled in Ollama's image step after a context-checkpoint restore until the 30 s first-token timeout (the retry on the other slot answered); not reproduced at 1280 px, and image requests now time out after 15 s so the retry comes sooner.
+
 ## 0.3.0 — one local engine (2026-11-22)
 
 Installed 0.3.0 (`Desktop\Hirora`) or the dev build, as noted. GPU tier: RTX 4060 Laptop 8 GB, whisper.cpp b5454 CUDA + `ggml-large-v3-turbo-q5_0`, Hirora's own `ollama serve` (0.40.16 binary, 2 slots) with `qwen3.5:4b`. CPU tier: whisper.cpp CPU build + `ggml-small-q5_1`, `qwen3:1.7b`, every GPU hidden from Ollama (`CUDA_VISIBLE_DEVICES`, `GGML_VK_VISIBLE_DEVICES`, `HIP_VISIBLE_DEVICES` = -1). Profile: a copy of the owner's (résumé loaded) unless noted.

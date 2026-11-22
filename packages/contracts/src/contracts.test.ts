@@ -33,12 +33,15 @@ describe('settings schema', () => {
     expect(s.stt.language).toBe('en');
     expect(s.knowledge.topK).toBe(6);
     expect(s.overlay.opacity).toBe(0.9);
+    // One assistant since 0.3.1: an old saved mode is read as it, without losing the section.
+    expect(AppSettingsSchema.parse({ answer: { mode: 'coding', length: 'long' } }).answer).toMatchObject({ mode: 'assistant', length: 'long', screen: 'auto' });
     expect('providers' in s || 'budget' in s || 'primaryProvider' in s.answer || 'provider' in s.stt).toBe(false);
   });
 
   it('rejects out-of-range values', () => {
     expect(AppSettingsSchema.safeParse({ overlay: { opacity: 5 } }).success).toBe(false);
-    expect(AppSettingsSchema.safeParse({ answer: { mode: 'stealth' } }).success).toBe(false);
+    expect(AppSettingsSchema.safeParse({ answer: { length: 'huge' } }).success).toBe(false);
+    expect(AppSettingsSchema.safeParse({ answer: { screen: 'secretly' } }).success).toBe(false);
   });
 
   it('every IPC channel has a request schema', () => {

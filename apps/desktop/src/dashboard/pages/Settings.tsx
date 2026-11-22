@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Monitor, Moon, RefreshCw, Sun, Trash2, Volume2 } from 'lucide-react';
 import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction } from '@hirora/contracts';
-import { DEFAULT_HOTKEYS, HOTKEY_LABELS, MODES, MODE_LABELS } from '@hirora/contracts';
+import { DEFAULT_HOTKEYS, HOTKEY_LABELS } from '@hirora/contracts';
 import { Button, Card, Field, LevelMeter, Toggle, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
@@ -136,31 +136,35 @@ function AudioTab() {
 
 function AnswersTab() {
   const s = useLive((x) => x.settings)!;
+  const engine = useLive((x) => x.engine);
   const patch = usePatch();
   const a = s.answer;
   return (
     <>
-      <Card title="Style">
+      <Card title="Answers">
+        <p className="dash-small" style={{ marginTop: 0 }}>One assistant handles everything: questions about you, code, concepts, summaries. It works out what each question needs.</p>
         <div className="vc-grid2">
-          <Field label="Default mode">
-            <select className="vc-select" value={a.mode} onChange={(e) => void patch({ answer: { mode: e.target.value } })}>{MODES.map((m) => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}</select>
-          </Field>
           <Field label="Answer length">
-            <select className="vc-select" value={a.length} onChange={(e) => void patch({ answer: { length: e.target.value } })}><option value="short">Short cue</option><option value="medium">Medium</option><option value="long">Long</option></select>
+            <select className="vc-select" value={a.length} onChange={(e) => void patch({ answer: { length: e.target.value } })}><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select>
           </Field>
-          <Field label="Format (interview modes)">
-            <select className="vc-select" value={a.format} onChange={(e) => void patch({ answer: { format: e.target.value } })}><option value="talking_points">Talking points</option><option value="star">STAR</option><option value="paragraph">Paragraph</option></select>
-          </Field>
-          <Field label="Technical depth">
-            <select className="vc-select" value={a.technicalDepth} onChange={(e) => void patch({ answer: { technicalDepth: e.target.value } })}><option value="basic">Basic</option><option value="intermediate">Intermediate</option><option value="expert">Expert</option></select>
-          </Field>
-          <Field label="Tone"><input className="vc-input" value={a.tone} onChange={(e) => void patch({ answer: { tone: e.target.value } })} /></Field>
           <Field label="Answer language"><input className="vc-input" value={a.language} onChange={(e) => void patch({ answer: { language: e.target.value } })} /></Field>
+          <Field label="Tone"><input className="vc-input" value={a.tone} onChange={(e) => void patch({ answer: { tone: e.target.value } })} /></Field>
         </div>
-        <Toggle checked={a.codingIncludeTests} label="Coding answers include test cases" onChange={(v) => void patch({ answer: { codingIncludeTests: v } })} />
+      </Card>
+      <Card title="Your screen">
+        <Field
+          label="Look at the screen with a question"
+          hint={engine?.tier === 'cpu' ? 'Needs the NVIDIA graphics-card setup: the processor model can’t read images.' : 'Captures the monitor you’re using, in memory only, and sends it to the answer model on this PC. Hirora’s own windows are left out.'}
+        >
+          <select className="vc-select" value={a.screen} disabled={engine?.tier === 'cpu'} onChange={(e) => void patch({ answer: { screen: e.target.value } })}>
+            <option value="auto">When the question refers to it (recommended)</option>
+            <option value="always">With every question (slower)</option>
+            <option value="off">Never</option>
+          </select>
+        </Field>
       </Card>
       <Card title="Automatic answering">
-        <Toggle checked={a.autoAnswer} label="Answer detected questions automatically" description="Otherwise press Ctrl+Shift+Enter (or the Answer button). Never active in Meeting Notes mode." onChange={(v) => void patch({ answer: { autoAnswer: v } })} />
+        <Toggle checked={a.autoAnswer} label="Answer detected questions automatically" description="Otherwise press Ctrl+Shift+Enter (or the Answer button)." onChange={(v) => void patch({ answer: { autoAnswer: v } })} />
         <div className="dash-small">Hirora only knows which device audio came from, not who spoke. Choose which sources may trigger automatic answers:</div>
         {(['system', 'app', 'mic'] as const).map((src) => (
           <Toggle key={src} checked={a.autoAnswerSources.includes(src)} label={src === 'mic' ? 'Microphone' : src === 'system' ? 'System audio' : 'Selected application audio'} onChange={(v) => void patch({ answer: { autoAnswerSources: v ? [...new Set([...a.autoAnswerSources, src])] : a.autoAnswerSources.filter((x) => x !== src) } })} />

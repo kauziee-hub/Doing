@@ -4,8 +4,8 @@ import {
   ArrowUpRight, Camera, ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, EyeOff, LayoutDashboard, Mic, MicOff, Pause, Play,
   RotateCcw, Send, Speaker, Square, Sparkles, Baby, Minimize2, X, ShieldAlert, Check,
 } from 'lucide-react';
-import type { AnswerRecord, AudioSource, ClipboardContext, Mode, ScreenPreview, SourceStatus, TranscriptSegment } from '@hirora/contracts';
-import { MODE_LABELS, MODE_SHORT_LABELS, MODES, PROVIDER_ERROR_HINTS } from '@hirora/contracts';
+import type { AnswerRecord, AudioSource, ClipboardContext, ScreenPreview, SourceStatus, TranscriptSegment } from '@hirora/contracts';
+import { PROVIDER_ERROR_HINTS } from '@hirora/contracts';
 import { Badge, Button, LevelMeter, cx } from '@hirora/ui';
 import { invoke } from '../shared/api';
 import { useLive } from '../shared/store';
@@ -31,7 +31,7 @@ export function ConsentModal({ onCancel }: { onCancel: () => void }) {
     <div className="ov-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
       <div className="ov-modal__box">
         <h2 id="consent-title"><ShieldAlert size={16} /> Start listening?</h2>
-        <p>Hirora will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>. Nothing is sent anywhere and audio is never saved to disk.</p>
+        <p>Hirora will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>{settings.answer.screen !== 'off' ? <>; when a question refers to something shown, it also looks at <strong>your screen</strong></> : null}. Nothing is sent anywhere, and audio and screen captures are never saved.</p>
         <p className="ov-muted">Only continue if everyone in the conversation has agreed to be recorded/transcribed and AI assistance is allowed in this setting (many interviews and assessments forbid it).</p>
         {err ? <p className="ov-error">{err}</p> : null}
         <div className="vc-row" style={{ justifyContent: 'flex-end' }}>
@@ -126,6 +126,7 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
         <Badge tone={a.status === 'error' ? 'error' : a.status === 'done' ? 'ok' : a.status === 'cancelled' ? 'neutral' : 'info'}>{statusLabel[a.status]}</Badge>
         {a.model ? <Badge title="Written on this PC">{a.model}</Badge> : null}
         {a.depth === 'deep' ? <Badge tone="info">deep</Badge> : null}
+        {a.usedScreen ? <Badge tone="info" title="Your screen was looked at for this answer (on this PC, not saved)">screen</Badge> : null}
         {a.firstTokenMs !== null ? <span className="ov-muted" title="Time from request to first token">{(a.firstTokenMs / 1000).toFixed(2)} s</span> : null}
       </div>
       {!compact ? <div className="ov-q" title={a.question}>Q · {a.question.length > 220 ? `${a.question.slice(0, 220)}…` : a.question}</div> : null}
@@ -139,9 +140,6 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
             </span>
           ))}
         </div>
-      ) : null}
-      {!compact && a.status === 'done' && a.sources.length === 0 && (a.mode === 'interview_practice' || a.mode === 'live_copilot') ? (
-        <div className="ov-muted ov-small">No matching passages in your materials — personal facts were not used.</div>
       ) : null}
       <div className="ov-actions">
         {busy ? <Button size="sm" variant="ghost" icon={<Square size={12} />} onClick={() => void invoke('answer:cancel')}>Stop</Button> : null}
@@ -353,17 +351,6 @@ export function Overlay() {
             onKeyDown={onKey}
             aria-label="Ask a question"
           />
-          <select
-            className="ov-mode"
-            aria-label="Answer mode"
-            value={settings?.answer.mode ?? 'interview_practice'}
-            onChange={async (e) => {
-              const s = await invoke('settings:update', { answer: { mode: e.target.value as Mode } });
-              useLive.getState().setSettings(s);
-            }}
-          >
-            {MODES.map((m) => <option key={m} value={m} title={MODE_LABELS[m]}>{MODE_SHORT_LABELS[m]}</option>)}
-          </select>
           <button type="button" className="ov-icon-btn" aria-label="Use clipboard text (preview first)" title="Use clipboard text (preview first)" onClick={async () => setClip(await invoke('context:readClipboard'))}>
             <ClipboardPaste size={14} />
           </button>

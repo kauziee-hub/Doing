@@ -57,7 +57,7 @@
                 </tbody>
               </table>
             </div>
-            <p>Raw audio is never written to disk. Screenshots you take as context are held in memory for up to five minutes while you preview them, then discarded.</p>
+            <p>Raw audio and pictures of your screen are never written to disk. Screenshots you take yourself are held in memory for up to five minutes while you preview them, then discarded.</p>
 
             <h2 id="network">Network use</h2>
             <p>The app connects to the internet only for the one-time engine setup, to download:</p>
@@ -72,8 +72,10 @@
             <ul>
               <li>Nothing is captured until you press Start and confirm the consent prompt. A “Listening” badge shows while capture is on.</li>
               <li>Your microphone and the call's audio are captured as separate streams and transcribed in memory.</li>
-              <li>Clipboard text and screenshots are used only after you preview them and press Send. Likely passwords and keys are flagged so you can redact them.</li>
+              <li>When a question refers to something on screen (“this code”, “which of these”), Hirora takes one picture of the monitor you're using, with its own windows left out. That happens only for a question you typed or one spoken during a session you started. The picture goes to the answer model on <code>127.0.0.1</code> and is dropped when the answer is done. Turn it off, or use it with every question, in Settings → Answers → Your screen.</li>
+              <li>Clipboard text and screenshots you take yourself are used only after you preview them and press Send. Likely passwords and keys are flagged so you can redact them.</li>
             </ul>
+            <p>A shared screen can show other people's information. Only ask about it where everyone on the call is fine with that.</p>
 
             <h2 id="delete">Deleting data</h2>
             <ul>

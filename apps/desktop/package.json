@@ -1,7 +1,7 @@
 {
   "name": "@hirora/desktop",
   "productName": "Hirora",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Hirora \u2014 local-first real-time AI desktop copilot (BYOK)",
   "author": "Hirora contributors",

@@ -176,6 +176,12 @@ export class WindowManager {
     }
   }
 
+  /** Puts the user's screen-share setting back on every Hirora window. */
+  restoreContentProtection(): void {
+    const on = this.settings.get().overlay.contentProtection;
+    for (const w of this.all()) this.applyContentProtection(w, on);
+  }
+
   applyOverlaySettings(): void {
     const s = this.settings.get().overlay;
     this.applyContentProtection(this.dashboard, s.contentProtection);
