@@ -1,25 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SecretVault, SettingsStore, deepMerge, parseSettingsLenient } from './index';
-import type { SecretCipher } from './index';
+import { SettingsStore, deepMerge, parseSettingsLenient } from './index';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'vc-settings-'));
-
-/** Test cipher (reversible XOR) — stands in for Electron safeStorage/DPAPI in unit tests only. */
-class FakeCipher implements SecretCipher {
-  backend = 'test-xor';
-  isAvailable() {
-    return true;
-  }
-  encrypt(p: string) {
-    return Buffer.from([...Buffer.from(p)].map((b) => b ^ 0x5a));
-  }
-  decrypt(c: Buffer) {
-    return Buffer.from([...c].map((b) => b ^ 0x5a)).toString();
-  }
-}
 
 describe('deepMerge', () => {
   it('merges nested objects, replaces arrays, supports =replace and blocks prototype pollution', () => {
@@ -49,7 +34,7 @@ describe('SettingsStore', () => {
     const dir = tmp();
     const path = join(dir, 'settings.json');
     writeFileSync(path, '{not json');
-    expect(new SettingsStore(path).get().schemaVersion).toBe(1);
+    expect(new SettingsStore(path).get().schemaVersion).toBe(2);
     expect(readdirSync(dir).some((f) => f.includes('corrupt'))).toBe(true);
     const lenient = parseSettingsLenient({ overlay: { opacity: 99 }, answer: { mode: 'coding' } });
     expect(lenient.answer.mode).toBe('coding');
@@ -57,28 +42,29 @@ describe('SettingsStore', () => {
   });
 });
 
-describe('SecretVault', () => {
-  it('never writes plaintext keys and round-trips through the cipher', () => {
+describe('upgrade from 0.2.x', () => {
+  it('keeps the user choices and drops provider, key and budget settings', () => {
     const dir = tmp();
-    const path = join(dir, 'secrets.json');
-    const key = 'xai-' + 'Q'.repeat(40);
-    const v = new SecretVault(path, new FakeCipher());
-    v.set('xai', key);
-    expect(readFileSync(path, 'utf8')).not.toContain(key);
-    const v2 = new SecretVault(path, new FakeCipher());
-    expect(v2.get('xai')).toBe(key);
-    expect(v2.status().xai.hasKey).toBe(true);
-    expect(v2.status().gemini.hasKey).toBe(false);
-    v2.delete('xai');
-    expect(v2.get('xai')).toBeNull();
-    v2.deleteAll();
-    expect(existsSync(path)).toBe(false);
-  });
-
-  it('refuses to store when OS encryption is unavailable or input is not a key', () => {
-    const c = new FakeCipher();
-    c.isAvailable = () => false;
-    expect(() => new SecretVault(join(tmp(), 's.json'), c).set('gemini', 'abcdefghijk')).toThrow(/encryption/);
-    expect(() => new SecretVault(join(tmp(), 's.json'), new FakeCipher()).set('gemini', 'has spaces in it')).toThrow();
+    const path = join(dir, 'settings.json');
+    writeFileSync(
+      path,
+      JSON.stringify({
+        schemaVersion: 1,
+        onboardingComplete: true,
+        providers: { cloud: { enabled: true, model: 'openai/gpt-oss-20b', baseUrl: 'https://hirora-one.vercel.app/v1' } },
+        answer: { primaryProvider: 'ollama', fallbackProvider: 'cloud', format: 'paragraph', length: 'medium' },
+        stt: { provider: 'local-whisper', language: 'en', geminiMode: 'VERBATIM', endpointingMs: 600, localWhisperUrl: 'http://127.0.0.1:8178' },
+        budget: { dailyAnswerLimit: 150, prices: {} },
+        overlay: { contentProtection: true },
+        audio: { systemDeviceId: 'all', micDeviceId: 'buds' },
+      }),
+    );
+    const s = new SettingsStore(path).get();
+    expect(s.schemaVersion).toBe(2);
+    expect(s.onboardingComplete).toBe(true);
+    expect(s.stt).toEqual({ language: 'en', customVocabulary: [] });
+    expect(s.answer.format).toBe('paragraph');
+    expect(s.audio.micDeviceId).toBe('buds');
+    expect(JSON.stringify(s)).not.toMatch(/vercel|cloud|primaryProvider|budget/);
   });
 });

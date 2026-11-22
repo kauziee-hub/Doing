@@ -5,7 +5,7 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/out/**', '**/dist/**', '**/release/**', 'apps/cloud/public/**', 'apps/cloud/.vercel/**', 'native/**/target/**', 'test-results/**', 'docs/**', '**/*.d.ts'],
+    ignores: ['**/node_modules/**', '**/out/**', '**/dist/**', '**/release/**', 'apps/hosting/public/**', 'apps/hosting/.vercel/**', 'native/**/target/**', 'test-results/**', 'docs/**', '**/*.d.ts'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

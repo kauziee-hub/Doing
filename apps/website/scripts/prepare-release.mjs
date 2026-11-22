@@ -45,11 +45,11 @@ if (existsSync(releaseDir)) {
 if (!out.file) out.url = null;
 
 const shots = join(root, 'test-results', 'screenshots');
-// Real captures of the app, newest set first (cloud-* come from a fresh install connected to Hirora Cloud).
+// Real captures of the app from a fresh profile (tools/site-shots.mjs), using the engine on this PC.
 const want = {
-  'home-light.png': ['cloud-home-light.png', '08-home-light.png'],
-  'home-dark.png': ['cloud-home-dark.png', '08-home-dark.png'],
-  'overlay.png': ['cloud-overlay.png', 'overlay-live-d.png'],
+  'home-light.png': ['local-home-light.png'],
+  'home-dark.png': ['local-home-dark.png'],
+  'overlay.png': ['local-overlay.png'],
 };
 mkdirSync(join(site, 'public', 'img'), { recursive: true });
 for (const [dest, candidates] of Object.entries(want)) {

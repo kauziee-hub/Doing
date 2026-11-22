@@ -2,17 +2,17 @@
 
 **"Windows protected your PC" when installing.** The installer is not code-signed yet. Compare the SHA-256 shown on the download page with `Get-FileHash .\Hirora-Setup-*.exe`, then choose More info → Run anyway.
 
-**"Wrong or missing Hirora Cloud access code".** Ask whoever shared Hirora for the current code and paste it again in Settings → Providers → Hirora Cloud → Save code. The owner can rotate codes (`HIRORA_ACCESS_CODE` in the Vercel project), after which old codes stop working.
+**Setup stops with "failed its checksum".** The download was corrupted or replaced in transit; the bad file was deleted. Press *Resume setup*. If it keeps failing, a proxy or antivirus may be altering downloads.
 
-**Hirora Cloud says "rate limit" or answers slow down.** Everyone with the code shares Groq's free tier (about 30 answers/min and 1,000/day; about 20 transcriptions/min). Wait a minute, or add your own Gemini/xAI key (or Ollama) as a fallback so answers keep flowing.
+**Setup stops part-way (network drop, PC asleep, Cancel).** Press *Resume setup*: finished parts are kept and the interrupted download continues where it stopped.
 
-**Hirora Cloud transcript appears only after the speaker stops.** That's expected: Whisper transcribes whole sentences after a short pause (about 1.5–2 s after the sentence ends). For word-by-word text, use Gemini Live or xAI STT with your own key.
+**"Not enough free disk space".** Setup needs about 1.6× the download size free on the drive holding `%LOCALAPPDATA%` while it unpacks, then less.
 
-**"This Hirora Cloud server is not connected / has no access code configured".** The owner's relay is missing `GROQ_API_KEY` or `HIRORA_ACCESS_CODE`; check `https://hirora-one.vercel.app/health`.
+**Answers or transcripts are slow.** Plug the laptop in: on battery the GPU throttles hard (a model load took 177 s on battery once). Press Start a few seconds before the call so the model is loaded. On PCs without an NVIDIA GPU (6 GB or more) Hirora uses smaller models on the processor and is slower; Settings → Engine shows which one you have.
 
-**Answers say "No response within … ms".** The provider didn't send its first token in time. Gemini Flash-Lite was measured at 8–9 s to first byte during busy periods (and returns HTTP 503 "high demand" at times). Raise *Settings → Answers → First-token timeout*, pick another model, or add a fallback provider.
+**"Speech recognition did not start" / "The answer engine did not start".** Settings → Engine → the status shows what is missing; *Resume setup* reinstalls it. An old NVIDIA driver can stop the CUDA build: update the driver, or choose *Processor only* in Settings → Engine.
 
-**"No API key saved for the selected transcription provider".** Hirora Cloud Whisper uses the access code; Gemini Live uses your Gemini key; xAI STT uses your xAI key. DeepSeek and Ollama cannot transcribe audio.
+**I already use Ollama.** Hirora reuses its program and model folder, and runs its own server on port 11435 so your Ollama on 11434 is untouched. When Hirora starts listening it asks your Ollama to unload Hirora's model if it holds it, so both don't fill the GPU.
 
 **System audio shows "streaming" but no transcript.** Check that audio is actually playing through the selected output device (Settings → Audio → Test system audio). Bluetooth headsets in "hands-free" mode switch to a different output endpoint — select it or leave "Windows default".
 
@@ -28,4 +28,4 @@
 
 **`pnpm package:win` fails with an NSIS `!include: could not open file`.** Keep `virtual-store-dir-max-length=40` in `.npmrc` and run `pnpm install --force`. If Electron then fails to launch, re-run `node node_modules/electron/install.js` inside `apps/desktop`.
 
-**Where are the logs?** `%APPDATA%\Hirora\logs\hirora.log` (no transcripts, answers or keys).
+**Where are the logs?** `%APPDATA%\Hirora\logs\hirora.log` (no transcripts or answers). The answer engine's own log is `%LOCALAPPDATA%\Hirora\ollama\server.log`.

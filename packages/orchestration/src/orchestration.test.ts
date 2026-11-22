@@ -18,7 +18,6 @@ import { buildMessages, escapeData } from './prompt';
 import { AnswerEngine } from './answer';
 import { SttStream } from './sttStream';
 import { SessionController } from './session';
-import { answerBudgetCheck, estimateCostUsd } from './budget';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -138,14 +137,17 @@ type Script = Array<{ delay?: number; chunk?: StreamChunk; error?: ProviderError
 class FakeProvider implements TextModelProvider {
   readonly label = 'fake';
   calls = 0;
-  constructor(readonly id: 'gemini' | 'xai' | 'deepseek', private readonly scripts: Script[]) {}
+  readonly id = 'ollama' as const;
+  constructor(private readonly scripts: Script[]) {}
   async listModels() {
     return [];
   }
   async preconnect() {}
+  prompts: string[] = [];
   async *stream(req: StreamRequest): AsyncGenerator<StreamChunk> {
     const script = this.scripts[Math.min(this.calls, this.scripts.length - 1)]!;
     this.calls++;
+    this.prompts.push(req.messages.map((m) => (typeof m.content === 'string' ? m.content : '')).join(' ')); // one string per request
     for (const step of script) {
       if (step.delay) {
         await new Promise<void>((resolve, reject) => {
@@ -163,9 +165,8 @@ class FakeProvider implements TextModelProvider {
   }
 }
 
-function engine(providers: Partial<Record<'gemini' | 'xai' | 'deepseek', FakeProvider>>, patch: (s: AppSettings) => void = () => undefined) {
+function engine(provider: FakeProvider | null, patch: (s: AppSettings) => void = () => undefined, lean = false, ready?: () => Promise<void>) {
   const s = defaultSettings();
-  s.answer.primaryProvider = 'gemini';
   s.answer.firstTokenTimeoutMs = 1500;
   patch(s);
   const records = new Map<string, AnswerRecord>();
@@ -173,11 +174,12 @@ function engine(providers: Partial<Record<'gemini' | 'xai' | 'deepseek', FakePro
   const perf: PerfSample[] = [];
   const e = new AnswerEngine({
     settings: () => s,
-    resolveProvider: (id) => (providers[id as 'gemini'] ? { provider: providers[id as 'gemini']!, model: `${id}-m`, deepModel: `${id}-deep` } : null),
+    resolveProvider: (id) => (provider ? { provider, model: `${id}-m`, deepModel: `${id}-deep` } : null),
     retrieve: async () => ({ chunks: [], ms: 1 }),
     context: () => ({ personal: null, session: null, transcript: [] }),
-    budgetCheck: () => ({ ok: true }),
-    recordUsage: () => ({ costUsd: null }),
+    lean: () => lean,
+    ...(ready ? { ready } : {}),
+    recordUsage: () => undefined,
     perf: (p) => perf.push(p),
     emit: (r) => records.set(r.requestId, r),
     emitDelta: (id, d) => deltas.push([id, d]),
@@ -188,8 +190,34 @@ function engine(providers: Partial<Record<'gemini' | 'xai' | 'deepseek', FakePro
 const text = (t: string): StreamChunk => ({ type: 'text', text: t });
 
 describe('AnswerEngine', () => {
+  it('a question asked while the engine is still starting waits for it instead of failing', async () => {
+    let release!: () => void;
+    const starting = new Promise<void>((r) => (release = r));
+    const p = new FakeProvider([[{ chunk: text('ready now') }]]);
+    const { e, records } = engine(p, () => undefined, false, () => starting);
+    const id = e.ask({ question: 'hi', origin: 'typed' });
+    await sleep(150);
+    expect(p.calls).toBe(0); // nothing sent to a model that isn't up
+    expect(records.get(id)?.status).not.toBe('error');
+    release();
+    await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
+    expect(records.get(id)?.text).toBe('ready now');
+  });
+
+  it('a lean (CPU) engine leaves earlier answers out of the prompt; a GPU engine keeps them', async () => {
+    for (const lean of [false, true]) {
+      const p = new FakeProvider([[{ chunk: text('First answer about Kafka') }], [{ chunk: text('second') }]]);
+      const { e, records } = engine(p, () => undefined, lean);
+      const a = e.ask({ question: 'Tell me about Kafka', origin: 'typed' });
+      await vi.waitFor(() => expect(records.get(a)?.status).toBe('done'));
+      const b = e.ask({ question: 'What is a deadlock?', origin: 'typed' });
+      await vi.waitFor(() => expect(records.get(b)?.status).toBe('done'));
+      expect(p.prompts[1]!.includes('First answer about Kafka')).toBe(!lean);
+    }
+  });
+
   it('streams a full answer and records first-token timing', async () => {
-    const { e, records, deltas, perf } = engine({ gemini: new FakeProvider('gemini', [[{ chunk: text('Hel') }, { delay: 20, chunk: text('lo') }, { chunk: { type: 'done', finishReason: 'STOP' } }]]) });
+    const { e, records, deltas, perf } = engine(new FakeProvider([[{ chunk: text('Hel') }, { delay: 20, chunk: text('lo') }, { chunk: { type: 'done', finishReason: 'STOP' } }]]));
     const id = e.ask({ question: 'hi', origin: 'typed' });
     await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
     expect(records.get(id)?.text).toBe('Hello');
@@ -198,11 +226,11 @@ describe('AnswerEngine', () => {
   });
 
   it('a newer question cancels the old one and late chunks never leak', async () => {
-    const slow = new FakeProvider('gemini', [
+    const slow = new FakeProvider([
       [{ chunk: text('OLD-1 ') }, { delay: 200, chunk: text('OLD-2') }],
       [{ chunk: text('NEW') }],
     ]);
-    const { e, records, deltas } = engine({ gemini: slow });
+    const { e, records, deltas } = engine(slow);
     const first = e.ask({ question: 'first', origin: 'system' });
     await vi.waitFor(() => expect(deltas.length).toBeGreaterThan(0));
     const second = e.ask({ question: 'second', origin: 'system' });
@@ -214,11 +242,11 @@ describe('AnswerEngine', () => {
   });
 
   it('prefetch generates invisibly, leaves the shown answer alone, and commit reveals it instantly', async () => {
-    const p = new FakeProvider('gemini', [
+    const p = new FakeProvider([
       [{ chunk: text('SHOWN') }],
       [{ chunk: text('Early ') }, { delay: 120, chunk: text('answer') }],
     ]);
-    const { e, records, deltas, perf } = engine({ gemini: p });
+    const { e, records, deltas, perf } = engine(p);
     const shown = e.ask({ question: 'first', origin: 'system' });
     await vi.waitFor(() => expect(records.get(shown)?.status).toBe('done'));
     const spec = e.prefetch({ question: 'what is rbac', origin: 'system' });
@@ -240,8 +268,8 @@ describe('AnswerEngine', () => {
   });
 
   it('a dropped or superseded prefetch never shows, and commit of a gone prefetch is refused', async () => {
-    const p = new FakeProvider('gemini', [[{ chunk: text('A') }, { delay: 200, chunk: text('B') }], [{ chunk: text('C') }], [{ chunk: text('ASKED') }]]);
-    const { e, records, deltas } = engine({ gemini: p });
+    const p = new FakeProvider([[{ chunk: text('A') }, { delay: 200, chunk: text('B') }], [{ chunk: text('C') }], [{ chunk: text('ASKED') }]]);
+    const { e, records, deltas } = engine(p);
     const a = e.prefetch({ question: 'partial', origin: 'system' });
     const b = e.prefetch({ question: 'partial question', origin: 'system' }); // replaces a
     await vi.waitFor(() => expect(p.calls).toBeGreaterThanOrEqual(1));
@@ -254,28 +282,16 @@ describe('AnswerEngine', () => {
     expect(deltas.every(([id]) => id === asked)).toBe(true);
   });
 
-  it('falls back visibly when the primary fails before streaming', async () => {
-    const { e, records } = engine(
-      {
-        gemini: new FakeProvider('gemini', [[{ error: new ProviderError('gemini', 'quota_exceeded', 'quota') }]]),
-        deepseek: new FakeProvider('deepseek', [[{ chunk: text('from fallback') }]]),
-      },
-      (s) => (s.answer.fallbackProvider = 'deepseek'),
-    );
-    const id = e.ask({ question: 'q', origin: 'typed' });
-    await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
-    expect(records.get(id)).toMatchObject({ provider: 'deepseek', usedFallback: true, text: 'from fallback' });
-  });
 
   it('retries once on a transient error, but never after text was shown', async () => {
-    const flaky = new FakeProvider('gemini', [[{ error: new ProviderError('gemini', 'network', 'reset') }], [{ chunk: text('ok') }]]);
-    const { e, records } = engine({ gemini: flaky });
+    const flaky = new FakeProvider([[{ error: new ProviderError('ollama', 'network', 'reset') }], [{ chunk: text('ok') }]]);
+    const { e, records } = engine(flaky);
     const id = e.ask({ question: 'q', origin: 'typed' });
     await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
     expect(flaky.calls).toBe(2);
 
-    const midway = new FakeProvider('gemini', [[{ chunk: text('partial ') }, { error: new ProviderError('gemini', 'network', 'reset') }]]);
-    const t = engine({ gemini: midway });
+    const midway = new FakeProvider([[{ chunk: text('partial ') }, { error: new ProviderError('ollama', 'network', 'reset') }]]);
+    const t = engine(midway);
     const id2 = t.e.ask({ question: 'q', origin: 'typed' });
     await vi.waitFor(() => expect(t.records.get(id2)?.status).toBe('error'));
     expect(midway.calls).toBe(1);
@@ -283,26 +299,21 @@ describe('AnswerEngine', () => {
   });
 
   it('times out when no first token arrives and reports a structured error', async () => {
-    const { e, records } = engine({ gemini: new FakeProvider('gemini', [[{ delay: 5000, chunk: text('late') }]]) });
+    const { e, records } = engine(new FakeProvider([[{ delay: 5000, chunk: text('late') }]]));
     const id = e.ask({ question: 'q', origin: 'typed' });
     await vi.waitFor(() => expect(records.get(id)?.status).toBe('error'), { timeout: 6000 });
     expect(records.get(id)?.errorCode).toBe('timeout');
   });
 
-  it('refuses to answer without a configured provider or over budget', async () => {
-    const { e, records } = engine({});
+  it('refuses to answer, with a setup hint, while the engine is not installed', async () => {
+    const { e, records } = engine(null);
     const id = e.ask({ question: 'q', origin: 'typed' });
     await vi.waitFor(() => expect(records.get(id)?.errorCode).toBe('not_configured'));
-    const s = defaultSettings();
-    s.budget.dailyAnswerLimit = 2;
-    expect(answerBudgetCheck(s, { answers: 2 }, 0).ok).toBe(false);
-    s.budget.prices['gemini:m'] = { inputPer1M: 1, outputPer1M: 2 };
-    expect(estimateCostUsd(s, 'gemini', 'm', { inputTokens: 1_000_000, outputTokens: 500_000 })).toBe(2);
-    expect(estimateCostUsd(s, 'gemini', 'other', { inputTokens: 5 })).toBeNull();
+    expect(records.get(id)?.error).toMatch(/Set up/);
   });
 
   it('user cancel stops streaming immediately', async () => {
-    const { e, records } = engine({ gemini: new FakeProvider('gemini', [[{ chunk: text('a') }, { delay: 2000, chunk: text('b') }]]) });
+    const { e, records } = engine(new FakeProvider([[{ chunk: text('a') }, { delay: 2000, chunk: text('b') }]]));
     const id = e.ask({ question: 'q', origin: 'typed' });
     await vi.waitFor(() => expect(records.get(id)?.status).toBe('streaming'));
     e.cancel('user');
@@ -314,7 +325,7 @@ describe('AnswerEngine', () => {
 // ───────────── SttStream / SessionController with fakes ─────────────
 
 class FakeTranscriber implements StreamingTranscriptionProvider {
-  readonly id = 'gemini-live' as const;
+  readonly id = 'local-whisper' as const;
   readonly label = 'fake';
   readonly maxSessionMs = null;
   readonly wantsEndOfSpeech = true;
@@ -359,7 +370,7 @@ describe('SttStream', () => {
     const s = new SttStream({
       source: 'mic',
       createProvider: () => fake,
-      options: () => ({ language: '', vocabulary: [], geminiMode: 'VERBATIM', endpointingMs: 600 }),
+      options: () => ({ language: '', vocabulary: [], }),
       gateDb: () => -62,
       onInterim: () => undefined,
       onFinal: () => undefined,
@@ -394,7 +405,7 @@ describe('SttStream', () => {
     const s = new SttStream({
       source: 'system',
       createProvider: () => fake,
-      options: () => ({ language: '', vocabulary: [], geminiMode: 'VERBATIM', endpointingMs: 600 }),
+      options: () => ({ language: '', vocabulary: [], }),
       gateDb: () => -90,
       onInterim() {},
       onFinal() {},
@@ -408,7 +419,7 @@ describe('SttStream', () => {
     fake.sessions[0]!.h.onClose(false, 'network blip');
     await vi.waitFor(() => expect(fake.sessions.length).toBe(2), { timeout: 3000 });
     expect(states).toContain('reconnecting');
-    fake.sessions[1]!.h.onError(new ProviderError('gemini', 'invalid_key', 'bad key'));
+    fake.sessions[1]!.h.onError(new ProviderError('ollama', 'invalid_key', 'bad key'));
     await sleep(800);
     expect(fake.sessions.length).toBe(2);
     expect(states[states.length - 1]).toBe('error');
@@ -417,9 +428,8 @@ describe('SttStream', () => {
 });
 
 describe('SessionController', () => {
-  function setup(patch: (s: AppSettings) => void = () => undefined, gate?: (u: string) => Promise<GateDecision | null>) {
+  function setup(patch: (s: AppSettings) => void = () => undefined, gate?: (u: string) => Promise<GateDecision | null>, early = true) {
     const s = defaultSettings();
-    s.answer.primaryProvider = 'gemini';
     s.audio.noiseGateDbfs = -90;
     patch(s);
     const asked: string[] = [];
@@ -453,12 +463,12 @@ describe('SessionController', () => {
       emit: () => undefined,
       history: () => null,
       recordSttSeconds: () => undefined,
-      sttBudgetCheck: () => ({ ok: true }),
       usageToday: () => ({ answers: 0, sttMinutes: 0, costUsd: null }),
       activeProfileName: () => null,
       perf: () => undefined,
       helperInfo: () => ({ running: true, version: 'test', error: null }),
       ...(gate ? { gate: (u: string) => gate(u) } : {}),
+      earlyAnswers: () => early,
     });
     return { c, asked, started, fake, s };
   }
@@ -520,6 +530,21 @@ describe('SessionController', () => {
     await sleep(400);
     expect(asked).toHaveLength(1); // the final confirmed it; nothing re-asked
     await c.stop();
+  });
+
+  it('on a CPU engine (no early answers) waits for the final transcript, then answers once', async () => {
+    const ctx = setup(() => undefined, undefined, false);
+    await ctx.c.start(true);
+    await vi.waitFor(() => expect(ctx.fake.sessions.length).toBe(2));
+    const sys = ctx.fake.sessions[1]!;
+    for (let i = 0; i < 10; i++) ctx.c.onFrame('system', frame(9000));
+    sys.h.onInterim('Can you tell me that I am not a good person'); // misheard live text
+    for (let i = 0; i < 16; i++) ctx.c.onFrame('system', frame(0));
+    expect(ctx.asked).toEqual([]); // nothing started from live text
+    sys.h.onFinalSegment('Can you tell me about a challenging project?');
+    sys.h.onUtteranceEnd();
+    await vi.waitFor(() => expect(ctx.asked).toEqual(['Can you tell me about a challenging project?']));
+    await ctx.c.stop();
   });
 
   it('never reveals a mid-question fragment at a pause ("Can you tell me …")', async () => {

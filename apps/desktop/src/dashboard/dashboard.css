@@ -132,3 +132,30 @@
 @media (max-width: 980px) { .dash-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 :root[data-theme='dark'] .dash-mode.is-active .dash-mode__icon { background: var(--cue); color: #1d1c35; }
 :root[data-theme='dark'] .dash-mode__icon { background: rgba(255, 255, 255, 0.06); }
+
+/* ── Engine setup (one-click, on this PC) ── */
+.eng { display: grid; gap: 12px; }
+.eng-hw { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); background: var(--sunken); border-radius: 999px; padding: 7px 14px; width: fit-content; max-width: 100%; }
+.eng-list { display: grid; }
+.eng-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.eng-row:last-child { border-bottom: 0; }
+.eng-row__icon { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--sunken); color: var(--text-3); }
+.eng-row__icon.is-ok { background: var(--mint); color: var(--mint-ink); }
+.eng-row__icon.is-err { background: var(--blush); color: var(--error); }
+.eng-row__body { flex: 1; min-width: 0; }
+.eng-row__top { display: flex; justify-content: space-between; gap: 12px; }
+.eng-row__state { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.eng-row__detail { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+.eng-bar { height: 6px; border-radius: 999px; background: var(--sunken); overflow: hidden; margin-top: 8px; }
+.eng-bar > span { display: block; height: 100%; background: var(--ink); border-radius: 999px; transition: width .25s ease; }
+.eng-bar > span.is-indeterminate { opacity: .45; animation: eng-pulse 1.1s ease-in-out infinite; }
+@keyframes eng-pulse { 50% { opacity: .9; } }
+.eng-spin { animation: eng-rot 1s linear infinite; }
+@keyframes eng-rot { to { transform: rotate(360deg); } }
+.eng-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.eng-done { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-weight: 500; font-size: 13.5px; }
+@media (prefers-reduced-motion: reduce) { .eng-spin, .eng-bar > span.is-indeterminate { animation: none; } }
+.ob-points { display: grid; gap: 10px; margin: 14px 0; }
+.ob-points > div { display: flex; gap: 10px; align-items: flex-start; background: var(--sunken); border-radius: 14px; padding: 11px 14px; font-size: 14px; }
+.ob-points svg { flex: none; margin-top: 2px; }
+.ob-link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }

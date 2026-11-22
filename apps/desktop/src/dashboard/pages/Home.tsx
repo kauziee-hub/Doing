@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   ArrowUp, BookOpen, Check, Code2, Eye, Headphones, HelpCircle, Lightbulb, MessagesSquare, Mic, NotebookPen, Pause, Play, Radio, Sparkles, Square, UserRound, Waves,
 } from 'lucide-react';
-import type { DocumentSummary, Mode, SecretsStatus } from '@hirora/contracts';
+import type { DocumentSummary, Mode } from '@hirora/contracts';
 import { MODE_LABELS } from '@hirora/contracts';
 import { Button, Card, LevelMeter, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
 import { AnswerView, ConsentModal, TranscriptLine } from '../../overlay/Overlay';
 import { PageHeader } from '../App';
+import { EngineSetup } from '../EngineSetup';
 
 const MODE_TILES: Array<{ mode: Mode; icon: typeof Mic; hint: string }> = [
   { mode: 'interview_practice', icon: MessagesSquare, hint: 'Rehearse answers' },
@@ -32,32 +33,24 @@ export function Home({ go }: { go: (page: string) => void }) {
   const answers = useLive((s) => s.answers);
   const currentId = useLive((s) => s.currentAnswerId);
   const levels = useLive((s) => s.levels);
-  const [secrets, setSecrets] = useState<SecretsStatus | null>(null);
+  const engine = useLive((s) => s.engine);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [consent, setConsent] = useState(false);
   const [q, setQ] = useState('');
 
   useEffect(() => {
-    void invoke('secrets:status').then(setSecrets);
     void invoke('knowledge:list').then(setDocs);
   }, [settings]);
 
   if (!settings) return null;
-  const primary = settings.answer.primaryProvider;
-  const model = primary ? settings.providers[primary].model : '';
-  const sttKeyOk = settings.stt.provider === 'local-whisper' || (secrets ? secrets.providers[settings.stt.provider === 'cloud-whisper' ? 'cloud' : settings.stt.provider === 'gemini-live' ? 'gemini' : 'xai'].hasKey : false);
+  const ready = !!engine?.ready;
   const state = snapshot?.session ?? 'idle';
   const active = state === 'listening' || state === 'paused';
   const answer = currentId ? answers[currentId] : undefined;
   const src = (s: 'mic' | 'system' | 'app') => snapshot?.sources.find((x) => x.source === s);
   const sys = src('system') ?? src('app');
   const mic = src('mic');
-  const checks = [
-    { ok: !!secrets && Object.values(secrets.providers).some((p) => p.hasKey), title: 'Add an API key', desc: 'Stored encrypted with Windows DPAPI.', page: 'settings' },
-    { ok: !!model, title: 'Choose an answer model', desc: 'Picked from the live model list for your key.', page: 'settings' },
-    { ok: sttKeyOk, title: 'Live transcription key', desc: settings.stt.provider === 'local-whisper' ? 'Whisper runs on this PC’s GPU: live text while they speak, no key.' : settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud transcribes with your access code — free, no GPU needed.' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live uses your Gemini key.' : 'xAI streaming STT uses your xAI key.', page: 'settings' },
-    { ok: docs.length > 0, title: 'Add your resume (optional)', desc: 'Grounds answers about you in your real experience.', page: 'knowledge' },
-  ];
+  const checks = [{ ok: docs.length > 0, title: 'Add your résumé (optional)', desc: 'Grounds answers about you in your real experience.', page: 'knowledge' }];
   const pending = checks.filter((c) => !c.ok);
 
   return (
@@ -73,6 +66,13 @@ export function Home({ go }: { go: (page: string) => void }) {
           </span>
         }
       />
+      {!ready ? (
+        <Card>
+          <h2 className="dash-section-title">Set up Hirora</h2>
+          <p className="dash-section-sub">One-time download of the speech and answer engine. After this, Hirora works offline and nothing you say leaves this PC.</p>
+          <EngineSetup />
+        </Card>
+      ) : null}
       <div className="dash-cols">
         <Card>
           <h2 className="dash-section-title">What are you doing?</h2>
@@ -95,7 +95,7 @@ export function Home({ go }: { go: (page: string) => void }) {
           </div>
           <div className="dash-start">
             {!active ? (
-              <Button variant="primary" icon={<Mic size={17} />} onClick={() => setConsent(true)}>Start listening</Button>
+              <Button variant="primary" icon={<Mic size={17} />} disabled={!ready} onClick={() => setConsent(true)}>{ready ? 'Start listening' : 'Finish setup to start'}</Button>
             ) : (
               <>
                 <Button variant="primary" icon={state === 'paused' ? <Play size={16} /> : <Pause size={16} />} onClick={() => void invoke(state === 'paused' ? 'session:resume' : 'session:pause')}>{state === 'paused' ? 'Resume' : 'Pause'}</Button>
@@ -124,14 +124,14 @@ export function Home({ go }: { go: (page: string) => void }) {
               <LevelMeter db={levels.system ?? levels.app ?? -100} label="System audio level" />
             </button>
             <button type="button" className="dash-tile t-lilac" onClick={() => go('settings')}>
-              <div className="dash-tile__row"><span className="dash-tile__icon"><Waves size={17} /></span><span className="dash-tile__state">{sttKeyOk ? (sys?.sttState === 'open' || mic?.sttState === 'open' ? 'Streaming' : 'Ready') : 'Needs key'}</span></div>
-              <span className="dash-tile__label">Transcription</span>
-              <span className="dash-tile__value">{settings.stt.provider === 'local-whisper' ? 'Whisper on this PC' : settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud · Whisper' : settings.stt.provider === 'gemini-live' ? 'Gemini 3.5 Transcribe Live' : 'xAI streaming STT'}</span>
+              <div className="dash-tile__row"><span className="dash-tile__icon"><Waves size={17} /></span><span className="dash-tile__state">{!ready ? 'Not set up' : sys?.sttState === 'open' || mic?.sttState === 'open' ? 'Streaming' : engine?.running.speech ? 'Running' : 'Ready'}</span></div>
+              <span className="dash-tile__label">Speech recognition</span>
+              <span className="dash-tile__value">{engine?.speechModel ?? '…'}{engine ? ` · ${engine.tier === 'gpu' ? 'GPU' : 'CPU'}` : ''}</span>
             </button>
             <button type="button" className="dash-tile t-peach" onClick={() => go('settings')}>
-              <div className="dash-tile__row"><span className="dash-tile__icon"><Sparkles size={17} /></span><span className="dash-tile__state">{model ? 'Ready' : 'Not set'}</span></div>
+              <div className="dash-tile__row"><span className="dash-tile__icon"><Sparkles size={17} /></span><span className="dash-tile__state">{!ready ? 'Not set up' : engine?.running.answers ? 'Running' : 'Ready'}</span></div>
               <span className="dash-tile__label">Answer model</span>
-              <span className="dash-tile__value">{model ? `${primary} · ${model}` : 'Add a key in Settings'}</span>
+              <span className="dash-tile__value">{engine?.answerModel ?? '…'} · on this PC</span>
             </button>
             <button type="button" className="dash-tile t-blush" onClick={() => go('knowledge')}>
               <div className="dash-tile__row"><span className="dash-tile__icon"><BookOpen size={17} /></span><span className="dash-tile__state">{docs.length ? 'Indexed' : 'Empty'}</span></div>

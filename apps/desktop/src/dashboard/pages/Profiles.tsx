@@ -70,7 +70,7 @@ export function Profiles() {
           </Card>
 
           <Card title={`Project cards (${cards.length})`} actions={<Button size="sm" icon={<Plus size={13} />} onClick={() => setCard(emptyCard())}>New card</Button>}>
-            {cards.length === 0 && !card ? <EmptyState title="No project cards">Reusable STAR stories with measurable outcomes and evidence. Private cards are never sent to providers.</EmptyState> : null}
+            {cards.length === 0 && !card ? <EmptyState title="No project cards">Reusable STAR stories with measurable outcomes and evidence. Private cards are never put into prompts.</EmptyState> : null}
             {cards.map((c) => (
               <div key={c.id} className="dash-check">
                 <div className="dash-check__body">
@@ -98,7 +98,7 @@ export function Profiles() {
                 <Field label="Visibility">
                   <select className="vc-select" value={card.visibility} onChange={(e) => setCard({ ...card, visibility: e.target.value as ProjectCard['visibility'] })}>
                     <option value="use_in_answers">Use in answers</option>
-                    <option value="private">Private (never sent to providers)</option>
+                    <option value="private">Private (never put into prompts)</option>
                   </select>
                 </Field>
                 <div className="vc-row">

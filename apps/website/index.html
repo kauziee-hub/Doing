@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Hirora is a Windows interview copilot. It shows a live transcript of the call you approve and short answer cues drawn from your own résumé, in a quiet overlay. Free, no account, works on any Windows PC — no GPU or paid key needed." />
+    <meta name="description" content="Hirora is a Windows interview copilot that runs entirely on your PC. It shows a live transcript of the call you approve and short answer cues drawn from your own résumé, in a quiet overlay. Free, no account, no keys, nothing leaves your computer." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Hirora — interview calmer, answer smarter" />
-    <meta property="og:description" content="Live transcripts and résumé-grounded answer cues in a quiet overlay on Windows. Free, no account, no GPU needed." />
+    <meta property="og:description" content="Live transcripts and résumé-grounded answer cues in a quiet overlay on Windows. Runs entirely on your PC: free, no account, no keys." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -27,7 +27,7 @@
         <nav class="nav__links" aria-label="Sections">
           <a href="#how">How it works</a>
           <a href="#features">Features</a>
-          <a href="#local">Run it locally</a>
+          <a href="#local">On your PC</a>
           <a href="#faq">FAQ</a>
         </nav>
         <a class="btn btn--ink btn--sm" href="#download">Download</a>
@@ -53,7 +53,7 @@
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5 12 15.5l5-5M5 20h14"/></svg>
             </a>
           </div>
-          <p class="hero__note reveal">Free · No sign-up · Works on any Windows PC · Your notes stay on your PC</p>
+          <p class="hero__note reveal">Free · No sign-up · No keys · Everything runs on your PC</p>
 
           <a class="start-card reveal" href="#how">
             <span class="start-card__icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 64 64"><rect width="64" height="64" rx="19" fill="#1d1c35"/><path d="M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49" fill="none" stroke="#fff" stroke-width="7.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="45" cy="16" r="5.4" fill="#f4a3b4"/></svg></span>
@@ -81,8 +81,8 @@
 
           <div class="bracket" aria-hidden="true"><span class="bracket__stem"></span><span class="bracket__bar"></span></div>
           <dl class="stats">
-            <div class="stat"><dt>1.5–1.8<small>s</small></dt><dd>end of a sentence → its transcript, on Hirora Cloud</dd></div>
-            <div class="stat"><dt>0.55<small>s</small></dt><dd>median, question → first answer word, on Hirora Cloud (no GPU)</dd></div>
+            <div class="stat"><dt>0.55<small>s</small></dt><dd>median, typed question → first answer word, on an RTX 4060 laptop</dd></div>
+            <div class="stat"><dt>0.2<small>s</small></dt><dd>for Whisper to transcribe a 3-second spoken question on the same GPU</dd></div>
           </dl>
         </div>
       </section>
@@ -107,8 +107,8 @@
         <ol class="steps">
           <li class="step tile--peach reveal">
             <span class="step__n">1</span>
-            <h3>Install Hirora</h3>
-            <p>Run the installer (no admin rights needed) and paste the <b>Hirora Cloud access code</b> you were given. That's it: transcription and answers run on the free shared server, so any PC works, no GPU or paid key needed.</p>
+            <h3>Install and press Set up</h3>
+            <p>Run the installer (no admin rights needed). On first launch press <b>Set up Hirora</b>: it checks your PC and downloads its speech and answer engine once, verifying every file. No account, no keys.</p>
           </li>
           <li class="step tile--lilac reveal">
             <span class="step__n">2</span>
@@ -161,7 +161,7 @@
           <figcaption>The dashboard, light theme</figcaption>
         </figure>
         <figure class="shot shot--overlay reveal">
-          <img src="/img/overlay.png" alt="The Hirora overlay with a coding answer from Hirora Cloud" loading="lazy" width="460" height="640" />
+          <img src="/img/overlay.png" alt="The Hirora overlay with a coding answer written on this PC" loading="lazy" width="460" height="640" />
           <figcaption>The overlay, mid-answer</figcaption>
         </figure>
         <figure class="shot shot--dark reveal">
@@ -172,22 +172,23 @@
 
       <section class="section local" id="local">
         <div class="local__copy reveal">
-          <p class="kicker kicker--light">Run it locally</p>
-          <h2><span class="thin">Answers from</span> <b>your own GPU</b></h2>
-          <p>Optional, for PCs with an NVIDIA GPU. Choose <b>Ollama</b> in Settings and Hirora writes answers on your own machine: your questions never leave it, and it keeps working if the cloud is busy or offline (Hirora uses it automatically as a fallback when you set it).</p>
+          <p class="kicker kicker--light">Runs on your PC</p>
+          <h2><span class="thin">One engine,</span> <b>set up for you</b></h2>
+          <p>Hirora transcribes with <b>Whisper</b> and writes answers with <b>Qwen</b>, both running on your own computer. It picks the size that fits: the large models on an NVIDIA graphics card with 6 GB or more, smaller ones on the processor everywhere else. Nothing you say is sent anywhere, and it keeps working offline.</p>
           <ul class="local__facts">
-            <li><b data-local-ttft-long>Under a second</b><span>to the first answer word on our RTX 4060 laptop</span></li>
-            <li><b>No key</b><span>and answers never leave your PC. Transcription can still use Hirora Cloud.</span></li>
+            <li><b>No NVIDIA GPU?</b><span>It still runs, on the processor: answers started 2–4 s after a spoken question in our test (laptop on battery).</span></li>
+            <li><b>No keys, no server</b><span>The only internet use is the one-time download from GitHub, Hugging Face and the Ollama library.</span></li>
           </ul>
         </div>
-        <div class="terminal reveal" aria-label="Setting up a local model">
-          <div class="terminal__bar"><i></i><i></i><i></i><span>PowerShell</span></div>
-          <pre><code><span class="c"># 1. Install Ollama from ollama.com, then:</span>
-<span class="p">PS&gt;</span> ollama pull qwen3.5:4b
-pulling manifest
-success
-<span class="c"># 2. Hirora → Settings → Providers → Ollama → Test</span>
-<span class="ok">✓ Ollama is running · 1 local model pulled</span></code></pre>
+        <div class="terminal reveal" aria-label="First-run setup log">
+          <div class="terminal__bar"><i></i><i></i><i></i><span>Hirora · Set up</span></div>
+          <pre><code><span class="c"># Set up Hirora · RTX 4060 Laptop GPU · 8 GB</span>
+<span class="ok">✓</span> Answer engine       Ollama 0.40.16       1.6 GB
+<span class="ok">✓</span> Speech recognition  whisper.cpp · CUDA    685 MB
+<span class="ok">✓</span> Speech model        large-v3-turbo        574 MB
+<span class="ok">✓</span> Answer model        Qwen 3.5 4B           3.3 GB
+<span class="c"># every file checked against its SHA-256</span>
+<span class="ok">Everything runs on this PC.</span></code></pre>
         </div>
       </section>
 
@@ -199,7 +200,7 @@ success
         <div class="privacy">
           <ul class="privacy__list reveal">
             <li><b>Nothing is captured until you press Start</b> and confirm everyone has agreed.</li>
-            <li><b>No Hirora server, no account, no telemetry.</b> Audio goes only to the transcription provider you chose; questions only to your answer model.</li>
+            <li><b>No server, no account, no telemetry.</b> Audio is transcribed and answers are written on your PC; nothing you say leaves it.</li>
             <li><b>History is off</b> unless you turn it on, and you can delete it per session or all at once.</li>
             <li><b>Screenshots and clipboard text</b> are always previewed first, with likely secrets flagged for redaction.</li>
           </ul>
@@ -232,7 +233,7 @@ success
             </div>
             <div>
               <h3>What you need</h3>
-              <p>Windows 11 (64-bit), about 350 MB of disk, a microphone or speakers, an internet connection and the Hirora Cloud access code from whoever shared Hirora with you. No GPU and no paid key needed.</p>
+              <p>Windows 11 (64-bit) and an internet connection for the one-time setup. With an NVIDIA graphics card (6 GB or more) Hirora downloads about 6.2 GB and answers fastest; on other PCs about 3.2 GB, and answers take longer (2–4 s in our test). Keep the laptop plugged in during calls.</p>
             </div>
           </div>
         </div>
@@ -244,11 +245,12 @@ success
           <h2><span class="thin">Questions,</span> <b>answered</b></h2>
         </header>
         <div class="faq">
-          <details class="reveal"><summary>Is Hirora free?</summary><p>Yes. There's no account or subscription. Hirora Cloud — a small always-on server — runs open models and Whisper speech-to-text on Groq's free tier, so everyone who has the access code uses it at no cost. The free tier has daily limits shared by everyone on the server (roughly 1,000 answers and a few hours of transcription a day). Prefer your own quota? Add your own Gemini or xAI key, or run answers on your own GPU with Ollama.</p></details>
+          <details class="reveal"><summary>Is Hirora free?</summary><p>Yes. There's no account, subscription or key. Everything runs on your own PC, so there's no server to pay for and no usage limit.</p></details>
           <details class="reveal"><summary>Is it allowed in interviews?</summary><p>Often not. Many interviews and assessments forbid AI help, so check the rules first. Hirora is great for practice, for mock interviews, and for calls where assistance is permitted. Always tell people when you're transcribing them.</p></details>
-          <details class="reveal"><summary>How fast are the answers?</summary><p>Measured on our test laptop with a fresh install and only the access code: a typed question gets its first answer word in about half a second (median 0.55 s, 0.42–0.82 s over 35 questions). For spoken questions, Hirora Cloud transcribes each sentence when the speaker pauses — the text appeared 1.5–1.8 s after the question ended (two runs) — and the answer then started 0.6–0.7 s later. Speeds vary with the free tier's load; the Performance page in the app shows your own numbers.</p></details>
-          <details class="reveal"><summary>Do I need an API key?</summary><p>No — just the Hirora Cloud access code from whoever shared Hirora with you. Optional extras: your own Gemini or xAI key (transcription and answers on your own quota), DeepSeek or any OpenAI-compatible endpoint for answers, or Ollama on your own PC with no key at all.</p></details>
-          <details class="reveal"><summary>Does it record my calls?</summary><p>No. While you're listening, each spoken sentence is sent to the transcription service you chose (Hirora Cloud by default) and is never written to disk — on your PC or on the server. Transcript history is off unless you turn it on.</p></details>
+          <details class="reveal"><summary>How fast are the answers?</summary><p>Measured on our RTX 4060 laptop, plugged in, with Hirora 0.3.0: a typed question gets its first answer word after a median 0.55 s (0.50–1.97 s over 12 questions), and Whisper transcribes a 2.4–3.5 s spoken question in 0.14–0.25 s. With spoken questions, when the question is clear before the speaker finishes, the answer is already written and appeared 0.3 s after they stopped; otherwise it started 1.2–2.7 s after. Press Start a minute before the call: the first question after starting waits about 15–20 s while the model loads. On battery the GPU slows down a lot, so keep the laptop plugged in.</p></details>
+          <details class="reveal"><summary>What if my PC has no NVIDIA graphics card?</summary><p>Hirora uses smaller models on the processor (Whisper small and Qwen 3 1.7B, about 3.2 GB). In our test with the GPU switched off and the laptop on battery, spoken questions were transcribed correctly and answers started 2.3–3.6 s after the speaker stopped. Answering screenshots needs the NVIDIA GPU setup; copy the text and use the clipboard instead.</p></details>
+          <details class="reveal"><summary>What does the setup download?</summary><p>Ollama's runtime (1.6 GB, from GitHub), whisper.cpp and a Whisper speech model (GitHub and Hugging Face), and the Qwen answer model from the Ollama library: about 6.2 GB with an NVIDIA card, 3.2 GB without. Every file is checked against its published SHA-256 before it is used. If you already use Ollama, Hirora reuses it and its models.</p></details>
+          <details class="reveal"><summary>Does it record my calls?</summary><p>No. Audio is transcribed on your PC while you listen and is never written to disk. Transcript history is off unless you turn it on.</p></details>
           <details class="reveal"><summary>Why does Windows show a warning when I install?</summary><p>The installer isn't code-signed yet. Compare the SHA-256 shown above with your downloaded file (PowerShell: <code>Get-FileHash .\Hirora-Setup-*.exe</code>). If they match, choose More info → Run anyway.</p></details>
         </div>
       </section>

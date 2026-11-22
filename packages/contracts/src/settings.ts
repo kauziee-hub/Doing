@@ -1,21 +1,32 @@
 import { z } from 'zod';
 
-export const PROVIDER_IDS = ['cloud', 'gemini', 'xai', 'deepseek', 'ollama', 'custom'] as const;
+/**
+ * Hirora runs one engine, entirely on this PC (ADR 0012): whisper.cpp for live
+ * transcription and an Ollama runtime that Hirora installs and manages for answers.
+ * The ids below name those two pieces inside the app; users never pick a provider.
+ */
+export const PROVIDER_IDS = ['ollama'] as const;
 export const ProviderIdSchema = z.enum(PROVIDER_IDS);
 export type ProviderId = z.infer<typeof ProviderIdSchema>;
+/** The answer engine (Hirora's own Ollama runtime on loopback). */
+export const LOCAL_ENGINE: ProviderId = 'ollama';
 
-/** Providers that run on this PC and need no API key. */
-export const KEYLESS_PROVIDERS: readonly ProviderId[] = ['ollama'];
-export const isKeyless = (p: ProviderId): boolean => KEYLESS_PROVIDERS.includes(p);
 /** `audio.systemDeviceId` value meaning "every output device, mixed". */
 export const SYSTEM_ALL_OUTPUTS = 'all';
-export const OLLAMA_DEFAULT_BASE_URL = 'http://127.0.0.1:11434/v1';
-/** The project's free shared server (Vercel relay → Groq open models + Whisper). Overridable in Settings. */
-export const HIRORA_CLOUD_DEFAULT_BASE_URL = 'https://hirora-one.vercel.app/v1';
+/** Hirora's private Ollama server. A separate port from a user's own Ollama (11434), so the two never collide. */
+export const ENGINE_OLLAMA_PORT = 11435;
+export const ENGINE_OLLAMA_URL = `http://127.0.0.1:${ENGINE_OLLAMA_PORT}/v1`;
+/** whisper.cpp server started by Hirora (loopback only). */
+export const ENGINE_WHISPER_URL = 'http://127.0.0.1:8178';
 
-export const STT_PROVIDER_IDS = ['cloud-whisper', 'local-whisper', 'gemini-live', 'xai-stt'] as const;
+export const STT_PROVIDER_IDS = ['local-whisper'] as const;
 export const SttProviderIdSchema = z.enum(STT_PROVIDER_IDS);
 export type SttProviderId = z.infer<typeof SttProviderIdSchema>;
+
+/** `gpu`: NVIDIA GPU with enough memory (large Whisper + 4B model). `cpu`: smaller models on the processor. */
+export const ENGINE_TIERS = ['gpu', 'cpu'] as const;
+export const EngineTierSchema = z.enum(ENGINE_TIERS);
+export type EngineTier = z.infer<typeof EngineTierSchema>;
 
 export const AUDIO_SOURCES = ['mic', 'system', 'app'] as const;
 export const AudioSourceSchema = z.enum(AUDIO_SOURCES);
@@ -52,36 +63,6 @@ export const MODE_SHORT_LABELS: Record<Mode, string> = {
 
 const Accelerator = z.string().max(64);
 
-export const ProviderSettingsSchema = z.object({
-  enabled: z.boolean().default(false),
-  /** Fast model used for first answers. Empty = not yet selected from the live model list. */
-  model: z.string().max(128).default(''),
-  /** Optional slower/deeper model used by "Expand". Empty = reuse `model`. */
-  deepModel: z.string().max(128).default(''),
-});
-export type ProviderSettings = z.infer<typeof ProviderSettingsSchema>;
-
-export const CustomProviderSettingsSchema = ProviderSettingsSchema.extend({
-  label: z.string().max(64).default('Custom OpenAI-compatible'),
-  /** Must be https:// (or http://localhost for local servers). Validated in main. */
-  baseUrl: z.string().max(512).default(''),
-});
-
-/** Hirora Cloud: the access code is stored in the vault like an API key. */
-export const CloudProviderSettingsSchema = ProviderSettingsSchema.extend({
-  baseUrl: z.string().max(512).default(HIRORA_CLOUD_DEFAULT_BASE_URL),
-});
-
-export const LocalProviderSettingsSchema = ProviderSettingsSchema.extend({
-  /** OpenAI-compatible endpoint of a local runtime. Loopback only; validated in main. */
-  baseUrl: z.string().max(512).default(OLLAMA_DEFAULT_BASE_URL),
-});
-
-export const PriceSchema = z.object({
-  inputPer1M: z.number().min(0).max(10_000),
-  outputPer1M: z.number().min(0).max(10_000),
-});
-
 export const DEFAULT_HOTKEYS = {
   toggleOverlay: 'CommandOrControl+Shift+Space',
   askNow: 'CommandOrControl+Shift+Enter',
@@ -115,28 +96,17 @@ export const BoundsSchema = z.object({
 export type Bounds = z.infer<typeof BoundsSchema>;
 
 export const AppSettingsSchema = z.object({
-  schemaVersion: z.literal(1).default(1),
+  /** 2 = local-only engine (0.3.0). Older files load leniently: removed sections are dropped. */
+  schemaVersion: z.literal(2).default(2),
   onboardingComplete: z.boolean().default(false),
-  providers: z
+  engine: z
     .object({
-      cloud: CloudProviderSettingsSchema.default({ enabled: false, model: '', deepModel: '', baseUrl: HIRORA_CLOUD_DEFAULT_BASE_URL }),
-      gemini: ProviderSettingsSchema.default({ enabled: false, model: '', deepModel: '' }),
-      xai: ProviderSettingsSchema.default({ enabled: false, model: '', deepModel: '' }),
-      deepseek: ProviderSettingsSchema.default({ enabled: false, model: '', deepModel: '' }),
-      ollama: LocalProviderSettingsSchema.default({ enabled: false, model: '', deepModel: '', baseUrl: OLLAMA_DEFAULT_BASE_URL }),
-      custom: CustomProviderSettingsSchema.default({
-        enabled: false,
-        model: '',
-        deepModel: '',
-        label: 'Custom OpenAI-compatible',
-        baseUrl: '',
-      }),
+      /** `auto` picks `gpu` on an NVIDIA GPU with ≥ 6 GB, otherwise `cpu`. */
+      tier: z.enum(['auto', ...ENGINE_TIERS]).default('auto'),
     })
     .prefault({}),
   answer: z
     .object({
-      primaryProvider: ProviderIdSchema.nullable().default(null),
-      fallbackProvider: ProviderIdSchema.nullable().default(null),
       mode: ModeSchema.default('interview_practice'),
       length: z.enum(['short', 'medium', 'long']).default('medium'),
       tone: z.string().max(200).default('confident, warm, concise'),
@@ -147,9 +117,9 @@ export const AppSettingsSchema = z.object({
       autoAnswer: z.boolean().default(true),
       /** Which captured source may auto-trigger answers. The app never knows who is speaking. */
       autoAnswerSources: z.array(AudioSourceSchema).default(['system', 'app']),
-      // Measured Nov 2026: Gemini flash-lite time-to-first-byte was ~8–9 s under load, so 8 s was too tight.
-      firstTokenTimeoutMs: z.number().int().min(1500).max(60_000).default(20_000),
-      totalTimeoutMs: z.number().int().min(5000).max(300_000).default(90_000),
+      /** A cold model load on the CPU tier can take this long; answers usually start in under a second. */
+      firstTokenTimeoutMs: z.number().int().min(1500).max(120_000).default(30_000),
+      totalTimeoutMs: z.number().int().min(5000).max(300_000).default(120_000),
       maxOutputTokens: z.number().int().min(64).max(8192).default(900),
       deepMaxOutputTokens: z.number().int().min(256).max(32_768).default(2500),
       temperature: z.number().min(0).max(2).default(0.4),
@@ -158,14 +128,9 @@ export const AppSettingsSchema = z.object({
     .prefault({}),
   stt: z
     .object({
-      provider: SttProviderIdSchema.default('cloud-whisper'),
-      /** BCP-47 (Gemini) / short code (xAI). Empty string = automatic detection. */
+      /** Whisper language code (e.g. en, hi). Empty string = automatic detection. */
       language: z.string().max(20).default(''),
       customVocabulary: z.array(z.string().max(50)).max(100).default([]),
-      geminiMode: z.enum(['VERBATIM', 'SMART']).default('VERBATIM'),
-      endpointingMs: z.number().int().min(100).max(5000).default(600),
-      /** whisper.cpp server on this PC (loopback only; Hirora starts it when its files are installed). */
-      localWhisperUrl: z.string().max(200).default('http://127.0.0.1:8178'),
     })
     .prefault({}),
   audio: z
@@ -183,7 +148,7 @@ export const AppSettingsSchema = z.object({
       appCapturePid: z.number().int().positive().nullable().default(null),
       appCaptureName: z.string().max(260).nullable().default(null),
       micGain: z.number().min(0).max(8).default(1),
-      /** Frames quieter than this are not streamed to STT (saves cost; 0 disables). */
+      /** Frames quieter than this are not transcribed (0 disables). */
       noiseGateDbfs: z.number().min(-90).max(0).default(-62),
     })
     .prefault({}),
@@ -219,19 +184,8 @@ export const AppSettingsSchema = z.object({
       includeDocumentsInPrompts: z.boolean().default(true),
     })
     .prefault({}),
-  budget: z
-    .object({
-      dailyAnswerLimit: z.number().int().min(1).max(100_000).default(150),
-      dailySttMinutesLimit: z.number().int().min(1).max(24 * 60).default(90),
-      monthlyUsdCap: z.number().min(0).max(100_000).nullable().default(10),
-      /** User-entered prices (USD per 1M tokens) keyed `${provider}:${model}`. No price = cost unknown. */
-      prices: z.record(z.string().max(200), PriceSchema).default({}),
-    })
-    .prefault({}),
   knowledge: z
     .object({
-      useEmbeddings: z.boolean().default(false),
-      embeddingModel: z.string().max(128).default('gemini-embedding-001'),
       topK: z.number().int().min(1).max(12).default(5),
     })
     .prefault({}),

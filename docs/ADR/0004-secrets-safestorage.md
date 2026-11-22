@@ -1,6 +1,6 @@
 # ADR 0004 — API keys in Electron safeStorage (Windows DPAPI)
 
-**Status:** accepted · 2026-11-19
+**Status:** superseded by ADR 0012 (0.3.0: one local engine, no cloud, no keys) · originally accepted 2026-11-19
 
 **Decision.** Keys are entered only in Settings, sent once over validated IPC, encrypted with `safeStorage` (DPAPI, current Windows user) into `%APPDATA%\Hirora\secrets.json`, decrypted only in the main process, and never returned to the renderer (it only sees `hasKey`). Saving is refused when OS encryption is unavailable. Logs and provider errors pass through redaction (Google `AIza…` and `AQ.…`, `xai-…`, `sk-…`, Bearer tokens, `key=`). keytar was not used (archived).
 

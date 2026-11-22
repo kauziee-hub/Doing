@@ -1,11 +1,10 @@
 import { ProviderError, mapHttpError, toProviderError } from './errors';
-import { fetchJson } from './http';
 import type { SttHandlers, SttOptions, SttSession, StreamingTranscriptionProvider } from './stt';
 import type { FetchLike } from './types';
 
 const SAMPLE_RATE = 16_000;
 const BYTES_PER_SECOND = SAMPLE_RATE * 2;
-/** Utterances longer than this are sent in pieces (keeps requests well under the relay's 4 MB cap). */
+/** Utterances longer than this are transcribed in pieces. */
 const MAX_UTTERANCE_SECONDS = 45;
 /** Below this much voiced audio an utterance is noise, not speech: never sent. */
 const MIN_VOICED_MS = 250;
@@ -69,14 +68,14 @@ export function stripAnnotations(text: string): string {
 
 /** Where and how an utterance is transcribed. */
 interface WhisperEndpoint {
-  providerId: 'cloud' | 'local-whisper';
+  providerId: 'local-whisper';
   url: string;
   headers: Record<string, string>;
   /** Builds the multipart body for one WAV. */
   form(wav: Blob, opts: SttOptions): FormData;
   /**
    * Live text while the speaker talks: re-transcribe the utterance so far this often
-   * (ms), and again as soon as they go quiet. null = final text only (rate-limited cloud).
+   * (ms), and again as soon as they go quiet. null = final text only.
    */
   interimEveryMs: number | null;
   /** Extra silence after the VAD's end of speech before the final transcription. */
@@ -84,61 +83,12 @@ interface WhisperEndpoint {
   timeoutMs: number;
 }
 
-/**
- * Utterance-level transcription through Hirora Cloud (Groq Whisper behind the relay).
- * Audio is buffered while the local VAD hears speech and sent once the speaker
- * pauses, so there is no interim text: each utterance appears as final text
- * shortly after it ends (the free tier allows ~20 transcriptions a minute).
- */
-export class CloudWhisperTranscriber implements StreamingTranscriptionProvider {
-  readonly id = 'cloud-whisper' as const;
-  readonly label = 'Hirora Cloud (Whisper)';
-  readonly maxSessionMs = null;
-  readonly wantsEndOfSpeech = true;
-
-  constructor(
-    private readonly accessCode: string,
-    private readonly baseUrl: string,
-    private readonly fetchImpl: FetchLike = fetch,
-    private readonly model = 'whisper-large-v3-turbo',
-  ) {}
-
-  async open(opts: SttOptions, h: SttHandlers, signal?: AbortSignal): Promise<SttSession> {
-    // Fail like a bad key (and stop retrying) when the code is wrong or the server is down.
-    await fetchJson('cloud', this.fetchImpl, `${this.baseUrl}/models`, {
-      method: 'GET',
-      headers: { authorization: `Bearer ${this.accessCode}` },
-      signal,
-      timeoutMs: 10_000,
-    });
-    const model = this.model;
-    const endpoint: WhisperEndpoint = {
-      providerId: 'cloud',
-      url: `${this.baseUrl}/audio/transcriptions`,
-      headers: { authorization: `Bearer ${this.accessCode}` },
-      form: (wav, o) => {
-        const form = new FormData();
-        form.append('file', wav, 'utterance.wav');
-        form.append('model', model);
-        const lang = o.language.split('-')[0]?.toLowerCase() ?? '';
-        if (/^[a-z]{2}$/.test(lang)) form.append('language', lang);
-        if (o.vocabulary.length) form.append('prompt', o.vocabulary.join(', ').slice(0, 400));
-        return form;
-      },
-      interimEveryMs: null,
-      endDebounceMs: 350,
-      timeoutMs: 20_000,
-    };
-    return new WhisperUtteranceSession(endpoint, this.fetchImpl, opts, h);
-  }
-}
-
-/** Default address of the bundled-on-demand whisper.cpp server (loopback only). */
+/** Default address of the whisper.cpp server Hirora starts (loopback only). */
 export const LOCAL_WHISPER_DEFAULT_URL = 'http://127.0.0.1:8178';
 
 /**
- * whisper.cpp's HTTP server on this PC (GPU). No rate limits, so the utterance in
- * progress is re-transcribed every ~350 ms and the moment the speaker goes quiet:
+ * whisper.cpp's HTTP server on this PC. The utterance in progress is re-transcribed
+ * every ~350 ms on a GPU (less often on a CPU) and the moment the speaker goes quiet:
  * live text that lets answers start before the question is over.
  */
 export class LocalWhisperTranscriber implements StreamingTranscriptionProvider {
@@ -152,6 +102,8 @@ export class LocalWhisperTranscriber implements StreamingTranscriptionProvider {
   constructor(
     private readonly baseUrl: string,
     private readonly fetchImpl: FetchLike = fetch,
+    /** How often live text is refreshed while someone speaks (CPU transcription needs longer). */
+    private readonly interimEveryMs = 350,
   ) {}
 
   async open(opts: SttOptions, h: SttHandlers, signal?: AbortSignal): Promise<SttSession> {
@@ -160,7 +112,7 @@ export class LocalWhisperTranscriber implements StreamingTranscriptionProvider {
       await res.text();
     } catch (err) {
       const pe = toProviderError('local-whisper', err);
-      throw new ProviderError('local-whisper', 'network', `Local Whisper isn't running on ${this.baseUrl} (${pe.message}). Hirora starts it automatically when its files are installed.`);
+      throw new ProviderError('local-whisper', 'network', `Speech recognition isn't running (${pe.message}). Hirora starts it automatically once setup is complete.`);
     }
     const endpoint: WhisperEndpoint = {
       providerId: 'local-whisper',
@@ -176,7 +128,7 @@ export class LocalWhisperTranscriber implements StreamingTranscriptionProvider {
         if (o.vocabulary.length) form.append('prompt', o.vocabulary.join(', ').slice(0, 400));
         return form;
       },
-      interimEveryMs: 350,
+      interimEveryMs: this.interimEveryMs,
       endDebounceMs: 60,
       timeoutMs: 8000,
     };
@@ -283,7 +235,7 @@ class WhisperUtteranceSession implements SttSession {
   private async request(pcm: Buffer): Promise<string> {
     const ctl = new AbortController();
     this.inflight.add(ctl);
-    const pid = this.endpoint.providerId === 'cloud' ? 'cloud' : 'local-whisper';
+    const pid = this.endpoint.providerId;
     try {
       const form = this.endpoint.form(new Blob([new Uint8Array(pcmToWav(pcm))], { type: 'audio/wav' }), this.opts);
       let res: Response;
@@ -319,7 +271,7 @@ class WhisperUtteranceSession implements SttSession {
         this.h.onUtteranceEnd();
       }
     } catch (err) {
-      const pe = err instanceof ProviderError ? err : toProviderError(this.endpoint.providerId === 'cloud' ? 'cloud' : 'local-whisper', err);
+      const pe = err instanceof ProviderError ? err : toProviderError('local-whisper', err);
       if (pe.code !== 'aborted') this.h.onError(pe);
     }
   }

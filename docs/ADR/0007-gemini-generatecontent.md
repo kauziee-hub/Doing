@@ -1,6 +1,6 @@
 # ADR 0007 — Gemini answers via `streamGenerateContent` (SSE), not the Interactions API
 
-**Status:** accepted · 2026-11-19
+**Status:** superseded by ADR 0012 (0.3.0: one local engine, no cloud, no keys) · originally accepted 2026-11-19
 
 **Context.** Since June 2026 Google recommends the Interactions API for new agentic work; `generateContent` remains fully supported. We need simple low-latency token streaming with system instructions and inline images.
 

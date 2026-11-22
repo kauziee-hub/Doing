@@ -4,6 +4,38 @@ Machine: Windows 11 (build 26300) laptop, Intel i9-14900HX, 16 GB RAM, Realtek m
 
 Sample sizes are small. Treat p95 values with fewer than 20 samples as indicative only.
 
+## 0.3.0 — one local engine (2026-11-22)
+
+Installed 0.3.0 (`Desktop\Hirora`) or the dev build, as noted. GPU tier: RTX 4060 Laptop 8 GB, whisper.cpp b5454 CUDA + `ggml-large-v3-turbo-q5_0`, Hirora's own `ollama serve` (0.40.16 binary, 2 slots) with `qwen3.5:4b`. CPU tier: whisper.cpp CPU build + `ggml-small-q5_1`, `qwen3:1.7b`, every GPU hidden from Ollama (`CUDA_VISIBLE_DEVICES`, `GGML_VK_VISIBLE_DEVICES`, `HIP_VISIBLE_DEVICES` = -1). Profile: a copy of the owner's (résumé loaded) unless noted.
+
+**GPU tier, laptop on AC** (`tools/quiet-check.mjs`, installed app, two runs; no sound played):
+
+| Stage | Result |
+|---|---|
+| Typed question → first answer token | **p50 0.55 s**; 496, 499, 509, 513, 514, 546, 555, 573, 604, 697, 916, 1971 ms (n=12) |
+| Whisper transcription of a SAPI question saved as WAV (2.4–3.5 s of audio) | 142–252 ms once warm; first request after start 865–1171 ms |
+| First question right after launch (model load + résumé pre-read, the question waits) | 16–19 s |
+| Raw `ollama serve`, no Hirora, 2 slots vs 1 slot (short prompt, battery) | ~0.3 s first token either way: two slots don't slow answers |
+
+**GPU tier, spoken** (`tools/interview-check.mjs`, installed app, TTS through the speakers and loopback; power state during this run not recorded, the laptop was being plugged in): the early answer appeared **0.30 s** after the speaker stopped; answers that waited for the final transcript started 1.2, 1.7 and 2.7 s after; final transcript 0.58 s after speech ended (p50). All three transcripts exact, all answers from the résumé.
+
+**On battery** the same GPU path measured 0.7–4.8 s to the first token and 0.5–0.8 s to the final transcript: keep a laptop plugged in.
+
+**CPU tier, laptop on battery** (dev build):
+
+| Stage | Result |
+|---|---|
+| Spoken question → first answer token (no early answers on CPU) | 2.3, 2.9, 3.6 s; transcripts exact with Whisper small |
+| Speech end → final transcript (Whisper small, CPU) | p50 1.47 s |
+| Typed question → first token, fresh profile | 3.6 s for the first, then 0.41–0.60 s |
+| Résumé pre-read at warm-up (3,036 tokens) | 14–16 s, once |
+| Why not `qwen3.5:2b` | hybrid model: llama.cpp re-reads the whole prompt each time (`forcing full prompt re-processing`), 4.1–4.5 s to the first token for a 530-token prompt; `qwen3:1.7b` reuses the cache: 0.16–0.18 s after the first question |
+| Why not Whisper base | misheard "thread" as "threat" and produced misheard live text that started wrong early answers |
+
+**Fresh-PC setup** (`tools/engine-setup-check.mjs`, empty folders, no Ollama, home broadband, CPU tier as it was then): Ollama runtime 1.62 GB downloaded in 6 min (~4.4 MB/s), SHA-256 verified in 2 s, unpacked in 6 s; whisper.cpp CPU build and base model in 16 s; `qwen3.5:2b` (2.68 GB) pulled in 10.5 min; ready after 1025 s. After the catalog changed, the same folder downloaded only Whisper small (190 MB, 39 s).
+
+The sections below describe paths that were **removed in 0.3.0** (Hirora Cloud, Gemini, xAI); they are kept as history.
+
 ## Hirora Cloud (free relay → Groq) — 2026-11-21
 
 This is the default for new installs. A fresh temp profile was used, with only the access code entered: no keys, no GPU work, no Ollama. Path: app → `https://hirora-one.vercel.app/v1` (Vercel Function) → Groq. Machine and network as above (home broadband, India; Vercel region auto). Raw data: `test-results/cloud-report.json`.
@@ -68,9 +100,10 @@ Raw OpenAI-compatible `/v1/chat/completions` streaming, short system prompt, "Wh
 
 In-app numbers (real prompts with résumé evidence, AnswerEngine, IPC) are in the next section.
 
-## Not yet measured
+## Not yet measured (0.3.0)
 
-- 30-minute audio soak; weak-network and provider-failover timings; xAI/DeepSeek latency (no keys); packaged-build cold start.
-- Hirora Cloud under concurrent use (several friends at once) and near Groq's daily limits; mic (human voice) through Whisper.
+- A spoken run on the GPU tier with the laptop confirmed on AC, a human voice on the mic, and a real Meet/Teams call.
+- The CPU tier on AC power and on a PC that really has no NVIDIA GPU (the CPU numbers above hide the GPU on this laptop); AMD/Intel GPUs.
+- The GPU-tier first-run download on a fresh PC (its files were verified against the catalog on this PC instead); a 30-minute soak.
 
-Run `pnpm perf:live` (uses keys saved in the app) to append fresh numbers; the in-app **Performance** page shows p50/p95 from your own usage.
+Run `node tools/quiet-check.mjs` (silent) or `node tools/interview-check.mjs --system keep` (speaks questions) to append fresh numbers; the in-app **Performance** page shows p50/p95 from your own usage.

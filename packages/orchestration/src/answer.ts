@@ -12,7 +12,7 @@ import type {
   TranscriptSegment,
   Usage,
 } from '@hirora/contracts';
-import { PROVIDER_ERROR_HINTS, isKeyless } from '@hirora/contracts';
+import { LOCAL_ENGINE, PROVIDER_ERROR_HINTS } from '@hirora/contracts';
 import { ProviderError, toProviderError } from '@hirora/providers';
 import type { ContentPart, TextModelProvider } from '@hirora/providers';
 import { buildMessages, buildPrimingMessages, missingFacts } from './prompt';
@@ -34,8 +34,16 @@ export interface AnswerEngineDeps {
    */
   stableResume?(): RetrievedChunk[];
   context(): { personal: PersonalProfile | null; session: SessionProfile | null; transcript: TranscriptSegment[] };
-  budgetCheck(): { ok: true } | { ok: false; reason: string };
-  recordUsage(provider: ProviderId, model: string, usage: Usage | null): { costUsd: number | null };
+  /**
+   * A slow (CPU) model: everything after the pre-read part of the prompt costs real time, so
+   * leave out earlier answers and keep two transcript lines. Small models also tend to repeat
+   * earlier answers when they see them.
+   */
+  lean?(): boolean;
+  /** Resolves once the answer engine can take requests (e.g. still loading right after launch). */
+  ready?(): Promise<void>;
+  /** Counts answers for the Home page (local engine: no cost). */
+  recordUsage(provider: ProviderId, model: string, usage: Usage | null): void;
   perf(sample: PerfSample): void;
   emit(rec: AnswerRecord): void;
   emitDelta(requestId: string, delta: string, seq: number): void;
@@ -184,14 +192,13 @@ export class AnswerEngine {
   }
 
   /**
-   * Has a local answer model read the fixed start of every prompt (instructions, profile,
-   * résumé) ahead of time, so answers only process the new question. No-op for cloud models.
+   * Has the local answer model read the fixed start of every prompt (instructions, profile,
+   * résumé) ahead of time, so answers only process the new question.
    */
   async prime(signal?: AbortSignal): Promise<boolean> {
     const settings = this.deps.settings();
-    const id = settings.answer.primaryProvider;
-    if (!id || !isKeyless(id) || !this.deps.stableResume) return false;
-    const r = this.deps.resolveProvider(id);
+    if (!this.deps.stableResume) return false;
+    const r = this.deps.resolveProvider(LOCAL_ENGINE);
     if (!r) return false;
     const ctx = this.deps.context();
     const messages = buildPrimingMessages({
@@ -275,23 +282,24 @@ export class AnswerEngine {
 
   private async run(f: Inflight, input: AskInput, settings: AppSettings): Promise<void> {
     const t0 = this.now();
-    const depth = f.record.depth;
-    const budget = this.deps.budgetCheck();
-    if (!budget.ok) {
-      this.fail(f, new ProviderError('engine', 'budget_exceeded', budget.reason));
-      return;
+    // A question asked while the engine is still starting waits for it instead of failing.
+    if (this.deps.ready) {
+      try {
+        await this.deps.ready();
+      } catch {
+        /* the request below reports the real problem */
+      }
+      if (!this.isLive(f)) return;
     }
-    const primaryId = settings.answer.primaryProvider;
-    // Local answer models (Ollama) are fast only with short prompts: smaller résumé slice and history.
-    const compact = !!primaryId && isKeyless(primaryId);
+    const depth = f.record.depth;
+    // The local model is fast only with short prompts: smaller résumé slice and history.
+    const compact = true;
+    const lean = this.deps.lean?.() ?? false;
     f.compact = compact;
-    const chain: ProviderId[] = [];
-    if (primaryId) chain.push(primaryId);
-    const fb = settings.answer.fallbackProvider;
-    if (fb && fb !== primaryId) chain.push(fb);
-    const resolved = chain.map((id) => ({ id, r: this.deps.resolveProvider(id) })).filter((x) => x.r !== null) as Array<{ id: ProviderId; r: ResolvedProvider }>;
+    const one = this.deps.resolveProvider(LOCAL_ENGINE);
+    const resolved = one ? [{ id: LOCAL_ENGINE, r: one }] : [];
     if (resolved.length === 0) {
-      this.fail(f, new ProviderError('engine', 'not_configured', 'No answer provider with a saved key and selected model'));
+      this.fail(f, new ProviderError('engine', 'not_configured', 'Hirora is not set up yet: open Home and press Set up.'));
       return;
     }
 
@@ -332,8 +340,8 @@ export class AnswerEngine {
       personal: ctx.personal,
       session: ctx.session,
       evidence,
-      recentTranscript: input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
-      memory: input.useMemory === false ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
+      recentTranscript: lean ? ctx.transcript.slice(-2) : input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
+      memory: input.useMemory === false || lean ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
       compact,
       missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),
       images: input.images,
@@ -456,7 +464,7 @@ export class AnswerEngine {
       f.record.status = 'done';
       f.record.totalMs = end - f.record.createdAt;
       f.record.usage = usage;
-      f.record.costUsd = this.deps.recordUsage(providerId, model, usage).costUsd;
+      this.deps.recordUsage(providerId, model, usage);
       this.deps.perf({ stage: 'answer_total', ms: end - reqStart, at: end, provider: providerId, model, label: depth });
       f.done = true;
       if (!f.hidden) {

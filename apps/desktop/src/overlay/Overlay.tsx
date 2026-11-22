@@ -27,12 +27,11 @@ export function ConsentModal({ onCancel }: { onCancel: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   if (!settings) return null;
   const sources = [settings.audio.micEnabled && 'your microphone', settings.audio.systemEnabled && (settings.audio.appCaptureName ? `audio from ${settings.audio.appCaptureName}` : 'system (speaker) audio')].filter(Boolean);
-  const stt = settings.stt.provider === 'cloud-whisper' ? 'Hirora Cloud (Groq Whisper)' : settings.stt.provider === 'gemini-live' ? 'Google Gemini (3.5 Transcribe Live)' : 'xAI (Grok streaming STT)';
   return (
     <div className="ov-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
       <div className="ov-modal__box">
         <h2 id="consent-title"><ShieldAlert size={16} /> Start listening?</h2>
-        <p>Hirora will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and stream it to <strong>{stt}</strong> for transcription. Audio is not saved to disk.</p>
+        <p>Hirora will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>. Nothing is sent anywhere and audio is never saved to disk.</p>
         <p className="ov-muted">Only continue if everyone in the conversation has agreed to be recorded/transcribed and AI assistance is allowed in this setting (many interviews and assessments forbid it).</p>
         {err ? <p className="ov-error">{err}</p> : null}
         <div className="vc-row" style={{ justifyContent: 'flex-end' }}>
@@ -125,8 +124,7 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
     <div className={cx('ov-answer', a.status === 'error' && 'is-error')} aria-live="polite" aria-busy={busy}>
       <div className="ov-answer__meta">
         <Badge tone={a.status === 'error' ? 'error' : a.status === 'done' ? 'ok' : a.status === 'cancelled' ? 'neutral' : 'info'}>{statusLabel[a.status]}</Badge>
-        {a.provider ? <Badge title={a.model ?? undefined}>{a.provider}{a.model ? ` · ${a.model}` : ''}</Badge> : null}
-        {a.usedFallback ? <Badge tone="warn" title="Primary provider failed; this answer came from your fallback provider">fallback</Badge> : null}
+        {a.model ? <Badge title="Written on this PC">{a.model}</Badge> : null}
         {a.depth === 'deep' ? <Badge tone="info">deep</Badge> : null}
         {a.firstTokenMs !== null ? <span className="ov-muted" title="Time from request to first token">{(a.firstTokenMs / 1000).toFixed(2)} s</span> : null}
       </div>
@@ -182,6 +180,7 @@ export function TranscriptLine({ seg }: { seg: TranscriptSegment }) {
 export function Overlay() {
   const snapshot = useLive((s) => s.snapshot);
   const settings = useLive((s) => s.settings);
+  const engine = useLive((s) => s.engine);
   const segments = useLive((s) => s.segments);
   const answers = useLive((s) => s.answers);
   const currentId = useLive((s) => s.currentAnswerId);
@@ -252,7 +251,7 @@ export function Overlay() {
   };
 
   const sourceStatus = (src: AudioSource) => snapshot?.sources.find((s) => s.source === src);
-  const providerReady = !!settings?.answer.primaryProvider && !!settings.providers[settings.answer.primaryProvider].model;
+  const providerReady = !!engine?.ready;
 
   return (
     <div className={cx('ov', compact && 'is-compact', settings?.overlay.glass === false && 'is-solid')}>
@@ -311,7 +310,7 @@ export function Overlay() {
 
       {!providerReady ? (
         <div className="ov-setup">
-          No answer model configured yet. <button type="button" className="ov-link" onClick={() => void invoke('dashboard:show', { page: 'settings' })}>Add an API key in Settings</button>
+          {engine?.setup === 'running' ? 'Hirora is still setting up on this PC.' : 'Hirora isn’t set up on this PC yet.'} <button type="button" className="ov-link" onClick={() => void invoke('dashboard:show', { page: 'home' })}>{engine?.setup === 'running' ? 'See progress' : 'Set up now'}</button>
         </div>
       ) : null}
 

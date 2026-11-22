@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { AppSettings, ProviderId } from '@hirora/contracts';
-import { AppSettingsSchema, PROVIDER_IDS, defaultSettings } from '@hirora/contracts';
+import type { AppSettings } from '@hirora/contracts';
+import { AppSettingsSchema, defaultSettings } from '@hirora/contracts';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -99,107 +99,5 @@ export class SettingsStore {
   onChange(fn: (s: AppSettings, prev: AppSettings) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
-  }
-}
-
-export interface SecretCipher {
-  isAvailable(): boolean;
-  encrypt(plain: string): Buffer;
-  decrypt(cipher: Buffer): string;
-  readonly backend: string;
-}
-
-interface VaultFile {
-  version: 1;
-  backend: string;
-  entries: Partial<Record<ProviderId, { data: string; updatedAt: number }>>;
-}
-
-/**
- * Stores provider API keys encrypted with an OS-backed cipher (Electron
- * safeStorage → Windows DPAPI). Plaintext keys only exist in main-process
- * memory while a request is being made; they are never written to disk, logs,
- * settings or the renderer.
- */
-export class SecretVault {
-  private cache = new Map<ProviderId, string>();
-
-  constructor(
-    private readonly path: string,
-    private readonly cipher: SecretCipher,
-  ) {}
-
-  private read(): VaultFile {
-    if (!existsSync(this.path)) return { version: 1, backend: this.cipher.backend, entries: {} };
-    try {
-      const v = JSON.parse(readFileSync(this.path, 'utf8')) as VaultFile;
-      if (v.version !== 1 || typeof v.entries !== 'object') throw new Error('bad vault');
-      return v;
-    } catch {
-      return { version: 1, backend: this.cipher.backend, entries: {} };
-    }
-  }
-
-  private write(v: VaultFile): void {
-    atomicWrite(this.path, JSON.stringify(v));
-  }
-
-  get available(): boolean {
-    return this.cipher.isAvailable();
-  }
-
-  get backend(): string {
-    return this.cipher.backend;
-  }
-
-  set(provider: ProviderId, key: string): void {
-    if (!this.cipher.isAvailable()) throw new Error('OS encryption is not available; refusing to store the key in plain text.');
-    const trimmed = key.trim();
-    if (trimmed.length < 8 || /\s/.test(trimmed)) throw new Error('That does not look like an API key.');
-    const v = this.read();
-    v.entries[provider] = { data: this.cipher.encrypt(trimmed).toString('base64'), updatedAt: Date.now() };
-    v.backend = this.cipher.backend;
-    this.write(v);
-    this.cache.set(provider, trimmed);
-  }
-
-  get(provider: ProviderId): string | null {
-    const cached = this.cache.get(provider);
-    if (cached) return cached;
-    const e = this.read().entries[provider];
-    if (!e) return null;
-    try {
-      const plain = this.cipher.decrypt(Buffer.from(e.data, 'base64'));
-      this.cache.set(provider, plain);
-      return plain;
-    } catch {
-      return null;
-    }
-  }
-
-  has(provider: ProviderId): boolean {
-    return !!this.read().entries[provider];
-  }
-
-  delete(provider: ProviderId): void {
-    const v = this.read();
-    delete v.entries[provider];
-    this.write(v);
-    this.cache.delete(provider);
-  }
-
-  deleteAll(): void {
-    this.cache.clear();
-    if (existsSync(this.path)) unlinkSync(this.path);
-  }
-
-  status(): Record<ProviderId, { hasKey: boolean; updatedAt: number | null }> {
-    const v = this.read();
-    const out = {} as Record<ProviderId, { hasKey: boolean; updatedAt: number | null }>;
-    for (const p of PROVIDER_IDS) {
-      const e = v.entries[p];
-      out[p] = { hasKey: !!e, updatedAt: e?.updatedAt ?? null };
-    }
-    return out;
   }
 }

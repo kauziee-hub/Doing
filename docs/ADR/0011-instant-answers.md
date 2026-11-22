@@ -1,6 +1,6 @@
 # ADR 0011 — Instant answers: live local transcription and speculative answers
 
-**Status:** accepted · 2026-11-22
+**Status:** accepted · 2026-11-22 · point 4 superseded by ADR 0012 (the question check now runs on the local engine)
 
 **Context.** The owner wants answers on screen within ~0.5 s of the interviewer finishing. On the free cloud path, cloud Whisper transcribes after each sentence (~0.5–0.8 s), followed by Groq's first token (~0.5–0.9 s), so 2–3 s in total. Groq's free tier (~20 transcriptions/min, ~8K tokens/min) rules out transcribing continuously or starting answers early on the cloud.
 

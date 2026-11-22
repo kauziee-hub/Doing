@@ -1,6 +1,6 @@
 # ADR 0002 — Streaming STT: Gemini 3.5 Transcribe Live by default, xAI STT as alternative
 
-**Status:** accepted · 2026-11-19
+**Status:** superseded by ADR 0012 (0.3.0: one local engine, no cloud, no keys) · originally accepted 2026-11-19
 
 **Context.** Live interim + final transcripts per source are required, independent of the answer model. Verified docs (Nov 2026): `gemini-3.5-transcribe-live` over the Live API WebSocket (`setup.inputAudioTranscription`, `realtimeInput.audio` base64 PCM16 16 kHz, `interimInputTranscription` / `inputTranscription`, 10-minute session limit); xAI `wss://api.x.ai/v1/stt` (binary PCM, `transcript.partial` with `is_final` / `speech_final`, server endpointing).
 

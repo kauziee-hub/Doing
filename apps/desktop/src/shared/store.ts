@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnswerRecord, AppSettings, AudioSource, LiveEvent, LiveSnapshot, TranscriptSegment } from '@hirora/contracts';
+import type { AnswerRecord, AppSettings, AudioSource, EngineStatus, LiveEvent, LiveSnapshot, TranscriptSegment } from '@hirora/contracts';
 import { invoke, onLive, reportPaint } from './api';
 
 export interface Toast {
@@ -11,6 +11,8 @@ export interface Toast {
 interface LiveState {
   snapshot: LiveSnapshot | null;
   settings: AppSettings | null;
+  /** The on-PC engine: what is installed, setup progress, hardware. */
+  engine: EngineStatus | null;
   segments: TranscriptSegment[];
   answers: Record<string, AnswerRecord>;
   answerOrder: string[];
@@ -32,6 +34,7 @@ const paintedFirstDelta = new Set<string>();
 export const useLive = create<LiveState>((set, get) => ({
   snapshot: null,
   settings: null,
+  engine: null,
   segments: [],
   answers: {},
   answerOrder: [],
@@ -102,6 +105,9 @@ export function startLiveSync(opts: { reportFirstPaint: boolean }): void {
       case 'toast':
         st.getState().toast(ev.level, ev.message);
         break;
+      case 'engine':
+        st.setState({ engine: ev.status });
+        break;
       case 'command':
         if (ev.command === 'settingsChanged') {
           void st.getState().refreshSettings();
@@ -117,7 +123,7 @@ export function startLiveSync(opts: { reportFirstPaint: boolean }): void {
     }
   });
   void (async () => {
-    const [snap, settings] = await Promise.all([invoke('session:snapshot'), invoke('settings:get')]);
+    const [snap, settings, engine] = await Promise.all([invoke('session:snapshot'), invoke('settings:get'), invoke('engine:status')]);
     const answers: Record<string, AnswerRecord> = {};
     for (const a of snap.answers) answers[a.requestId] = a;
     st.setState({
@@ -127,6 +133,7 @@ export function startLiveSync(opts: { reportFirstPaint: boolean }): void {
       answerOrder: snap.answers.map((a) => a.requestId),
       currentAnswerId: snap.answers[snap.answers.length - 1]?.requestId ?? null,
       settings,
+      engine: st.getState().engine ?? engine,
     });
   })();
 }

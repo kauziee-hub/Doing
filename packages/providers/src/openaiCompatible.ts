@@ -4,9 +4,6 @@ import { fetchJson, fetchStream } from './http';
 import { readSse } from './sse';
 import type { ChatMessage, FetchLike, StreamChunk, StreamRequest, TextModelProvider } from './types';
 
-export const XAI_BASE_URL = 'https://api.x.ai/v1';
-export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
-
 interface Flavor {
   /** Extra body fields for fast (low-latency) answers. */
   fastExtras?: (model: string) => Record<string, unknown>;
@@ -16,35 +13,14 @@ interface Flavor {
   sendsTemperature: boolean;
 }
 
-const FLAVORS: Record<'cloud' | 'xai' | 'deepseek' | 'ollama' | 'custom', Flavor> = {
-  cloud: {
-    // Hirora Cloud also lists its Whisper models; only chat models belong in the picker.
-    isChatModel: (id) => !/whisper/i.test(id),
-    // gpt-oss reasons before answering; "low" keeps the first words fast. Other models ignore it.
-    fastExtras: (model) => (model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
-    supportsStreamUsage: true,
-    sendsTemperature: true,
-  },
-  xai: {
-    isChatModel: (id) => !/image|imagine|video|voice|tts|stt|transcribe|embed/i.test(id),
-    supportsStreamUsage: true,
-    sendsTemperature: true,
-  },
-  deepseek: {
-    // Documented DeepSeek field: thinking { type: enabled | disabled }. Fast cues skip reasoning.
-    fastExtras: () => ({ thinking: { type: 'disabled' } }),
-    supportsStreamUsage: true,
-    sendsTemperature: true,
-  },
-  ollama: {
-    // Ollama's OpenAI-compatible API lists every pulled model, embeddings included.
-    isChatModel: (id) => !/embed|bge|minilm|rerank/i.test(id),
-    // Fast cues skip reasoning on thinking models (gpt-oss, qwen3, deepseek-r1...).
-    fastExtras: () => ({ reasoning_effort: 'none' }),
-    supportsStreamUsage: true,
-    sendsTemperature: true,
-  },
-  custom: { supportsStreamUsage: false, sendsTemperature: true },
+/** Hirora's answer engine: Ollama's OpenAI-compatible API on loopback. */
+const OLLAMA_FLAVOR: Flavor = {
+  // Ollama lists every pulled model, embeddings included.
+  isChatModel: (id) => !/embed|bge|minilm|rerank/i.test(id),
+  // Fast cues skip reasoning on thinking models (qwen3.5 thinks by default).
+  fastExtras: () => ({ reasoning_effort: 'none' }),
+  supportsStreamUsage: true,
+  sendsTemperature: true,
 };
 
 interface ChatChunk {
@@ -61,7 +37,7 @@ interface ChatChunk {
   error?: { message?: string };
 }
 
-/** Adapter for OpenAI-compatible `/chat/completions` streaming (xAI, DeepSeek, custom). */
+/** OpenAI-compatible `/chat/completions` streaming, as served by the local Ollama runtime. */
 export class OpenAICompatibleProvider implements TextModelProvider {
   private readonly flavor: Flavor;
   private readonly rejectedExtras = new Set<string>();
@@ -73,7 +49,7 @@ export class OpenAICompatibleProvider implements TextModelProvider {
     private readonly apiKey: string,
     private readonly fetchImpl: FetchLike = fetch,
   ) {
-    this.flavor = FLAVORS[id === 'gemini' ? 'custom' : id];
+    this.flavor = OLLAMA_FLAVOR;
     this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
@@ -189,24 +165,9 @@ export class OpenAICompatibleProvider implements TextModelProvider {
   }
 }
 
-/** Only https endpoints (or plain http on loopback) are accepted for custom providers. */
-export function validateCustomBaseUrl(raw: string): string | null {
-  try {
-    const u = new URL(raw);
-    const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]';
-    if (u.protocol === 'https:' || (u.protocol === 'http:' && loopback)) {
-      if (u.username || u.password) return null;
-      return u.toString().replace(/\/+$/, '');
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
-/** Local runtimes (Ollama) must stay on this PC: loopback http(s) only, no credentials. */
+/** The engine must stay on this PC: loopback http(s) only, no credentials. */
 export function validateLocalBaseUrl(raw: string): string | null {
   try {
     const u = new URL(raw);
@@ -231,7 +192,7 @@ export class OllamaProvider extends OpenAICompatibleProvider {
     private readonly localFetch: FetchLike = fetch,
   ) {
     // Ollama ignores the bearer token; a placeholder keeps the request OpenAI-shaped.
-    super('ollama', 'Ollama (local)', baseUrl, 'ollama', localFetch);
+    super('ollama', 'On this PC', baseUrl, 'ollama', localFetch);
     this.nativeBase = baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
   }
 

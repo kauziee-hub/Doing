@@ -1,33 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, KeyRound, Monitor, Moon, PlugZap, RefreshCw, ShieldCheck, Sun, Trash2, Volume2 } from 'lucide-react';
-import type {
-  AudioAppInfo,
-  CaptureCheckResult,
-  DeviceInfo,
-  HotkeyAction,
-  ModelInfo,
-  ProviderHealth,
-  ProviderId,
-  ProviderTestResult,
-  SecretsStatus,
-} from '@hirora/contracts';
-import { DEFAULT_HOTKEYS, HOTKEY_LABELS, MODES, MODE_LABELS, OLLAMA_DEFAULT_BASE_URL, PROVIDER_IDS, isKeyless, HIRORA_CLOUD_DEFAULT_BASE_URL } from '@hirora/contracts';
-import { Badge, Button, Card, Field, LevelMeter, Toggle, cx } from '@hirora/ui';
+import { Monitor, Moon, RefreshCw, Sun, Trash2, Volume2 } from 'lucide-react';
+import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction } from '@hirora/contracts';
+import { DEFAULT_HOTKEYS, HOTKEY_LABELS, MODES, MODE_LABELS } from '@hirora/contracts';
+import { Button, Card, Field, LevelMeter, Toggle, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';
+import { EngineSetup } from '../EngineSetup';
 
-const TABS = ['Providers', 'Transcription', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Budget'] as const;
+const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data'] as const;
 type Tab = (typeof TABS)[number];
-
-const PROVIDER_META: Record<ProviderId, { label: string; console: string | null; sends: string }> = {
-  cloud: { label: 'Hirora Cloud (free, no GPU needed)', console: null, sends: 'Answer prompts and (if selected for transcription) your speech go to the Hirora Cloud server, which forwards them to Groq to run open models and Whisper. Nothing is stored on the server.' },
-  gemini: { label: 'Google Gemini', console: 'https://aistudio.google.com/apikey', sends: 'Answer prompts, approved screenshots and (if enabled) embedding text. Also powers Gemini 3.5 Transcribe Live audio transcription.' },
-  xai: { label: 'xAI Grok', console: 'https://console.x.ai/', sends: 'Answer prompts and approved screenshots. Also powers xAI streaming transcription if selected.' },
-  deepseek: { label: 'DeepSeek', console: 'https://platform.deepseek.com/api_keys', sends: 'Answer prompts (text). DeepSeek does not provide live audio transcription.' },
-  ollama: { label: 'Ollama (runs on this PC)', console: 'https://ollama.com/download', sends: 'Nothing leaves this PC: answer prompts go to Ollama on 127.0.0.1. Live transcription still uses your Gemini or xAI key.' },
-  custom: { label: 'Custom OpenAI-compatible', console: null, sends: 'Answer prompts to the endpoint you configure (https only; http allowed for localhost).' },
-};
 
 export function usePatch() {
   const setSettings = useLive((s) => s.setSettings);
@@ -44,221 +26,36 @@ export function usePatch() {
   );
 }
 
-export function ProviderCard({ id, secrets, onSecrets }: { id: ProviderId; secrets: SecretsStatus | null; onSecrets: (s: SecretsStatus) => void }) {
-  const settings = useLive((s) => s.settings)!;
+function EngineTab() {
+  const s = useLive((x) => x.settings)!;
+  const engine = useLive((x) => x.engine);
   const patch = usePatch();
-  const toast = useLive((s) => s.toast);
-  const [key, setKey] = useState('');
-  const [test, setTest] = useState<ProviderTestResult | null>(null);
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [busy, setBusy] = useState(false);
-  const ps = settings.providers[id];
-  const local = isKeyless(id);
-  // Local runtimes need no key: treat them as usable once their card is shown.
-  const hasKey = local || (secrets?.providers[id].hasKey ?? false);
-  const meta = PROVIDER_META[id];
-
-  useEffect(() => {
-    if (hasKey) void invoke('providers:models', { provider: id }).then((r) => setModels(r.models));
-  }, [hasKey, id]);
-
-  const runTest = async () => {
-    setBusy(true);
-    const r = await invoke('providers:test', { provider: id });
-    setTest(r);
-    if (r.ok) setModels(r.models);
-    await useLive.getState().refreshSettings();
-    setBusy(false);
-  };
-
-  return (
-    <Card
-      title={<>{meta.label} {local ? <Badge tone="ok">no key needed</Badge> : hasKey ? <Badge tone="ok">key saved</Badge> : <Badge>no key</Badge>} {ps.enabled && hasKey ? <Badge tone="info">enabled</Badge> : null}</>}
-      actions={meta.console ? <Button size="sm" variant="ghost" icon={<ExternalLink size={12} />} onClick={() => void invoke('app:openExternal', { url: meta.console! })}>{local ? 'Get Ollama' : 'Get a key'}</Button> : null}
-    >
-      {id === 'custom' ? (
-        <div className="vc-grid2">
-          <Field label="Label"><input className="vc-input" value={settings.providers.custom.label} onChange={(e) => void patch({ providers: { custom: { label: e.target.value } } })} /></Field>
-          <Field label="Base URL" hint="e.g. https://my-gateway.example.com/v1 — must implement /models and /chat/completions."><input className="vc-input" defaultValue={settings.providers.custom.baseUrl} onBlur={(e) => void patch({ providers: { custom: { baseUrl: e.target.value.trim() } } })} /></Field>
-        </div>
-      ) : null}
-      {id === 'cloud' ? (
-        <p className="dash-small" style={{ marginTop: 0 }}>
-          A free shared server, always on, so Hirora works on any PC — no GPU, no paid key. Ask whoever runs your Hirora Cloud for the access code, paste it below and press Save. Limits are shared by everyone using the same server.
-        </p>
-      ) : null}
-      {id === 'ollama' ? (
-        <>
-          <p className="dash-small" style={{ marginTop: 0 }}>
-            Fastest and most private option on a PC with a GPU. Install Ollama, run <code>ollama pull qwen3.5:4b</code> (about 3.3 GB) in a terminal, then press Test. The model loads into memory when you start listening.
-          </p>
-          <div className="vc-grid2">
-            <Field label="Ollama endpoint" hint={`Default ${OLLAMA_DEFAULT_BASE_URL}. Must be on this PC.`}><input className="vc-input" defaultValue={settings.providers.ollama.baseUrl} onBlur={(e) => void patch({ providers: { ollama: { baseUrl: e.target.value.trim() || OLLAMA_DEFAULT_BASE_URL } } })} /></Field>
-          </div>
-          <div className="dash-keyrow">
-            <Button variant="primary" icon={<PlugZap size={13} />} disabled={busy} onClick={() => void runTest()}>{busy ? 'Testing…' : 'Test connection'}</Button>
-          </div>
-        </>
-      ) : (
-      <div className="dash-keyrow">
-        <input
-          className="vc-input"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder={hasKey ? '•••••••• (saved — paste to replace)' : id === 'cloud' ? 'Paste the access code' : 'Paste API key'}
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          aria-label={id === 'cloud' ? 'Hirora Cloud access code' : `${meta.label} API key`}
-        />
-        <Button
-          variant="primary"
-          icon={<KeyRound size={13} />}
-          disabled={key.trim().length < 8}
-          onClick={async () => {
-            try {
-              onSecrets(await invoke('secrets:set', { provider: id, key: key.trim() }));
-              setKey('');
-              toast('info', `${id === 'cloud' ? 'Access code' : `${meta.label} key`} saved (encrypted). Testing…`);
-              await runTest();
-            } catch (e) {
-              toast('error', (e as Error).message);
-            }
-          }}
-        >
-          {id === 'cloud' ? 'Save code' : 'Save key'}
-        </Button>
-        <Button icon={<PlugZap size={13} />} disabled={!hasKey || busy} onClick={() => void runTest()}>{busy ? 'Testing…' : 'Test'}</Button>
-      </div>
-      )}
-      {test ? (
-        <div className={cx('dash-small')} style={{ marginTop: 8, color: test.ok ? 'var(--ok)' : 'var(--error)' }}>
-          {test.ok
-            ? local
-              ? test.models.length
-                ? `Ollama is running · ${test.models.length} local models pulled.`
-                : 'Ollama is running but has no models yet. Run: ollama pull qwen3.5:4b'
-              : id === 'cloud'
-                ? `Connected to Hirora Cloud in ${test.latencyMs} ms · ${test.models.length} models.`
-                : `Connected in ${test.latencyMs} ms · ${test.models.length} text models available to this key.`
-            : local && test.errorCode === 'network'
-              ? 'Ollama is not running. Start it from the Start menu (or run: ollama serve), then Test again.'
-              : `${test.errorCode ?? 'error'}: ${test.error}`}
-        </div>
-      ) : null}
-      {hasKey ? (
-        <div className="vc-grid2" style={{ marginTop: 12 }}>
-          <Field label="Fast model (first answers)" hint={models.length ? `${models.length} models from the live list` : 'Run Test to load the live model list'}>
-            <select className="vc-select" value={ps.model} onChange={(e) => void patch({ providers: { [id]: { model: e.target.value, enabled: true } } })}>
-              <option value="">(select)</option>
-              {models.map((m) => <option key={m.id} value={m.id}>{m.id}{m.displayName && m.displayName !== m.id ? ` — ${m.displayName}` : ''}</option>)}
-              {ps.model && !models.some((m) => m.id === ps.model) ? <option value={ps.model}>{ps.model} (saved)</option> : null}
-            </select>
-          </Field>
-          <Field label="Deep model (Expand)" hint="Optional; defaults to the fast model.">
-            <select className="vc-select" value={ps.deepModel} onChange={(e) => void patch({ providers: { [id]: { deepModel: e.target.value } } })}>
-              <option value="">(same as fast)</option>
-              {models.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
-            </select>
-          </Field>
-        </div>
-      ) : null}
-      {hasKey ? (
-        <div className="vc-row">
-          <Toggle checked={ps.enabled} label="Enabled for answers" onChange={(v) => void patch({ providers: { [id]: { enabled: v } } })} />
-          {local ? null : <Button size="sm" variant="danger" icon={<Trash2 size={12} />} onClick={async () => { if (confirm(`Remove the saved ${meta.label} key?`)) { onSecrets(await invoke('secrets:delete', { provider: id })); await useLive.getState().refreshSettings(); setModels([]); setTest(null); } }}>Remove key</Button>}
-        </div>
-      ) : null}
-      {id === 'cloud' ? (
-        <details style={{ marginTop: 10 }}>
-          <summary className="dash-small" style={{ cursor: 'pointer' }}>Server address</summary>
-          <Field label="Hirora Cloud address" hint={`Default ${HIRORA_CLOUD_DEFAULT_BASE_URL}. Change it only if you run your own server.`}>
-            <input className="vc-input" defaultValue={settings.providers.cloud.baseUrl} onBlur={(e) => void patch({ providers: { cloud: { baseUrl: e.target.value.trim() || HIRORA_CLOUD_DEFAULT_BASE_URL } } })} />
-          </Field>
-        </details>
-      ) : null}
-      <div className="dash-small" style={{ marginTop: 6 }}>Data sent: {meta.sends}</div>
-    </Card>
-  );
-}
-
-function ProvidersTab() {
-  const settings = useLive((s) => s.settings)!;
-  const patch = usePatch();
-  const [secrets, setSecrets] = useState<SecretsStatus | null>(null);
-  const [health, setHealth] = useState<ProviderHealth[]>([]);
-  useEffect(() => {
-    void invoke('secrets:status').then(setSecrets);
-    void invoke('providers:health').then(setHealth);
-  }, [settings]);
-  const ready = PROVIDER_IDS.filter((p) => (isKeyless(p) || secrets?.providers[p].hasKey) && settings.providers[p].model);
   return (
     <>
-      <Card title="Routing">
-        <div className="vc-grid2">
-          <Field label="Primary answer provider">
-            <select className="vc-select" value={settings.answer.primaryProvider ?? ''} onChange={(e) => void patch({ answer: { primaryProvider: e.target.value || null } })}>
-              <option value="">(none)</option>
-              {PROVIDER_IDS.map((p) => <option key={p} value={p} disabled={!ready.includes(p)}>{PROVIDER_META[p].label}{ready.includes(p) ? '' : isKeyless(p) ? ' — needs a pulled model (Test it below)' : ' — needs key + model'}</option>)}
-            </select>
-          </Field>
-          <Field label="Fallback provider" hint="Used visibly (badge “fallback”) only if the primary fails before streaming.">
-            <select className="vc-select" value={settings.answer.fallbackProvider ?? ''} onChange={(e) => void patch({ answer: { fallbackProvider: e.target.value || null } })}>
-              <option value="">(none)</option>
-              {PROVIDER_IDS.filter((p) => p !== settings.answer.primaryProvider).map((p) => <option key={p} value={p} disabled={!ready.includes(p)}>{PROVIDER_META[p].label}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div className="dash-pill-row">
-          {health.map((h) => (
-            <Badge key={h.provider} tone={h.status === 'ok' ? 'ok' : h.status === 'error' ? 'error' : h.status === 'backoff' ? 'warn' : 'neutral'} title={h.lastError ?? undefined}>
-              {h.provider}: {h.hasKey ? h.status : 'no key'}
-            </Badge>
-          ))}
-        </div>
-        <p className="dash-small" style={{ marginBottom: 0 }}>
-          <ShieldCheck size={12} /> Keys are encrypted with {secrets?.backend ?? 'the OS keystore'} and only used by the main process. They never reach this window, logs or session files.
-          {secrets && !secrets.encryptionAvailable ? <strong style={{ color: 'var(--error)' }}> OS encryption unavailable — keys cannot be saved.</strong> : null}
-        </p>
+      <Card title="On this PC">
+        <p className="dash-small" style={{ marginTop: 0 }}>Speech recognition (whisper.cpp) and the answer model (Ollama runtime) run only on this computer, on 127.0.0.1. No account or key is involved and nothing you say is sent anywhere.</p>
+        <EngineSetup />
       </Card>
-      {PROVIDER_IDS.map((p) => <ProviderCard key={p} id={p} secrets={secrets} onSecrets={setSecrets} />)}
-    </>
-  );
-}
-
-function TranscriptionTab() {
-  const s = useLive((x) => x.settings)!;
-  const patch = usePatch();
-  return (
-    <Card title="Streaming transcription">
-      <Field label="Provider" hint="Independent from the answer model. Mic and system audio use separate sessions so transcripts stay distinguishable.">
-        <select className="vc-select" value={s.stt.provider} onChange={(e) => void patch({ stt: { provider: e.target.value } })}>
-          <option value="local-whisper">Whisper on this PC — instant (NVIDIA GPU; live text while they speak)</option>
-          <option value="cloud-whisper">Hirora Cloud — Whisper (free; text appears when each sentence ends)</option>
-          <option value="gemini-live">Google Gemini 3.5 Transcribe Live (needs Gemini key)</option>
-          <option value="xai-stt">xAI Grok streaming STT (needs xAI key)</option>
-        </select>
-      </Field>
-      <div className="vc-grid2">
-        <Field label="Language" hint="BCP-47, e.g. en-US, en-IN, hi-IN. Empty = automatic detection.">
-          <input className="vc-input" value={s.stt.language} onChange={(e) => void patch({ stt: { language: e.target.value.trim() } })} />
-        </Field>
-        <Field label="End-of-utterance silence (ms)" hint="xAI endpointing; local VAD hint for Gemini uses ~450 ms.">
-          <input className="vc-input" type="number" min={100} max={5000} value={s.stt.endpointingMs} onChange={(e) => void patch({ stt: { endpointingMs: Number(e.target.value) } })} />
-        </Field>
-      </div>
-      {s.stt.provider === 'gemini-live' ? (
-        <Field label="Gemini transcription mode">
-          <select className="vc-select" value={s.stt.geminiMode} onChange={(e) => void patch({ stt: { geminiMode: e.target.value } })}>
-            <option value="VERBATIM">Verbatim (shows exactly what was heard)</option>
-            <option value="SMART">Smart (removes fillers, formats numbers)</option>
+      <Card title="Hardware">
+        <Field label="Run the engine on" hint="Automatic uses the graphics card when it is an NVIDIA GPU with at least 6 GB, otherwise the processor. Switching downloads the matching models.">
+          <select className="vc-select" value={s.engine.tier} disabled={engine?.setup === 'running'} onChange={(e) => void patch({ engine: { tier: e.target.value } })}>
+            <option value="auto">Automatic (recommended)</option>
+            <option value="gpu">NVIDIA graphics card — large Whisper + Qwen 3.5 4B</option>
+            <option value="cpu">Processor only — small Whisper + Qwen 3 1.7B (slower, no screenshots)</option>
           </select>
         </Field>
-      ) : null}
-      <Field label="Custom vocabulary" hint="Names, products, acronyms (one per line, up to 100).">
-        <textarea className="vc-textarea" defaultValue={s.stt.customVocabulary.join('\n')} onBlur={(e) => void patch({ stt: { customVocabulary: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 100) } })} />
-      </Field>
-    </Card>
+      </Card>
+      <Card title="Transcription">
+        <div className="vc-grid2">
+          <Field label="Spoken language" hint="Two-letter code such as en or hi. Empty = detect automatically (slightly slower).">
+            <input className="vc-input" value={s.stt.language} onChange={(e) => void patch({ stt: { language: e.target.value.trim() } })} />
+          </Field>
+        </div>
+        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100).">
+          <textarea className="vc-textarea" defaultValue={s.stt.customVocabulary.join('\n')} onBlur={(e) => void patch({ stt: { customVocabulary: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 100) } })} />
+        </Field>
+      </Card>
+    </>
   );
 }
 
@@ -328,7 +125,7 @@ function AudioTab() {
         {testRes ? <div className="dash-small" style={{ marginTop: 8 }}>{testRes}</div> : null}
       </Card>
       <Card title="Noise handling">
-        <Field label={`Noise gate: ${s.audio.noiseGateDbfs <= -89 ? 'off (stream everything)' : `${s.audio.noiseGateDbfs} dBFS`}`} hint="Silence below this level is not streamed to the paid STT provider (an adaptive voice detector with 300 ms pre-roll opens the gate). Lower = more sensitive; leftmost = off.">
+        <Field label={`Noise gate: ${s.audio.noiseGateDbfs <= -89 ? 'off (stream everything)' : `${s.audio.noiseGateDbfs} dBFS`}`} hint="Sound below this level is ignored (an adaptive voice detector with 300 ms pre-roll opens the gate). Lower = more sensitive; leftmost = off.">
           <input type="range" min={-90} max={-30} step={1} value={s.audio.noiseGateDbfs} onChange={(e) => void patch({ audio: { noiseGateDbfs: Number(e.target.value) } })} />
         </Field>
         <p className="dash-small" style={{ margin: 0 }}>Device changes (headset plugged in, Bluetooth reconnect, new default device) are picked up automatically within about a second. Capture pauses on sleep; resume from the overlay.</p>
@@ -371,7 +168,7 @@ function AnswersTab() {
       </Card>
       <Card title="Limits & timeouts">
         <div className="vc-grid2">
-          <Field label="First-token timeout (ms)" hint="Then retry once / use fallback."><input className="vc-input" type="number" value={a.firstTokenTimeoutMs} onChange={(e) => void patch({ answer: { firstTokenTimeoutMs: Number(e.target.value) } })} /></Field>
+          <Field label="First-token timeout (ms)" hint="Then retry once."><input className="vc-input" type="number" value={a.firstTokenTimeoutMs} onChange={(e) => void patch({ answer: { firstTokenTimeoutMs: Number(e.target.value) } })} /></Field>
           <Field label="Total timeout (ms)"><input className="vc-input" type="number" value={a.totalTimeoutMs} onChange={(e) => void patch({ answer: { totalTimeoutMs: Number(e.target.value) } })} /></Field>
           <Field label="Max output tokens (fast)"><input className="vc-input" type="number" value={a.maxOutputTokens} onChange={(e) => void patch({ answer: { maxOutputTokens: Number(e.target.value) } })} /></Field>
           <Field label="Max output tokens (deep)"><input className="vc-input" type="number" value={a.deepMaxOutputTokens} onChange={(e) => void patch({ answer: { deepMaxOutputTokens: Number(e.target.value) } })} /></Field>
@@ -474,12 +271,12 @@ function PrivacyTab() {
   const p = s.privacy;
   return (
     <>
-      <Card title="What leaves this computer">
+      <Card title="Nothing leaves this computer">
         <ul className="dash-small" style={{ marginTop: 0 }}>
-          <li>Audio: only after you press Start and confirm consent, only to your selected transcription provider, never written to disk.</li>
-          <li>Answers: the question, a few retrieved passages, your profile summary (if allowed below) and the recent transcript go to your answer provider.</li>
-          <li>Clipboard and screenshots: only after you preview and press Send. Possible secrets are flagged and can be redacted.</li>
-          <li>Embeddings (optional): document chunks go to Google once, if you enable semantic search.</li>
+          <li>Audio: captured only after you press Start and confirm consent, transcribed on this PC, never written to disk.</li>
+          <li>Answers: the question, a few passages from your documents, your profile summary (if allowed below) and the recent transcript go to the answer model on this PC.</li>
+          <li>Clipboard and screenshots: used only after you preview and press Send. Possible secrets are flagged and can be redacted.</li>
+          <li>The only internet use is the one-time engine download (GitHub, Hugging Face and the Ollama model library).</li>
         </ul>
         <Toggle checked={p.includeProfileInPrompts} label="Include personal profile summary in prompts" onChange={(v) => void patch({ privacy: { includeProfileInPrompts: v } })} />
         <Toggle checked={p.includeDocumentsInPrompts} label="Include retrieved document passages in prompts" onChange={(v) => void patch({ privacy: { includeDocumentsInPrompts: v } })} />
@@ -494,7 +291,7 @@ function PrivacyTab() {
             variant="danger"
             icon={<Trash2 size={13} />}
             onClick={async () => {
-              const typed = prompt('This deletes ALL Hirora data on this computer: saved keys, documents, profiles, history, timings and settings. Type DELETE to confirm.');
+              const typed = prompt('This deletes ALL Hirora data on this computer: documents, profiles, history, timings and settings (the downloaded engine stays). Type DELETE to confirm.');
               if (typed === 'DELETE') {
                 await invoke('data:deleteAll', { confirm: 'DELETE' });
                 await useLive.getState().refreshSettings();
@@ -504,50 +301,6 @@ function PrivacyTab() {
           >
             Delete all data
           </Button>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-function BudgetTab() {
-  const s = useLive((x) => x.settings)!;
-  const snapshot = useLive((x) => x.snapshot);
-  const patch = usePatch();
-  const b = s.budget;
-  const [pk, setPk] = useState('');
-  const [inP, setInP] = useState('');
-  const [outP, setOutP] = useState('');
-  const modelKeys = PROVIDER_IDS.filter((p) => s.providers[p].model).flatMap((p) => [`${p}:${s.providers[p].model}`, ...(s.providers[p].deepModel ? [`${p}:${s.providers[p].deepModel}`] : [])]);
-  return (
-    <>
-      <Card title="Guardrails (conservative by default)">
-        <div className="vc-grid2">
-          <Field label="Max answers per day"><input className="vc-input" type="number" value={b.dailyAnswerLimit} onChange={(e) => void patch({ budget: { dailyAnswerLimit: Number(e.target.value) } })} /></Field>
-          <Field label="Max transcription minutes per day"><input className="vc-input" type="number" value={b.dailySttMinutesLimit} onChange={(e) => void patch({ budget: { dailySttMinutesLimit: Number(e.target.value) } })} /></Field>
-          <Field label="Monthly spend cap (USD, priced usage only)" hint="Applies to models you priced below. Empty = no cap."><input className="vc-input" type="number" step="0.5" value={b.monthlyUsdCap ?? ''} onChange={(e) => void patch({ budget: { monthlyUsdCap: e.target.value === '' ? null : Number(e.target.value) } })} /></Field>
-        </div>
-        <div className="dash-small">Today: {snapshot?.usageToday.answers ?? 0} answers · {(snapshot?.usageToday.sttMinutes ?? 0).toFixed(1)} transcription minutes{snapshot?.usageToday.costUsd != null ? ` · $${snapshot.usageToday.costUsd.toFixed(4)}` : ' · cost unknown (no prices entered)'}</div>
-      </Card>
-      <Card title="Model prices (USD per 1M tokens)">
-        <p className="dash-small" style={{ marginTop: 0 }}>Prices change; Hirora does not guess them. Copy current prices from your provider’s pricing page to see cost estimates computed from reported token usage.</p>
-        <table className="dash-table">
-          <thead><tr><th>Model</th><th className="dash-num">Input</th><th className="dash-num">Output</th><th /></tr></thead>
-          <tbody>
-            {Object.entries(b.prices).map(([k, v]) => (
-              <tr key={k}><td className="dash-mono">{k}</td><td className="dash-num">{v.inputPer1M}</td><td className="dash-num">{v.outputPer1M}</td>
-                <td><Button size="sm" variant="ghost" icon={<Trash2 size={12} />} aria-label="Remove price" onClick={() => { const next = { ...b.prices }; delete next[k]; void patch({ budget: { '=prices': next } }); }} /></td></tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="vc-row" style={{ marginTop: 10 }}>
-          <select className="vc-select" style={{ width: 280 }} value={pk} onChange={(e) => setPk(e.target.value)}>
-            <option value="">Choose model…</option>
-            {modelKeys.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <input className="vc-input" style={{ width: 110 }} placeholder="input $" value={inP} onChange={(e) => setInP(e.target.value)} />
-          <input className="vc-input" style={{ width: 110 }} placeholder="output $" value={outP} onChange={(e) => setOutP(e.target.value)} />
-          <Button size="sm" disabled={!pk || !inP || !outP || Number.isNaN(Number(inP)) || Number.isNaN(Number(outP))} onClick={() => { void patch({ budget: { prices: { ...b.prices, [pk]: { inputPer1M: Number(inP), outputPer1M: Number(outP) } } } }); setInP(''); setOutP(''); }}>Add price</Button>
         </div>
       </Card>
     </>
@@ -575,24 +328,22 @@ function ThemeSwitch() {
 
 export function SettingsPage() {
   const settings = useLive((s) => s.settings);
-  const [tab, setTab] = useState<Tab>('Providers');
+  const [tab, setTab] = useState<Tab>('Engine');
   if (!settings) return null;
   return (
     <>
-      <PageHeader bold="Settings" sub="Everything works without keys except live transcription and answers. Changes save immediately." right={<ThemeSwitch />} />
+      <PageHeader bold="Settings" sub="Changes save immediately." right={<ThemeSwitch />} />
       <div className="dash-tabs" role="tablist">
         {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={cx('dash-tab', tab === t && 'is-active')} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
-      {tab === 'Providers' && <ProvidersTab />}
-      {tab === 'Transcription' && <TranscriptionTab />}
+      {tab === 'Engine' && <EngineTab />}
       {tab === 'Audio' && <AudioTab />}
       {tab === 'Answers' && <AnswersTab />}
       {tab === 'Overlay & capture' && <OverlayTab />}
       {tab === 'Hotkeys' && <HotkeysTab />}
       {tab === 'Privacy & data' && <PrivacyTab />}
-      {tab === 'Budget' && <BudgetTab />}
     </>
   );
 }

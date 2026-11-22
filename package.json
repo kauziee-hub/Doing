@@ -2,7 +2,7 @@
   "name": "hirora",
   "private": true,
   "version": "0.2.0",
-  "description": "Hirora — Windows-first, local-first real-time AI desktop copilot (BYOK).",
+  "description": "Hirora \u2014 Windows-first, local-first real-time AI desktop copilot (BYOK).",
   "license": "UNLICENSED",
   "packageManager": "pnpm@9.1.0",
   "engines": {
@@ -20,7 +20,6 @@
     "build": "pnpm native:build && pnpm --filter @hirora/desktop build",
     "package:win": "pnpm build && pnpm --filter @hirora/desktop package:win",
     "perf": "node tools/perf/run-local-bench.mjs",
-    "perf:live": "pnpm --filter @hirora/desktop perf:live",
     "native:build": "cargo build --release --manifest-path native/windows-audio/Cargo.toml",
     "native:build:debug": "cargo build --manifest-path native/windows-audio/Cargo.toml",
     "native:test": "cargo test --manifest-path native/windows-audio/Cargo.toml",

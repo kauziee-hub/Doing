@@ -1,17 +1,14 @@
 import { app, dialog, powerMonitor, screen, session } from 'electron';
 import { join } from 'node:path';
 import type { HotkeyAction } from '@hirora/contracts';
-import { isKeyless } from '@hirora/contracts';
 import { Logger } from './logger';
 import { AppServices } from './services';
 import { UI_PARTITION, WindowManager } from './windows';
 import { HotkeyManager, TrayController } from './shell';
 import { registerIpc } from './ipc';
-import { runLiveBench } from './bench';
 import { LEGACY_PROFILE_DIR_NAME, migrateLegacyProfile } from './migrate';
 
 const processStart = performance.timeOrigin;
-const BENCH = process.argv.includes('--hirora-bench');
 
 if (process.env.HIRORA_USER_DATA) app.setPath('userData', process.env.HIRORA_USER_DATA);
 app.setAppUserModelId('app.hirora.desktop');
@@ -23,7 +20,7 @@ const migration = migrateLegacyProfile(
   app.getPath('userData'),
 );
 
-if (!BENCH && !app.requestSingleInstanceLock()) {
+if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   void main();
@@ -58,7 +55,7 @@ function applyUiSessionSecurity(): void {
 async function main(): Promise<void> {
   await app.whenReady();
   const log = new Logger(join(app.getPath('userData'), 'logs'));
-  log.info('starting', { version: app.getVersion(), electron: process.versions.electron, packaged: app.isPackaged, bench: BENCH });
+  log.info('starting', { version: app.getVersion(), electron: process.versions.electron, packaged: app.isPackaged });
   if (migration.outcome === 'error') log.error('legacy profile migration failed', { ...migration });
   else if (migration.outcome !== 'no-legacy' && migration.outcome !== 'already-done') log.info('legacy profile migration', { ...migration });
   applyUiSessionSecurity();
@@ -70,13 +67,6 @@ async function main(): Promise<void> {
     log.error('fatal init error', { error: (err as Error).message });
     dialog.showErrorBox('Hirora failed to start', (err as Error).message);
     app.exit(1);
-    return;
-  }
-
-  if (BENCH) {
-    const code = await runLiveBench(services, log);
-    await services.shutdown();
-    app.exit(code);
     return;
   }
 
@@ -169,9 +159,8 @@ async function main(): Promise<void> {
   tray.create();
   hotkeys.registerAll();
   services.helper.start();
-  // Instant answers: have local Whisper and a local answer model loaded before the first question.
-  void services.startLocalWhisper();
-  if (isKeyless(services.settings.get().answer.primaryProvider ?? 'cloud')) void services.preconnectLocalModels();
+  // Instant answers: once set up, have speech recognition and the answer model loaded before the first question.
+  void services.warmUp();
 
   screen.on('display-removed', () => windows.revalidateOverlay());
   screen.on('display-metrics-changed', () => windows.revalidateOverlay());

@@ -154,9 +154,6 @@ export class SttStream {
             this.handleFailure(new ProviderError('stt', 'network', 'Transcription connection closed'));
           }
         },
-        onGoAway: () => {
-          if (this.session === session) this.requestRotation();
-        },
       });
       if (this.stopped || gen !== this.generation) {
         session.close();

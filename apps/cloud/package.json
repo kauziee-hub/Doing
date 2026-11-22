@@ -1,7 +1,0 @@
-{
-  "name": "@hirora/cloud",
-  "version": "0.2.0",
-  "private": true,
-  "type": "module",
-  "description": "Hirora Cloud: install website + OpenAI-compatible relay to Groq, deployed on Vercel"
-}

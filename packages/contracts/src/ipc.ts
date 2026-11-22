@@ -5,23 +5,21 @@ import {
   ProjectCardSchema,
   SessionProfileSchema,
   DocKindSchema,
-  ProviderIdSchema,
 } from './domain';
 import type {
   AnswerRecord,
   DocumentSummary,
+  EngineStatus,
   LiveSnapshot,
-  ModelInfo,
   PerfSample,
   PerfSummaryRow,
   PersonalProfile,
   ProjectCard,
-  ProviderHealth,
   RetrievedChunk,
   SessionProfile,
   TranscriptSegment,
 } from './domain';
-import type { AppSettings, ProviderId } from './settings';
+import type { AppSettings } from './settings';
 
 /**
  * Request schemas for every renderer → main `invoke` channel. Main validates each
@@ -35,12 +33,9 @@ export const IpcRequestSchemas = {
   'settings:get': z.void(),
   'settings:update': z.record(z.string(), z.unknown()),
   'settings:reset': z.object({ section: z.enum(['overlay', 'hotkeys', 'all']) }),
-  'secrets:status': z.void(),
-  'secrets:set': z.object({ provider: ProviderIdSchema, key: z.string().min(8).max(512) }),
-  'secrets:delete': z.object({ provider: ProviderIdSchema }),
-  'providers:test': z.object({ provider: ProviderIdSchema }),
-  'providers:models': z.object({ provider: ProviderIdSchema, refresh: z.boolean().optional() }),
-  'providers:health': z.void(),
+  'engine:status': z.void(),
+  'engine:setup': z.void(),
+  'engine:cancel': z.void(),
   'audio:devices': z.void(),
   'audio:apps': z.void(),
   'audio:testDevice': z.object({ source: z.enum(['mic', 'system']), seconds: z.number().min(1).max(10) }),
@@ -75,7 +70,6 @@ export const IpcRequestSchemas = {
   'knowledge:delete': z.object({ documentId: z.string().max(64) }),
   'knowledge:setKind': z.object({ documentId: z.string().max(64), kind: DocKindSchema }),
   'knowledge:search': z.object({ query: z.string().min(1).max(2000) }),
-  'knowledge:reembed': z.void(),
   'profile:get': z.void(),
   'profile:set': PersonalProfileSchema,
   'cards:list': z.void(),
@@ -122,20 +116,6 @@ export interface AppInfo {
   userDataPath: string;
   helperPath: string | null;
   packaged: boolean;
-}
-
-export interface SecretsStatus {
-  providers: Record<ProviderId, { hasKey: boolean; updatedAt: number | null }>;
-  encryptionAvailable: boolean;
-  backend: string;
-}
-
-export interface ProviderTestResult {
-  ok: boolean;
-  latencyMs: number;
-  models: ModelInfo[];
-  error: string | null;
-  errorCode: string | null;
 }
 
 export interface DeviceInfo {
@@ -234,12 +214,9 @@ export interface IpcResponses {
   'settings:get': AppSettings;
   'settings:update': AppSettings;
   'settings:reset': AppSettings;
-  'secrets:status': SecretsStatus;
-  'secrets:set': SecretsStatus;
-  'secrets:delete': SecretsStatus;
-  'providers:test': ProviderTestResult;
-  'providers:models': { models: ModelInfo[]; error: string | null };
-  'providers:health': ProviderHealth[];
+  'engine:status': EngineStatus;
+  'engine:setup': EngineStatus;
+  'engine:cancel': EngineStatus;
   'audio:devices': { capture: DeviceInfo[]; render: DeviceInfo[]; error: string | null };
   'audio:apps': { apps: AudioAppInfo[]; error: string | null };
   'audio:testDevice': { ok: boolean; peakDbfs: number; frames: number; error: string | null };
@@ -266,7 +243,6 @@ export interface IpcResponses {
   'knowledge:delete': { ok: boolean };
   'knowledge:setKind': { ok: boolean };
   'knowledge:search': { results: RetrievedChunk[]; ms: number; usedVectors: boolean };
-  'knowledge:reembed': { ok: boolean; embedded: number; error: string | null };
   'profile:get': PersonalProfile;
   'profile:set': PersonalProfile;
   'cards:list': ProjectCard[];

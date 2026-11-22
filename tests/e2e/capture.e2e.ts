@@ -67,7 +67,7 @@ let browser: Browser;
 
 test.beforeAll(async () => {
   userData = mkdtempSync(join(tmpdir(), 'hirora-capture-'));
-  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, NODE_ENV: 'production' } });
+  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, NODE_ENV: 'production' , HIRORA_ENGINE_DIR: join(userData, 'engine'), HIRORA_ENGINE_MODELS: join(userData, 'engine', 'models'), HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
   server = createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end(PAGE);

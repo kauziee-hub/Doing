@@ -1,7 +1,7 @@
 import { app, clipboard, desktopCapturer, dialog, ipcMain, screen, shell } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
-import { readFile, stat } from 'node:fs/promises';
-import { basename, isAbsolute } from 'node:path';
+import { readFile, rm, stat } from 'node:fs/promises';
+import { basename, isAbsolute, join } from 'node:path';
 import { release } from 'node:os';
 import type {
   AppSettings,
@@ -10,11 +10,9 @@ import type {
   IpcChannel,
   IpcResponses,
   LocalBenchResult,
-  ProviderId,
   ScreenPreview,
 } from '@hirora/contracts';
 import { IpcRequestSchemas, detectSecrets, redactSecrets, defaultSettings } from '@hirora/contracts';
-import { SUGGESTED_FAST_MODELS, validateCustomBaseUrl, validateLocalBaseUrl } from '@hirora/providers';
 import { analyzeQuestion, buildMessages } from '@hirora/orchestration';
 import { percentile } from '@hirora/knowledge';
 import { FrameDecoder } from './audioHelper';
@@ -57,7 +55,6 @@ const screenPreviews = new Map<string, { base64: string; mime: 'image/jpeg'; at:
 
 export function registerIpc(ctx: IpcContext): void {
   const { services: svc, windows } = ctx;
-  const secretsStatus = () => svc.vault.status();
 
   const handlers: { [C in IpcChannel]: Handler<C> } = {
     'app:info': () => ({
@@ -86,18 +83,6 @@ export function registerIpc(ctx: IpcContext): void {
     'settings:get': () => svc.settings.get(),
     'settings:update': (p) => {
       const patch = IpcRequestSchemas['settings:update'].parse(p);
-      const custom = (patch.providers as { custom?: { baseUrl?: string } } | undefined)?.custom;
-      if (custom?.baseUrl && !validateCustomBaseUrl(custom.baseUrl)) {
-        throw new Error('Custom endpoint must be https:// (http:// is allowed only for localhost) and must not embed credentials.');
-      }
-      const cloud = (patch.providers as { cloud?: { baseUrl?: string } } | undefined)?.cloud;
-      if (cloud?.baseUrl && !validateCustomBaseUrl(cloud.baseUrl)) {
-        throw new Error('The Hirora Cloud address must be an https:// URL.');
-      }
-      const ollama = (patch.providers as { ollama?: { baseUrl?: string } } | undefined)?.ollama;
-      if (ollama?.baseUrl && !validateLocalBaseUrl(ollama.baseUrl)) {
-        throw new Error('The Ollama endpoint must be on this PC (http://127.0.0.1 or http://localhost) and must not embed credentials.');
-      }
       const next = svc.settings.update(patch);
       if ('hotkeys' in patch) ctx.hotkeys.registerAll();
       if ('overlay' in patch) windows.applyOverlaySettings();
@@ -113,49 +98,18 @@ export function registerIpc(ctx: IpcContext): void {
       windows.applyOverlaySettings();
       return next;
     },
-    'secrets:status': () => ({ providers: secretsStatus(), encryptionAvailable: svc.vault.available, backend: svc.vault.backend }),
-    'secrets:set': (p) => {
-      const { provider, key } = IpcRequestSchemas['secrets:set'].parse(p);
-      svc.vault.set(provider, key);
-      return { providers: secretsStatus(), encryptionAvailable: svc.vault.available, backend: svc.vault.backend };
+    'engine:status': () => svc.engine.refresh(),
+    'engine:setup': () => {
+      // Runs in the background; progress arrives as live 'engine' events.
+      void svc.engine.setup().then(() => {
+        if (svc.engine.status().ready) void svc.warmUp();
+      });
+      return svc.engine.status();
     },
-    'secrets:delete': (p) => {
-      const { provider } = IpcRequestSchemas['secrets:delete'].parse(p);
-      svc.vault.delete(provider);
-      const s = svc.settings.get();
-      const patch: Record<string, unknown> = { providers: { [provider]: { enabled: false } } };
-      if (s.answer.primaryProvider === provider) patch.answer = { primaryProvider: null };
-      svc.settings.update(patch);
-      return { providers: secretsStatus(), encryptionAvailable: svc.vault.available, backend: svc.vault.backend };
+    'engine:cancel': () => {
+      svc.engine.cancel();
+      return svc.engine.status();
     },
-    'providers:test': async (p) => {
-      const { provider } = IpcRequestSchemas['providers:test'].parse(p);
-      const res = await svc.testProvider(provider);
-      if (res.ok) {
-        const s = svc.settings.get();
-        const cur = s.providers[provider];
-        const patch: Record<string, unknown> = {};
-        let model = cur.model;
-        if (!model || !res.models.some((m) => m.id === model)) {
-          const suggested = provider === 'custom' ? [] : SUGGESTED_FAST_MODELS[provider];
-          // A local runtime only lists models the user pulled, so any of them is a sensible default.
-          model = suggested.find((id) => res.models.some((m) => m.id === id)) ?? (provider === 'ollama' ? (res.models[0]?.id ?? '') : '');
-        }
-        patch.providers = { [provider]: { enabled: true, model } };
-        if (!s.answer.primaryProvider && model) patch.answer = { primaryProvider: provider };
-        svc.settings.update(patch);
-      }
-      return res;
-    },
-    'providers:models': async (p) => {
-      const { provider, refresh } = IpcRequestSchemas['providers:models'].parse(p);
-      try {
-        return { models: await svc.listModels(provider as ProviderId, refresh ?? false), error: null };
-      } catch (err) {
-        return { models: [], error: (err as Error).message };
-      }
-    },
-    'providers:health': () => svc.healthList(),
     'audio:devices': async () => {
       try {
         const d = await svc.helper.request<{ capture: never[]; render: never[] }>('list_devices');
@@ -201,7 +155,15 @@ export function registerIpc(ctx: IpcContext): void {
     },
     'session:start': async (p) => {
       IpcRequestSchemas['session:start'].parse(p);
+      if (!svc.engine.status().ready) {
+        svc.emit({ type: 'toast', level: 'warn', message: 'Finish setting up Hirora first: open Home and press Set up.' });
+        windows.showDashboard();
+        return svc.session.snapshot();
+      }
       void svc.preconnect();
+      // Transcription must be up before audio flows (it usually already is: the app warms up at launch).
+      const speech = await svc.engine.startSpeech();
+      if (speech) svc.emit({ type: 'toast', level: 'error', message: speech });
       const snap = await svc.session.start(true);
       ctx.tray.refresh();
       return snap;
@@ -268,6 +230,10 @@ export function registerIpc(ctx: IpcContext): void {
       const { previewId, question } = IpcRequestSchemas['ask:screen'].parse(p);
       const prev = screenPreviews.get(previewId);
       if (!prev) return { requestId: null, error: 'Screenshot preview expired. Capture again.' };
+      if (!svc.engine.answerModelReadsImages) {
+        screenPreviews.delete(previewId);
+        return { requestId: null, error: 'The answer model on this PC can’t read images (it needs the NVIDIA GPU setup). Copy the text and use the clipboard button instead.' };
+      }
       screenPreviews.delete(previewId);
       const q = question.trim() || 'Describe what is on this screen and answer any question or task shown.';
       svc.session.noteTyped(`[screenshot] ${q}`);
@@ -354,10 +320,6 @@ export function registerIpc(ctx: IpcContext): void {
       const { query } = IpcRequestSchemas['knowledge:search'].parse(p);
       const r = await svc.retrieve(query, AbortSignal.timeout(5000));
       return { results: r.chunks, ms: Math.round(r.ms * 10) / 10, usedVectors: r.usedVectors };
-    },
-    'knowledge:reembed': async () => {
-      const r = await svc.embedMissing();
-      return { ok: !r.error, embedded: r.embedded, error: r.error };
     },
     'profile:get': () => svc.knowledge.getProfile(),
     'profile:set': (p) => svc.knowledge.setProfile(IpcRequestSchemas['profile:set'].parse(p)),
@@ -461,7 +423,8 @@ export function registerIpc(ctx: IpcContext): void {
       for (const sp of svc.knowledge.listSessionProfiles()) svc.knowledge.deleteSessionProfile(sp.id);
       svc.db.exec("DELETE FROM kv; DELETE FROM perf_events; DELETE FROM usage_events; DELETE FROM capture_results; DELETE FROM embeddings;");
       svc.db.exec('VACUUM;');
-      svc.vault.deleteAll();
+      // API keys saved by Hirora 0.2.x (encrypted) are removed too.
+      await rm(join(app.getPath('userData'), 'secrets.json'), { force: true });
       svc.settings.replace(defaultSettings());
       ctx.hotkeys.registerAll();
       windows.applyOverlaySettings();
@@ -501,7 +464,6 @@ async function ingestPaths(svc: AppServices, paths: string[], kind: DocKind) {
       results.push({ fileName, ok: false, documentId: null, duplicateOf: null, error: (err as Error).message, chunks: 0, ms: Math.round(performance.now() - t0) });
     }
   }
-  if (svc.settings.get().knowledge.useEmbeddings) void svc.embedMissing();
   return results;
 }
 

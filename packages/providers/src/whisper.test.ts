@@ -1,33 +1,30 @@
 /**
- * FIXTURE test: a local HTTP server stands in for the Hirora Cloud relay so the
- * utterance buffering, WAV encoding and response filtering can be checked offline.
+ * FIXTURE test: a local HTTP server stands in for whisper.cpp's server (GET / and
+ * POST /inference) so utterance buffering, WAV encoding and response filtering can
+ * be checked offline. The real server is measured in tools/interview-check.mjs.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { CloudWhisperTranscriber, pcmToWav, whisperText } from './whisper';
+import { LocalWhisperTranscriber, pcmToWav, stripAnnotations, whisperText } from './whisper';
 
 let server: Server;
 let base = '';
-const uploads: Array<{ bytes: number; model: string | null; language: string | null; prompt: string | null }> = [];
+const uploads: Array<{ bytes: number; language: string | null; prompt: string | null }> = [];
 
 beforeAll(async () => {
   server = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', async () => {
-      if (req.headers.authorization !== 'Bearer good-code') {
-        res.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'Wrong or missing Hirora Cloud access code.' } }));
-        return;
-      }
-      if (req.url === '/v1/models') {
-        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ object: 'list', data: [] }));
+      if (req.method === 'GET' && req.url === '/') {
+        res.writeHead(200, { 'content-type': 'text/html' }).end('whisper.cpp server');
         return;
       }
       const form = await new Response(Buffer.concat(chunks), { headers: { 'content-type': String(req.headers['content-type']) } }).formData();
       const file = form.get('file') as Blob;
-      uploads.push({ bytes: file.size, model: form.get('model') as string | null, language: form.get('language') as string | null, prompt: form.get('prompt') as string | null });
+      uploads.push({ bytes: file.size, language: form.get('language') as string | null, prompt: form.get('prompt') as string | null });
       res.writeHead(200, { 'content-type': 'application/json' }).end(
         JSON.stringify({
           text: 'How would you scale it? Thanks for watching!',
@@ -40,7 +37,7 @@ beforeAll(async () => {
     });
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 afterAll(() => server.close());
 
@@ -50,23 +47,25 @@ const frame = (amp: number) => {
   return b;
 };
 
-describe('CloudWhisperTranscriber (fixture relay)', () => {
-  it('builds a valid 16 kHz mono WAV header', () => {
+describe('LocalWhisperTranscriber (fixture whisper.cpp server)', () => {
+  it('builds a valid 16 kHz mono WAV header and cleans Whisper output', () => {
     const wav = pcmToWav(Buffer.alloc(320));
     expect(wav.subarray(0, 4).toString()).toBe('RIFF');
     expect(wav.readUInt32LE(24)).toBe(16000);
     expect(wav.readUInt16LE(22)).toBe(1);
     expect(wav.readUInt32LE(40)).toBe(320);
     expect(whisperText({ text: 'fallback' })).toBe('fallback');
+    expect(stripAnnotations('[BLANK_AUDIO] So (music) tell me')).toBe('So tell me');
   });
 
-  it('sends one utterance after the speaker pauses, drops no-speech segments, never sends silence', async () => {
+  it('transcribes an utterance when the speaker stops, drops no-speech segments, never sends silence', async () => {
     const events: string[] = [];
     let ended!: () => void;
     const done = new Promise<void>((r) => (ended = r));
-    const stt = new CloudWhisperTranscriber('good-code', base);
+    // Live text off (huge interval) so the request count is deterministic.
+    const stt = new LocalWhisperTranscriber(base, fetch, 60_000);
     const s = await stt.open(
-      { language: 'en-IN', vocabulary: ['Kafka'], geminiMode: 'VERBATIM', endpointingMs: 600 },
+      { language: 'en-IN', vocabulary: ['Kafka'] },
       {
         onInterim: (t) => events.push(`i:${t}`),
         onFinalSegment: (t) => events.push(`f:${t}`),
@@ -81,26 +80,20 @@ describe('CloudWhisperTranscriber (fixture relay)', () => {
     // Pure silence + endOfSpeech: nothing must be uploaded.
     for (let i = 0; i < 5; i++) s.sendAudio(frame(5));
     s.endOfSpeech();
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 300));
     expect(uploads.length).toBe(0);
-    // One second of speech, a short pause that resumes (same utterance), then the end.
-    for (let i = 0; i < 6; i++) s.sendAudio(frame(9000));
-    s.endOfSpeech();
-    await new Promise((r) => setTimeout(r, 100));
-    for (let i = 0; i < 4; i++) s.sendAudio(frame(9000));
+    for (let i = 0; i < 10; i++) s.sendAudio(frame(9000));
     s.endOfSpeech();
     await done;
-    expect(uploads.length).toBe(1);
-    expect(uploads[0]).toMatchObject({ model: 'whisper-large-v3-turbo', language: 'en', prompt: 'Kafka' });
-    expect(uploads[0]!.bytes).toBe(44 + 10 * 3200); // silence discarded; both speech parts (6 + 4 frames) sent as one utterance
-    expect(events).toEqual(['f:How would you scale it?', 'end']);
+    const final = uploads[uploads.length - 1]!;
+    expect(final).toMatchObject({ language: 'en', prompt: 'Kafka' });
+    expect(final.bytes).toBe(44 + 10 * 3200); // silence discarded
+    expect(events.filter((e) => !e.startsWith('i:'))).toEqual(['f:How would you scale it?', 'end']);
     s.close();
   });
 
-  it('a wrong access code fails like a bad key', async () => {
-    const stt = new CloudWhisperTranscriber('wrong', base);
-    await expect(
-      stt.open({ language: '', vocabulary: [], geminiMode: 'VERBATIM', endpointingMs: 600 }, { onInterim() {}, onFinalSegment() {}, onUtteranceEnd() {}, onError() {}, onClose() {} }),
-    ).rejects.toMatchObject({ code: 'invalid_key' });
+  it('says plainly when the speech engine is not running', async () => {
+    const stt = new LocalWhisperTranscriber('http://127.0.0.1:9', fetch);
+    await expect(stt.open({ language: '', vocabulary: [] }, { onInterim() {}, onFinalSegment() {}, onUtteranceEnd() {}, onError() {}, onClose() {} })).rejects.toMatchObject({ code: 'network' });
   });
 });

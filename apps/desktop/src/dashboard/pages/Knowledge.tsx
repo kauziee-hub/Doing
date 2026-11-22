@@ -3,7 +3,7 @@ import type { DragEvent } from 'react';
 import { FileText, Search, Trash2, Upload, Eye } from 'lucide-react';
 import type { DocKind, DocumentPreview, DocumentSummary, IngestResult, RetrievedChunk } from '@hirora/contracts';
 import { DOC_KINDS } from '@hirora/contracts';
-import { Badge, Button, Card, EmptyState, Toggle, cx } from '@hirora/ui';
+import { Badge, Button, Card, EmptyState, cx } from '@hirora/ui';
 import { invoke, pathForFile } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';
@@ -23,8 +23,6 @@ function fmtBytes(n: number) {
 }
 
 export function Knowledge() {
-  const settings = useLive((s) => s.settings);
-  const setSettings = useLive((s) => s.setSettings);
   const toast = useLive((s) => s.toast);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [kind, setKind] = useState<DocKind>('resume');
@@ -62,7 +60,7 @@ export function Knowledge() {
 
   return (
     <>
-      <PageHeader light="Your" bold="knowledge" sub="Parsed and indexed on this PC. Only the passages relevant to a question are sent to your model — as data, never as instructions. Deleting removes the text, index and embeddings." />
+      <PageHeader light="Your" bold="knowledge" sub="Parsed and indexed on this PC. The passages relevant to a question go to the answer model on this PC — as data, never as instructions. Deleting removes the text and its index." />
       <Card title="Add documents">
         <div className="vc-row" style={{ marginBottom: 12 }}>
           <label className="vc-field__label" htmlFor="kind">This upload is</label>
@@ -103,7 +101,7 @@ export function Knowledge() {
                   <td className="dash-num">{d.pageCount ?? '—'}</td>
                   <td className="dash-num">{d.chunkCount}</td>
                   <td className="dash-num">{fmtBytes(d.sizeBytes)}</td>
-                  <td>{d.embedded ? <Badge tone="ok">FTS + vectors</Badge> : <Badge>FTS</Badge>}</td>
+                  <td><Badge tone="ok">Indexed</Badge></td>
                   <td>
                     <div className="vc-row" style={{ flexWrap: 'nowrap' }}>
                       <Button size="sm" variant="ghost" icon={<Eye size={13} />} aria-label={`Preview ${d.title}`} onClick={async () => setPreview(await invoke('knowledge:preview', { documentId: d.id }))} />
@@ -117,7 +115,7 @@ export function Knowledge() {
         )}
       </Card>
 
-      <div className="dash-cols">
+      <div>
         <Card title="Test retrieval">
           <form className="vc-row" onSubmit={async (e) => { e.preventDefault(); if (query.trim()) setHits(await invoke('knowledge:search', { query })); }}>
             <input className="vc-input" style={{ flex: 1 }} placeholder="e.g. Tell me about a time you led a migration" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Retrieval test query" />
@@ -125,7 +123,7 @@ export function Knowledge() {
           </form>
           {hits ? (
             <div style={{ marginTop: 12 }}>
-              <div className="dash-small">{hits.results.length} passages in {hits.ms} ms {hits.usedVectors ? '(FTS + vectors)' : '(FTS only)'}</div>
+              <div className="dash-small">{hits.results.length} passages in {hits.ms} ms</div>
               {hits.results.map((h, i) => (
                 <div key={h.chunkId} className="dash-chunk">
                   <div className="dash-chunk__meta">S{i + 1} · {h.documentTitle}{h.page ? ` p.${h.page}` : ''} · {h.evidence} · {h.matchedBy.join('+')} · score {h.score.toFixed(4)}</div>
@@ -133,25 +131,6 @@ export function Knowledge() {
                 </div>
               ))}
             </div>
-          ) : null}
-        </Card>
-        <Card title="Semantic search (optional)">
-          {settings ? (
-            <>
-              <Toggle
-                checked={settings.knowledge.useEmbeddings}
-                label="Use Gemini embeddings for hybrid retrieval"
-                description={`Sends document chunks to Google (${settings.knowledge.embeddingModel}) once to create vectors. Keyword search keeps working if this is off or offline.`}
-                onChange={async (v) => setSettings(await invoke('settings:update', { knowledge: { useEmbeddings: v } }))}
-              />
-              <Button disabled={!settings.knowledge.useEmbeddings || busy} onClick={async () => {
-                setBusy(true);
-                const r = await invoke('knowledge:reembed');
-                setBusy(false);
-                toast(r.ok ? 'info' : 'error', r.ok ? `Embedded ${r.embedded} chunks` : (r.error ?? 'Embedding failed'));
-                await refresh();
-              }}>Embed missing chunks</Button>
-            </>
           ) : null}
         </Card>
       </div>

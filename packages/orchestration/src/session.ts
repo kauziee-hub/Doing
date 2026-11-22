@@ -39,7 +39,6 @@ export interface SessionDeps {
     segment(id: string, seg: TranscriptSegment): void;
   } | null;
   recordSttSeconds(provider: SttProviderId, seconds: number): void;
-  sttBudgetCheck(): { ok: true } | { ok: false; reason: string };
   usageToday(): LiveSnapshot['usageToday'];
   activeProfileName(): string | null;
   perf(sample: PerfSample): void;
@@ -49,6 +48,11 @@ export interface SessionDeps {
    * null = unavailable/failed/timed out: the controller falls back to the score.
    */
   gate?(utterance: string, recent: TranscriptSegment[], signal: AbortSignal): Promise<GateDecision | null>;
+  /**
+   * Start answers from live (interim) text before the question ends. Worth it only when live
+   * text is fast and accurate (GPU Whisper); on a CPU, answers wait for the final transcript.
+   */
+  earlyAnswers?(): boolean;
   now?: () => number;
 }
 
@@ -92,7 +96,6 @@ export class SessionController {
     pausedAt: number | null;
   } | null = null;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
-  private budgetTimer: ReturnType<typeof setInterval> | null = null;
   private recordHistory = false;
   private readonly now: () => number;
 
@@ -123,7 +126,7 @@ export class SessionController {
       sessionStartedAt: this.startedAt,
       consentAcknowledged: this.consent,
       sources: [...this.sources.values()].map((r) => ({ ...r.status })),
-      sttProvider: s.stt.provider,
+      sttProvider: 'local-whisper',
       helper: this.deps.helperInfo(),
       mode: s.answer.mode,
       activeProfileName: this.deps.activeProfileName(),
@@ -139,11 +142,6 @@ export class SessionController {
   async start(consent: boolean): Promise<LiveSnapshot> {
     if (!consent) throw new Error('Explicit consent is required before audio capture starts');
     if (this.state === 'listening' || this.state === 'starting') return this.snapshot();
-    const budget = this.deps.sttBudgetCheck();
-    if (!budget.ok) {
-      this.deps.emit({ type: 'toast', level: 'error', message: budget.reason });
-      return this.snapshot();
-    }
     this.consent = true;
     const settings = this.deps.settings();
     if (!this.sessionId) {
@@ -157,13 +155,6 @@ export class SessionController {
     await this.startSources(settings);
     this.state = 'listening';
     this.levelTimer ??= setInterval(() => this.emitLevels(), 66);
-    this.budgetTimer ??= setInterval(() => {
-      const b = this.deps.sttBudgetCheck();
-      if (!b.ok && this.state === 'listening') {
-        this.deps.emit({ type: 'toast', level: 'error', message: b.reason });
-        void this.pause();
-      }
-    }, 60_000);
     this.pushSnapshot();
     return this.snapshot();
   }
@@ -212,7 +203,7 @@ export class SessionController {
     );
     const sttOpts = (): SttOptions => {
       const s = this.deps.settings().stt;
-      return { language: s.language, vocabulary: s.customVocabulary, geminiMode: s.geminiMode, endpointingMs: s.endpointingMs };
+      return { language: s.language, vocabulary: s.customVocabulary };
     };
     const stt = new SttStream({
       source,
@@ -229,7 +220,7 @@ export class SessionController {
         status.sttError = err ? `${err.message}` : st === 'open' ? null : status.sttError;
         this.pushSnapshot();
       },
-      onAudioSent: (secs) => this.deps.recordSttSeconds(this.deps.settings().stt.provider, secs),
+      onAudioSent: (secs) => this.deps.recordSttSeconds('local-whisper', secs),
       perf: (s) => this.deps.perf(s),
       now: this.now,
     });
@@ -288,7 +279,7 @@ export class SessionController {
 
   private onSegmentUpdate(seg: TranscriptSegment): void {
     this.deps.emit({ type: 'transcript', segment: seg });
-    if (!seg.final && this.state === 'listening' && this.isAutoSource(seg.source)) this.speculate(seg);
+    if (!seg.final && this.state === 'listening' && this.isAutoSource(seg.source) && (this.deps.earlyAnswers?.() ?? true)) this.speculate(seg);
   }
 
   private isAutoSource(source: TranscriptSegment['source']): boolean {
@@ -541,11 +532,6 @@ export class SessionController {
 
   async resume(): Promise<LiveSnapshot> {
     if (this.state !== 'paused') return this.snapshot();
-    const b = this.deps.sttBudgetCheck();
-    if (!b.ok) {
-      this.deps.emit({ type: 'toast', level: 'error', message: b.reason });
-      return this.snapshot();
-    }
     this.state = 'starting';
     this.pushSnapshot();
     await this.startSources(this.deps.settings());
@@ -583,8 +569,7 @@ export class SessionController {
     for (const rt of this.sources.values()) rt.assembler.dispose();
     this.sources.clear();
     if (this.levelTimer) clearInterval(this.levelTimer);
-    if (this.budgetTimer) clearInterval(this.budgetTimer);
-    this.levelTimer = this.budgetTimer = null;
+    this.levelTimer = null;
     if (this.recordHistory && this.sessionId) this.deps.history()?.end(this.sessionId);
     this.sessionId = null;
     this.startedAt = null;

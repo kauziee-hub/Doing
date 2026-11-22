@@ -7,10 +7,33 @@ describe('settings schema', () => {
     expect(s.onboardingComplete).toBe(false);
     expect(s.privacy.saveHistory).toBe(false); // history is opt-in
     expect(s.overlay.contentProtection).toBe(true); // overlay left out of screen shares unless the user turns it off
-    expect(s.answer.primaryProvider).toBeNull();
-    expect(s.providers.gemini.model).toBe(''); // no hard-coded model ids
-    expect(s.budget.dailyAnswerLimit).toBeGreaterThan(0);
+    expect(s.engine.tier).toBe('auto'); // hardware decides the models
     expect(s.hotkeys).toEqual(DEFAULT_HOTKEYS);
+    // Local-only: no provider, key or budget settings exist any more.
+    expect(Object.keys(s)).not.toEqual(expect.arrayContaining(['providers']));
+    expect(Object.keys(s)).not.toEqual(expect.arrayContaining(['budget']));
+  });
+
+  it('a 0.2.x settings file loads leniently: old provider sections are dropped, the rest kept', () => {
+    const old = {
+      schemaVersion: 1,
+      onboardingComplete: true,
+      providers: { cloud: { enabled: true, model: 'openai/gpt-oss-20b' }, ollama: { enabled: true, model: 'qwen3.5:4b' } },
+      answer: { primaryProvider: 'ollama', fallbackProvider: 'cloud', format: 'paragraph', length: 'medium' },
+      stt: { provider: 'cloud-whisper', language: 'en', geminiMode: 'VERBATIM', endpointingMs: 600 },
+      budget: { dailyAnswerLimit: 150 },
+      knowledge: { useEmbeddings: true, embeddingModel: 'gemini-embedding-001', topK: 6 },
+      overlay: { contentProtection: true, opacity: 0.9 },
+    };
+    // Mirrors SettingsStore: zod strips the removed keys; only the version literal needs the lenient path.
+    const r = AppSettingsSchema.safeParse({ ...old, schemaVersion: 2 });
+    expect(r.success).toBe(true);
+    const s = r.data!;
+    expect(s.onboardingComplete).toBe(true);
+    expect(s.stt.language).toBe('en');
+    expect(s.knowledge.topK).toBe(6);
+    expect(s.overlay.opacity).toBe(0.9);
+    expect('providers' in s || 'budget' in s || 'primaryProvider' in s.answer || 'provider' in s.stt).toBe(false);
   });
 
   it('rejects out-of-range values', () => {
@@ -19,11 +42,13 @@ describe('settings schema', () => {
   });
 
   it('every IPC channel has a request schema', () => {
-    expect(IPC_CHANNELS.length).toBeGreaterThan(50);
+    expect(IPC_CHANNELS.length).toBeGreaterThan(45);
     for (const c of IPC_CHANNELS) expect(IpcRequestSchemas[c]).toBeDefined();
     expect(IpcRequestSchemas['session:start'].safeParse({ consent: false }).success).toBe(false);
     expect(IpcRequestSchemas['session:start'].safeParse({ consent: true }).success).toBe(true);
-    expect(IpcRequestSchemas['secrets:set'].safeParse({ provider: 'gemini', key: 'x' }).success).toBe(false);
+    // No channel accepts API keys or provider choices any more.
+    expect(IPC_CHANNELS.some((c) => c.startsWith('secrets:') || c.startsWith('providers:'))).toBe(false);
+    expect(IpcRequestSchemas['engine:setup'].safeParse(undefined).success).toBe(true);
   });
 });
 

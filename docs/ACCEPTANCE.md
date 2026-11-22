@@ -1,49 +1,27 @@
-# Acceptance matrix
+# Acceptance matrix (0.3.0, local-only engine)
 
 Legend: ✅ verified (how) · 🟡 partially verified · ⏳ manual test still required · ❌ not met
 
-## Mandatory proof requirements (master prompt)
+## Mandatory proof requirements (master prompt, as amended by ADR 0012)
 
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
-| 1 | Build, lint, typecheck, unit tests pass | ✅ | `pnpm lint`, `pnpm typecheck` (7 projects), Vitest 78, cargo 13 (2026-11-21) |
-| 2 | Fresh install opens without keys and shows onboarding | ✅ | `app.e2e.ts` on dev build **and** on the silently installed NSIS build (fresh temp profile). With only the Hirora Cloud access code, a fresh install answers and transcribes (`cloud.e2e.ts`, dev + installed build) |
-| 3 | Real mic → STT; speaker playback captured via WASAPI loopback separately | ✅ | `hardware.e2e.ts` (tone via loopback, mic stream separate); `live.e2e.ts` (spoken sentence → loopback → Gemini Live exact transcript). Mic → STT with a human speaker: ⏳ |
-| 4 | Question asked aloud → streamed provider text with user key | ✅ | `live.e2e.ts` speaker→loopback→transcript→auto-answer `done` (played TTS audio, not a human voice); same path on Hirora Cloud in `cloud.e2e.ts` (exact Whisper transcript, answer `done`) |
-| 5 | Wrong key, quota, timeout, network loss, sleep/resume, device switch | 🟡 | Wrong key ✅ live (xAI `invalid_key`; wrong Hirora Cloud code → `invalid_key`); timeout ✅ live (8 s first-token timeouts observed and surfaced); provider 503 mid-stream ✅ observed live; quota/network loss ✅ fixture tests only; sleep/resume and device switch: code paths implemented, ⏳ manual |
-| 6 | Uploaded resume fact retrieved with source; missing fact not invented | ✅ | `live.e2e.ts` — `[S1] fixture-resume p.1`, GPA question answered with "(not in your materials …)" placeholders |
-| 7 | Pasted coding question answered, code block copyable; screenshots need approval | ✅ | `live.e2e.ts` coding answer with fenced code; Copy button in renderer; screenshot flow always opens a preview modal (e2e UI) |
-| 8 | Overlay hotkeys/drag/multi-monitor, no focus theft | 🟡 | Hotkeys ✅ (real key events, p95 10 ms); `showInactive` everywhere except the explicit "type a question" hotkey; drag/resize ✅ manual; second physical monitor ⏳ |
-| 9 | Capture privacy setting tested against available capture paths | ✅ | In-app check: GDI BitBlt and Chromium desktopCapturer both excluded with protection on (Windows build 26300, Electron 45.4.1). `capture.e2e.ts`: a real `getDisplayMedia` screen share in Edge 158 and Chrome 157 shows the overlay with protection off and leaves it out with it on (the default since 0.2.1), including after hide/show. What the other side of a live Meet call sees, Teams/Zoom apps, OBS: ⏳ |
-| 10 | Secrets not in bundle/logs/renderer; history deletion works | ✅ | e2e: renderer has no Node/`require`, bridge exposes 4 functions, remote fetch blocked, log/settings scan; asar listing (19 entries, no keys); unit tests for vault + history delete |
-| 11 | Installer installs/launches on a clean profile | ✅ | Silent per-user install → e2e suite against installed exe → silent uninstall (registry entry removed). Clean *Windows account*: ⏳ |
+| 1 | Build, lint, typecheck, unit tests pass | ✅ | `pnpm lint`, `pnpm typecheck`, Vitest 124, cargo 15 (2026-11-22) |
+| 2 | Fresh install opens with a one-click setup and no keys anywhere | ✅ | `app.e2e.ts` with an empty engine folder (no Ollama, no models): onboarding Welcome → Set up lists the four real components, hardware and download size; no "API key"/"access code" text; Home shows the setup card and Start is disabled until the engine is ready. Same suite on the packaged 0.3.0 app (`win-unpacked`): 9/9 with `capture.e2e.ts`. |
+| 3 | First-run setup really installs a working engine | ✅ | `tools/engine-setup-check.mjs` on an empty folder with real downloads: CPU tier, real network: Ollama runtime 1.62 GB in 6 min, SHA-256 checked, unpacked in 6 s; whisper.cpp CPU build and model; `qwen3.5:2b` pulled; ready after 1025 s and answered typed questions. After the catalog changed (`qwen3:1.7b`, Whisper small) the same folder downloaded only the changed parts. GPU-tier files: the whisper.cpp CUDA zip and large-v3-turbo model on this PC match the catalog's size and SHA-256 exactly. |
+| 4 | Real mic → STT; speaker playback captured via WASAPI loopback separately | ✅ | `hardware.e2e.ts` (tone via loopback, mic stream separate); `tools/interview-check.mjs` (spoken questions → loopback → whisper.cpp on this PC → exact transcripts). Mic → STT with a human speaker: ⏳ |
+| 5 | Question asked aloud → streamed local answer | ✅ | `tools/interview-check.mjs`: installed 0.3.0, GPU tier: three SAPI questions through the speakers → exact transcripts → answers from the résumé (the early answer appeared 0.30 s after the speaker stopped; answers that waited for the final transcript started 1.2–2.7 s after); processor only (all GPUs hidden, laptop on battery): spoken questions transcribed exactly with Whisper small and answered 2.3–3.6 s after the speaker stopped; typed questions 0.41–0.60 s once warm |
+| 6 | Engine missing / not running / interrupted setup | ✅ | Typed question before setup → "not set up yet … press Set up" (e2e); Start refused with a toast until ready; interrupted downloads resume via HTTP Range and bad checksums are deleted (unit tests with a fixture server); sleep/resume and device switch: code paths implemented, ⏳ manual |
+| 7 | Uploaded résumé fact used; missing fact not invented | ✅ | interview-check on a profile copy: "introduce yourself" answered from the résumé; the missing-fact guard from 0.2.4 is unchanged (unit tests) |
+| 8 | Coding question answered, code block copyable; screenshots need approval | ✅ | Coding answer from the local model (`tools/site-shots.mjs`); screenshot flow always opens a preview modal (e2e UI); `qwen3.5` models report vision support |
+| 9 | Overlay hotkeys, no focus theft, screen-share exclusion | 🟡 | Hotkeys ✅; `capture.e2e.ts` against a real Chrome/Edge `getDisplayMedia` share ✅; live Meet/Teams/Zoom call and a second physical monitor: ⏳ |
+| 10 | Nothing leaves the PC; no secrets in bundle/logs/renderer | ✅ | Engine servers bind 127.0.0.1 only (`validateLocalBaseUrl` rejects anything else, unit-tested); no IPC channel accepts keys or provider choices (unit test); e2e checks settings on disk contain no provider/cloud/budget fields and no `secrets.json` |
+| 11 | Installer installs/launches on a clean profile | ✅ | Packaged app e2e (`HIRORA_E2E_EXE=…/win-unpacked/Hirora.exe`); installing over a running Hirora is avoided |
 | 12 | Document what wasn't runnable | ✅ | This file, `docs/PERF_RESULTS.md`, README limitations |
-
-## QA matrix (implementation plan)
-
-| # | Scenario | Status |
-|---|---|---|
-| 1 | Fresh install → setup, not blank | ✅ |
-| 2 | One key → validated; invalid → clear error, no leakage | ✅ (Gemini valid live; xAI invalid live; error text redacts keys) |
-| 3 | USB/Bluetooth mic levels + STT | 🟡 Bluetooth *output* verified; Bluetooth mic selection listed, ⏳ live STT with it |
-| 4 | Authorised audio via speakers → loopback transcribes | ✅ |
-| 5 | Two sources labelled, no echo loop | 🟡 separate labelled streams ✅; echo when using laptop speakers + mic ⏳ (use headphones) |
-| 6 | Ask → stream; cancel and ask again | ✅ live |
-| 7 | Resume PDF → grounded detail with reference | ✅ live |
-| 8 | Switch provider / invalid condition | 🟡 routing + fallback ✅ unit; only Gemini live |
-| 9 | Code/error → explanation, code, tests | ✅ live |
-| 10 | Screen context preview + approval; redaction | ✅ (preview modal; secret detector unit-tested) |
-| 11 | Capture exclusion vs ≥2 methods with OS/Electron versions | ✅ |
-| 12 | Device switch, suspend/resume, network drop | ⏳ manual (auto-pause on suspend, helper restart, STT reconnect with backoff implemented) |
-| 13 | Installer on clean profile, no dev tools needed | ✅ (no node_modules packaged; helper bundled) |
-| 14 | No raw audio/keys in logs; document delete removes chunks | ✅ |
-| 15 | Unit, integration, e2e, perf recorded | ✅ |
 
 ## Manual tests still required on your side
 
-1. Speak a question into the mic (headset) during a real call; confirm "Mic" transcript and that auto-answer stays off for mic unless enabled.
+1. Plug the laptop in and use Hirora in a real Meet call: speak a question into the mic and have someone ask questions; confirm the transcript and answers, and that a phone viewing your screen share doesn't show the overlay.
 2. Unplug/replug a headset and switch the Windows default device mid-session; sleep the laptop and resume.
-3. Run the Capture Compatibility Check, then share your screen in Meet/Teams/Zoom with protection on and record what the other side sees (Settings → Overlay & capture → Record manual result).
+3. A friend installs from https://hirora-one.vercel.app on their own PC (ideally one without an NVIDIA GPU) and presses Set up.
 4. 30-minute soak: start listening, leave a podcast playing, then check `framesDropped` on Home and memory in Task Manager.
-5. Add xAI/DeepSeek keys and run `pnpm perf:live`.
-6. Have a friend install from https://hirora-one.vercel.app on their own PC, paste the access code, and ask a question while you use it too (concurrent Hirora Cloud use is not measured yet).

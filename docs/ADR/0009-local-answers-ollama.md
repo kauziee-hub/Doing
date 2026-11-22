@@ -1,6 +1,6 @@
 # ADR 0009 — Local answers through Ollama, and the rename to Hirora
 
-**Status:** accepted · 2026-11-19
+**Status:** accepted · 2026-11-19 · amended by ADR 0012 (Ollama is now the only answer engine, run and installed by Hirora)
 
 **Context.** Measured Gemini 3.5 Flash-Lite time-to-first-token was 3–22 s during busy periods (see `docs/PERF_RESULTS.md`), far from the 1.5 s target, and the delay was the provider's, not the pipeline's. The product was also renamed from VeyraCue to Hirora to read as an interview copilot.
 

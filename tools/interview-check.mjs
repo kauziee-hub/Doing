@@ -2,9 +2,11 @@
 // End-to-end "interviewer asks, Hirora answers" check on a COPY of a real profile:
 // speaks questions through the default output with Windows SAPI (labelled TTS fixture),
 // listens with the profile's own mic + system settings, and reports transcripts, whether
-// each question was auto-answered, by which provider, and the latency. The real profile
-// is never modified; the copy is deleted afterwards. Keys are never read or printed.
+// each question was auto-answered and the latency, using the engine on this PC. The real
+// profile is never modified; the copy is deleted afterwards.
 //   node tools/interview-check.mjs [profileDir] [--exe <Hirora.exe>] [--system all|default|keep]
+//     [--tier auto|gpu|cpu] [--script questions|chatter]
+// HIRORA_ENGINE_FORCE_CPU=1 keeps the answer engine off the GPU (measures a PC without one).
 import { _electron as electron } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, statSync } from 'node:fs';
@@ -56,12 +58,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const patch = { privacy: { saveHistory: false }, overlay: { contentProtection: true } };
 if (systemMode === 'all') patch.audio = { systemDeviceId: 'all' };
 if (systemMode === 'default') patch.audio = { systemDeviceId: null };
-// --instant: Whisper on this PC + local Ollama answers (cloud as fallback).
-if (args.includes('--instant')) {
-  patch.stt = { provider: 'local-whisper', language: 'en' };
-  patch.answer = { primaryProvider: 'ollama', fallbackProvider: 'cloud' };
-}
+const tierIdx = args.indexOf('--tier');
+if (tierIdx >= 0) patch.engine = { tier: args[tierIdx + 1] };
 await call('settings:update', patch);
+const engine = await call('engine:status');
+if (!engine.ready) {
+  console.error(`Engine not installed for the ${engine.tier} tier: ${engine.components.filter((c) => c.state !== 'ready').map((c) => c.label).join(', ')}`);
+  await app.close();
+  rmSync(join(ud, '..'), { recursive: true, force: true });
+  process.exit(2);
+}
 const s = await call('settings:get');
 await dash.evaluate(() => {
   window.__rec = { answers: {}, segments: {} };
@@ -79,13 +85,14 @@ for (let i = 0; i < 60; i++) {
   if (open >= snap.snapshot.sources.filter((x) => x.state !== 'off').length && open > 0) break;
   await sleep(250);
 }
-// --instant: wait until the local answer model is loaded (what the app does at launch for local answers).
-for (let i = 0; args.includes('--instant') && i < 120; i++) {
+// Wait until the answer model is loaded and has pre-read the résumé (the app does this at launch).
+for (let i = 0; i < 360; i++) {
   const p = await call('perf:summary');
   // Loaded and résumé pre-read (or 60 s): what a real session has done before the first question.
   if (p.rows.some((r) => r.stage === 'provider_preconnect' && r.provider === 'ollama') && (p.recent ?? []).some((r) => r.label === 'prompt-preread')) break;
   await sleep(500);
 }
+const warmPerf = await call('perf:summary');
 await call('perf:clear');
 await sleep(1500);
 for (const [q, expectAnswer] of QUESTIONS) {
@@ -110,7 +117,9 @@ rmSync(join(ud, '..'), { recursive: true, force: true });
 
 const segs = Object.values(rec.segments).sort((a, b) => a.startedAt - b.startedAt);
 console.log(JSON.stringify({
-  settings: { stt: s.stt.provider, primary: s.answer.primaryProvider, fallback: s.answer.fallbackProvider, mic: s.audio.micDeviceId ? 'pinned' : 'default', system: s.audio.systemDeviceId, autoAnswerSources: s.answer.autoAnswerSources },
+  engine: { tier: engine.tier, gpu: engine.gpu?.name ?? null, speech: engine.speechModel, answers: engine.answerModel, forceCpu: process.env.HIRORA_ENGINE_FORCE_CPU === '1' },
+  settings: { language: s.stt.language, mic: s.audio.micDeviceId ? 'pinned' : 'default', system: s.audio.systemDeviceId, autoAnswerSources: s.answer.autoAnswerSources },
+  warmup: (warmPerf.recent ?? []).filter((r) => r.stage === 'provider_preconnect').map((r) => `${r.label}: ${Math.round(r.ms)} ms`),
   sources: snap.snapshot.sources.map((x) => ({ source: x.source, state: x.state, device: x.deviceName, stt: x.sttState, err: x.sttError })),
   transcript: segs.map((x) => `${x.source}${x.isQuestion ? ' [Q]' : ''}: ${x.text}`),
   answers: Object.values(rec.answers).map((a) => ({ from: a.questionSource, q: a.question?.slice(0, 70), status: a.status, provider: a.provider, model: a.model, firstTokenMs: a.firstTokenMs, error: a.error, text: (a.text ?? '').slice(0, script === 'chatter' ? 900 : 160) })),

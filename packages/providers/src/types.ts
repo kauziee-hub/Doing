@@ -30,16 +30,8 @@ export interface TextModelProvider {
   readonly label: string;
   listModels(signal?: AbortSignal): Promise<ModelInfo[]>;
   stream(req: StreamRequest): AsyncGenerator<StreamChunk>;
-  /** Warm TLS/HTTP2 connection so the first real request is faster. Best-effort. */
   /** Warm the connection; local runtimes also load `model` into memory. */
   preconnect(signal?: AbortSignal, model?: string): Promise<void>;
-}
-
-export interface EmbeddingProvider {
-  readonly id: string;
-  readonly model: string;
-  readonly dimensions: number;
-  embed(texts: string[], kind: 'document' | 'query', signal?: AbortSignal): Promise<Float32Array[]>;
 }
 
 export interface FetchLike {

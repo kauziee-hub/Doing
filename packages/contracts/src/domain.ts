@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AudioSourceSchema, ModeSchema, ProviderIdSchema, SttProviderIdSchema } from './settings';
-import type { AudioSource, Mode, ProviderId, SttProviderId } from './settings';
+import type { AudioSource, EngineTier, Mode, ProviderId, SttProviderId } from './settings';
 
 // ───────────────────────────── Providers ─────────────────────────────
 
@@ -21,20 +21,20 @@ export type ProviderErrorCode =
   | 'unknown';
 
 export const PROVIDER_ERROR_HINTS: Record<ProviderErrorCode, string> = {
-  invalid_key: 'The API key was rejected. Re-enter it in Settings → Providers.',
-  permission_denied: 'The key is valid but not allowed to use this model or feature.',
-  quota_exceeded: 'Provider quota or credit balance is exhausted. Check your provider console.',
-  rate_limited: 'Rate limited by the provider. Hirora will back off briefly.',
-  timeout: 'The provider did not respond in time.',
-  network: 'Network error — check your connection or proxy.',
-  model_not_found: 'The selected model is not available for this key. Pick another in Settings.',
-  bad_request: 'The provider rejected the request format.',
-  content_filtered: 'The provider blocked this content.',
-  server_error: 'The provider returned a server error.',
+  invalid_key: 'The engine refused the request.',
+  permission_denied: 'The engine refused the request.',
+  quota_exceeded: 'The engine is out of resources. Close other heavy apps and try again.',
+  rate_limited: 'The engine is busy. Hirora will retry shortly.',
+  timeout: 'The engine did not respond in time. The first answer after a restart can take longer while the model loads.',
+  network: 'The engine is not running. Restart Hirora; Settings → Engine shows what is missing.',
+  model_not_found: 'The answer model is missing. Open Settings → Engine and press Set up.',
+  bad_request: 'The engine rejected the request.',
+  content_filtered: 'The model declined this content.',
+  server_error: 'The engine returned an error.',
   aborted: 'Cancelled.',
-  not_configured: 'No provider configured. Add an API key in Settings → Providers.',
-  budget_exceeded: 'Your Hirora budget limit was reached. Adjust it in Settings → Budget.',
-  unknown: 'Unexpected provider error.',
+  not_configured: 'Hirora is not set up yet. Open Home and press Set up.',
+  budget_exceeded: 'Limit reached.',
+  unknown: 'Unexpected engine error.',
 };
 
 export interface ModelInfo {
@@ -63,6 +63,38 @@ export const ProviderHealthSchema = z.object({
   backoffUntil: z.number().nullable(),
 });
 export type ProviderHealth = z.infer<typeof ProviderHealthSchema>;
+
+// ───────────────────────────── Engine (on this PC) ─────────────────────────────
+
+export type EngineComponentId = 'speech-runtime' | 'speech-model' | 'answer-runtime' | 'answer-model';
+
+export interface EngineComponentStatus {
+  id: EngineComponentId;
+  label: string;
+  /** What will be (or is) installed, e.g. "whisper.cpp b5454 · CUDA 12.4". */
+  detail: string;
+  state: 'missing' | 'ready' | 'queued' | 'downloading' | 'verifying' | 'installing' | 'error';
+  bytesTotal: number;
+  bytesDone: number;
+  error: string | null;
+}
+
+export interface EngineStatus {
+  tier: EngineTier;
+  tierSetting: 'auto' | EngineTier;
+  gpu: { name: string; vramMb: number; driver: string } | null;
+  /** Every component is installed. */
+  ready: boolean;
+  running: { speech: boolean; answers: boolean };
+  setup: 'idle' | 'running' | 'done' | 'error' | 'cancelled';
+  components: EngineComponentStatus[];
+  /** Bytes still to download for the missing components. */
+  downloadBytes: number;
+  freeDiskBytes: number | null;
+  speechModel: string;
+  answerModel: string;
+  error: string | null;
+}
 
 // ───────────────────────────── Knowledge ─────────────────────────────
 
@@ -272,6 +304,7 @@ export const LiveEventSchema = z.discriminatedUnion('type', [
     message: z.string(),
   }),
   z.object({ type: z.literal('command'), command: z.string(), arg: z.unknown().optional() }),
+  z.object({ type: z.literal('engine'), status: z.custom<EngineStatus>() }),
 ]);
 export type LiveEvent = z.infer<typeof LiveEventSchema>;
 

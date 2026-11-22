@@ -16,7 +16,7 @@ const STAGE_INFO: Record<string, { label: string; target?: number; p: 50 | 95 }>
   question_to_first_token: { label: 'Question end → first token', target: 1500, p: 50 },
   question_to_first_paint: { label: 'Question end → first answer paint', target: 1500, p: 50 },
   answer_total: { label: 'Model request → answer complete', p: 50 },
-  provider_preconnect: { label: 'Provider connect / STT session open', p: 50 },
+  provider_preconnect: { label: 'Engine warm-up / transcription start', p: 50 },
   app_cold_start: { label: 'App launch → dashboard ready', p: 50 },
 };
 
@@ -31,7 +31,7 @@ export function Performance() {
 
   return (
     <>
-      <PageHeader light="Measured" bold="performance" sub="Every number here was measured on this PC from real events — nothing estimated or pre-filled. Targets are goals, not guarantees; provider load dominates model latency." />
+      <PageHeader light="Measured" bold="performance" sub="Every number here was measured on this PC from real events — nothing estimated or pre-filled. Targets are goals, not guarantees. A laptop on battery is much slower: keep it plugged in." />
       <div className="vc-row" style={{ marginBottom: 14 }}>
         <Button icon={<RefreshCw size={13} />} onClick={() => void refresh()}>Refresh</Button>
         <Button icon={<Timer size={13} />} disabled={busy} onClick={async () => { setBusy(true); setBench(await invoke('perf:runLocalBench')); setBusy(false); }}>{busy ? 'Running…' : 'Run local benchmarks'}</Button>
@@ -40,10 +40,10 @@ export function Performance() {
       </div>
       <Card title="Measured pipeline latency">
         {!data || data.rows.length === 0 ? (
-          <EmptyState title="No measurements yet">Use the app (ask a question, press a hotkey, start listening) and timings appear here. For a repeatable provider benchmark run <code>pnpm perf:live</code>.</EmptyState>
+          <EmptyState title="No measurements yet">Use the app (ask a question, press a hotkey, start listening) and timings appear here.</EmptyState>
         ) : (
           <table className="dash-table">
-            <thead><tr><th>Stage</th><th>Provider</th><th className="dash-num">n</th><th className="dash-num">p50 ms</th><th className="dash-num">p95 ms</th><th className="dash-num">min</th><th className="dash-num">max</th><th>Target</th></tr></thead>
+            <thead><tr><th>Stage</th><th>Engine</th><th className="dash-num">n</th><th className="dash-num">p50 ms</th><th className="dash-num">p95 ms</th><th className="dash-num">min</th><th className="dash-num">max</th><th>Target</th></tr></thead>
             <tbody>
               {data.rows
                 .sort((a, b) => a.stage.localeCompare(b.stage))
@@ -79,7 +79,7 @@ export function Performance() {
       {data && data.recent.length ? (
         <Card title="Recent samples">
           <table className="dash-table">
-            <thead><tr><th>Time</th><th>Stage</th><th>Provider / model</th><th>Label</th><th className="dash-num">ms</th></tr></thead>
+            <thead><tr><th>Time</th><th>Stage</th><th>Engine / model</th><th>Label</th><th className="dash-num">ms</th></tr></thead>
             <tbody>
               {data.recent.slice(0, 40).map((s, i) => (
                 <tr key={i}><td>{new Date(s.at).toLocaleTimeString()}</td><td>{STAGE_INFO[s.stage]?.label ?? s.stage}</td><td>{[s.provider, s.model].filter(Boolean).join(' / ') || '—'}</td><td>{s.label ?? ''}</td><td className="dash-num">{Math.round(s.ms)}</td></tr>

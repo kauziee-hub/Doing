@@ -1,6 +1,6 @@
 # ADR 0010 — Hirora Cloud: a free, always-on shared relay to Groq
 
-**Status:** accepted · 2026-11-20
+**Status:** superseded by ADR 0012 (0.3.0: one local engine, no cloud, no keys) · originally accepted 2026-11-20
 
 **Context.** The owner wants Hirora to work on any PC — including friends' laptops without a GPU — with no paid keys and nothing running on the owner's laptop. Local Ollama answers were fast (~0.6 s) but only on a GPU machine; Gemini answers swung between 0.8 s and 37 s with intermittent HTTP 503 "high demand". Free always-on servers with GPUs don't exist; free CPU hosts would take 10 s+ per answer with our prompt sizes.
 
