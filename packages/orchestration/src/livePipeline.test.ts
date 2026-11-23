@@ -22,6 +22,7 @@ describe('live pipeline (fake whisper + fake LLM)', () => {
       },
     };
     const s = defaultSettings();
+    s.stt.streamingTranscription = true; // the live path is opt-in
     const asked: string[] = [];
     let spec = '';
     const answer = {

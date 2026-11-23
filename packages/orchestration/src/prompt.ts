@@ -1,5 +1,4 @@
 import type { AppSettings, Mode, PersonalProfile, RetrievedChunk, SessionProfile, TranscriptSegment } from '@hirora/contracts';
-import type { ConversationTurn } from './conversationContext';
 import type { ChatMessage, ContentPart } from '@hirora/providers';
 
 export interface MemoryTurn {
@@ -19,8 +18,6 @@ export interface PromptInput {
   session: SessionProfile | null;
   evidence: RetrievedChunk[];
   recentTranscript: TranscriptSegment[];
-  /** Role-labelled turns placed AFTER the priming prefix so KV cache stays valid. */
-  conversation?: ConversationTurn[];
   memory: MemoryTurn[];
   images?: ContentPart[];
   /** Extra user-chosen instruction, e.g. "Explain for a beginner". */
@@ -136,21 +133,12 @@ function transcriptBlock(segs: TranscriptSegment[], compact = false): string {
     .filter((s) => s.final && s.text.trim())
     .slice(compact ? -4 : -8)
     .map((s) => {
-      const role = s.role === 'me' ? 'me' : s.role === 'interviewer' ? 'interviewer' : s.source === 'mic' ? 'microphone' : s.source === 'typed' ? 'typed' : 'system audio';
-      return `[${role}] ${s.text}`;
+      const who = s.role === 'me' ? 'user' : s.role === 'interviewer' ? 'other side' : s.source === 'mic' ? 'microphone' : s.source === 'typed' ? 'typed' : 'system audio';
+      return `[${who}] ${s.text}`;
     });
   let text = lines.join('\n');
   if (text.length > 1600) text = text.slice(-1600);
-  return text ? `<transcript note="device labels; interviewer = other side of the call when role separation is on">\n${escapeData(text)}\n</transcript>` : '';
-}
-
-function conversationBlock(turns: ConversationTurn[] | undefined, compact = false): string {
-  if (!turns?.length) return '';
-  const label = (r: ConversationTurn['role']) => (r === 'me' ? 'Me' : r === 'interviewer' ? 'Interviewer' : 'Unknown');
-  const lines = turns.slice(compact ? -4 : -8).map((t) => `${label(t.role)}: ${t.text}`);
-  let text = lines.join('\n');
-  if (text.length > 2400) text = text.slice(-2400);
-  return `<conversation>\n${escapeData(text)}\n</conversation>`;
+  return text ? `<transcript note="[user] = the user's microphone, [other side] = the call's audio; otherwise device labels">\n${escapeData(text)}\n</transcript>` : '';
 }
 
 function memoryBlock(turns: MemoryTurn[], compact = false): string {
@@ -209,8 +197,6 @@ export function buildMessages(input: PromptInput): ChatMessage[] {
   const prof = profileBlock(input);
   if (prof) parts.push(prof);
   parts.push(evidenceBlock(input.evidence));
-  const conv = conversationBlock(input.conversation, input.compact);
-  if (conv) parts.push(conv);
   const tr = transcriptBlock(input.recentTranscript, input.compact);
   if (tr) parts.push(tr);
   const mem = memoryBlock(input.memory, input.compact);

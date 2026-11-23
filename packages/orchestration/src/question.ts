@@ -121,16 +121,6 @@ export function sameQuestion(a: string, b: string): boolean {
   const A = words(a);
   const B = words(b);
   if (A.length === 0 || B.length === 0) return false;
-  const prefix = (short: string[], long: string[]): boolean => {
-    if (short.length > long.length) return false;
-    for (let j = 0; j < short.length; j++) if (short[j] !== long[j]) return false;
-    const extra = long.slice(short.length);
-    if (extra.length > 8) return false;
-    const newQuestion = extra.some((w) => /^(how|what|why|when|where|who)$/.test(w));
-    if (newQuestion) return extra.length <= 2;
-    return extra.length <= 6;
-  };
-  if (prefix(A, B) || prefix(B, A)) return true;
   const within = (short: string[], long: string[]): boolean => {
     for (let i = 0; i + short.length <= long.length; i++) {
       let ok = true;
@@ -150,7 +140,7 @@ export function sameQuestion(a: string, b: string): boolean {
   let inter = 0;
   for (const w of setA) if (setB.has(w)) inter++;
   const jaccard = inter / (setA.size + setB.size - inter);
-  return jaccard >= 0.9 && Math.abs(A.length - B.length) <= 4;
+  return jaccard >= 0.85 && Math.abs(A.length - B.length) <= 3;
 }
 
 /** Ends on a word that needs more after it: "Can you tell me", "the difference between". */

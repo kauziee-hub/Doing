@@ -1,16 +1,23 @@
 /**
- * LocalAgreement-style streaming transcription over whisper.cpp utterance
- * windows. One instance per audio source. Committed words never change.
+ * Live transcription of one turn with LocalAgreement-2: every tick re-decodes the whole turn so
+ * far, and the words two decodes in a row agree on are committed (they never change again); the
+ * rest is shown as tentative. Measured on whisper.cpp (large-v3-turbo, RTX 4060): a decode takes
+ * the same ~0.2 s for 0.5 s or 15 s of audio (the encoder always runs a 30 s block), and its word
+ * timestamps are too rough to cut windows on (zero-length words; a cut mid-word turned "a process"
+ * into "the process"). So the turn is decoded whole, up to WHOLE_TURN_MS; LiveCapture ends longer
+ * turns. The end-of-turn decode is the final text.
  */
 export const STREAMING_TICK_MS = 350;
-export const WINDOW_OVERLAP_MS = 200;
-export const MAX_WINDOW_MS = 15_000;
+/** Longest turn decoded in one piece (whisper.cpp's window is 30 s). */
+export const WHOLE_TURN_MS = 28_000;
+/** Kept for older callers: a turn is decoded whole, up to WHOLE_TURN_MS. */
+export const MAX_WINDOW_MS = WHOLE_TURN_MS;
 export const SAMPLE_RATE = 16_000;
 export const BYTES_PER_MS = (SAMPLE_RATE * 2) / 1000;
 
 export interface HypothesisWord {
   text: string;
-  /** Absolute utterance time (ms from utterance start). */
+  /** Position in the turn (ms when whisper gave times, otherwise just the word order). */
   startMs: number;
   endMs: number;
 }
@@ -18,19 +25,21 @@ export interface HypothesisWord {
 export interface WhisperDecodeResult {
   text: string;
   words: HypothesisWord[];
-  /** True when words came from whisper-server verbose_json; false = segment fallback. */
+  /** True when words came from whisper-server verbose_json with times. */
   wordTimestamps: boolean;
 }
 
 export interface WhisperDecodeRequest {
   pcm: Buffer;
-  /** Absolute start of this PCM slice in the utterance (ms). */
+  /** Start of this PCM in the turn (ms); 0, since turns are decoded whole. */
   windowStartMs: number;
   prompt: string;
   source: 'mic' | 'system' | 'app';
-  /** Mic uses lowest priority; skipped if a system request is in flight. */
-  priority: 'high' | 'low';
+  /** Interim ticks: mic is low (skipped while system audio is decoding). The end-of-turn decode is final and waits. */
+  priority: 'high' | 'low' | 'final';
   beamSize?: number;
+  /** Ask whisper-server for word times (verbose_json). Off: plain json, faster. */
+  wordTimestamps?: boolean;
 }
 
 export interface WhisperClient {
@@ -91,7 +100,7 @@ export function joinWords(words: HypothesisWord[]): string {
     .trim();
 }
 
-export function clipWhisperPrompt(vocab: string[], committed: string, maxTokens = 224): string {
+export function clipWhisperPrompt(vocab: string[], context: string, maxTokens = 224): string {
   // whisper.cpp initial_prompt is truncated at ~224 tokens; estimate 1 token ≈ 4 chars.
   const maxChars = Math.max(80, maxTokens * 4);
   const list = vocab
@@ -99,56 +108,41 @@ export function clipWhisperPrompt(vocab: string[], committed: string, maxTokens 
     .filter(Boolean)
     .slice(0, 80)
     .join(', ');
-  const tail = committed.slice(-200);
+  const tail = context.slice(-200);
   const raw = [list, tail].filter(Boolean).join('\n');
   return raw.length <= maxChars ? raw : raw.slice(raw.length - maxChars);
 }
 
-function wordsFromResult(result: WhisperDecodeResult, windowStartMs: number): HypothesisWord[] {
-  if (result.words.length) {
-    return result.words.map((w) => ({
-      text: w.text.trim(),
-      startMs: windowStartMs + w.startMs,
-      endMs: windowStartMs + w.endMs,
-    })).filter((w) => w.text);
-  }
-  const tokens = tokenizeDisplay(result.text);
-  // No timestamps: treat the whole window as one commit unit (segment granularity).
-  if (!tokens.length) return [];
-  return [
-    {
-      text: result.text.trim(),
-      startMs: windowStartMs,
-      endMs: windowStartMs + 1,
-    },
-  ];
+function wordsFromResult(result: WhisperDecodeResult): HypothesisWord[] {
+  if (result.words.length && result.wordTimestamps) return result.words.map((w) => ({ ...w, text: w.text.trim() })).filter((w) => w.text);
+  // Words in order are all LocalAgreement needs.
+  return tokenizeDisplay(result.text).map((text, i) => ({ text, startMs: i, endMs: i + 1 }));
 }
 
 export class StreamingTranscriber {
   private pcm: Buffer = Buffer.alloc(0);
-  /** Length of pcm in ms from utterance start, including dropped prefix. */
-  private originMs = 0;
   private committed: HypothesisWord[] = [];
-  /** Last full hypothesis (normalized), for LocalAgreement-2 when the window still includes the start. */
-  private previousFullNorm: string[] = [];
-  /** Uncommitted tail of the last windowed hypothesis. */
-  private previousRemNorm: string[] = [];
-  private utteranceStartMs: number | null = null;
-  private lastVoiceMs = 0;
-  private inflight = false;
+  /** Previous hypothesis (normalized) for LocalAgreement-2. */
+  private previousNorm: string[] = [];
+  /** Latest uncommitted words, kept in case the end-of-turn decode fails. */
+  private tentative: HypothesisWord[] = [];
+  private finalText: string | null = null;
+  private inflight: Promise<'ran' | 'skipped'> | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private speechActive = false;
   private cheap = false;
+  private startedAt: number | null = null;
 
   constructor(
     private readonly source: 'mic' | 'system' | 'app',
     private readonly client: WhisperClient,
     private readonly events: StreamingEvents,
+    /** Whisper prompt: vocabulary and the text before this turn. Never this turn's own words: Whisper would skip them. */
     private readonly prompt: () => { vocab: string[]; committedHint: string },
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** Mic "me" turns: no interim ticks, one decode at turn end. */
+  /** Your own mic: no interim ticks, one decode at the end of the turn. */
   setCheap(cheap: boolean): void {
     this.cheap = cheap;
     if (cheap) this.stopTicks();
@@ -158,12 +152,8 @@ export class StreamingTranscriber {
     return joinWords(this.committed);
   }
 
-  get lastCommittedEndMs(): number {
-    return this.committed.length ? this.committed[this.committed.length - 1]!.endMs : 0;
-  }
-
   get inflightRequest(): boolean {
-    return this.inflight;
+    return this.inflight !== null;
   }
 
   get bufferedWindowMs(): number {
@@ -172,24 +162,19 @@ export class StreamingTranscriber {
 
   resetUtterance(): void {
     this.pcm = Buffer.alloc(0);
-    this.originMs = 0;
     this.committed = [];
-    this.previousFullNorm = [];
-    this.previousRemNorm = [];
-    this.utteranceStartMs = this.now();
-    this.lastVoiceMs = 0;
+    this.previousNorm = [];
+    this.tentative = [];
+    this.finalText = null;
+    this.startedAt = null;
   }
 
   pushPcm(pcm16: Buffer, atMs: number): void {
-    if (this.utteranceStartMs === null) this.utteranceStartMs = atMs;
+    if (this.startedAt === null) this.startedAt = atMs;
     this.pcm = Buffer.concat([this.pcm, pcm16]);
-    this.lastVoiceMs = this.originMs + this.pcm.length / BYTES_PER_MS;
-    const cap = (MAX_WINDOW_MS + WINDOW_OVERLAP_MS + 2000) * BYTES_PER_MS;
-    if (this.pcm.length > cap) {
-      const drop = this.pcm.length - cap;
-      this.pcm = this.pcm.subarray(drop);
-      this.originMs += drop / BYTES_PER_MS;
-    }
+    // LiveCapture ends a turn before this; keep the latest WHOLE_TURN_MS if a caller doesn't.
+    const cap = WHOLE_TURN_MS * BYTES_PER_MS;
+    if (this.pcm.length > cap) this.pcm = this.pcm.subarray(this.pcm.length - cap);
   }
 
   setSpeechActive(active: boolean): void {
@@ -209,37 +194,29 @@ export class StreamingTranscriber {
     this.tickTimer = null;
   }
 
-  private windowSlice(): { pcm: Buffer; windowStartMs: number } | null {
-    const overlap = WINDOW_OVERLAP_MS;
-    const startMs = Math.max(0, this.lastCommittedEndMs - overlap);
-    const skipBytes = Math.max(0, Math.floor((startMs - this.originMs) * BYTES_PER_MS));
-    let slice = this.pcm.subarray(Math.min(skipBytes, this.pcm.length));
-    const maxBytes = MAX_WINDOW_MS * BYTES_PER_MS;
-    if (slice.length > maxBytes) slice = slice.subarray(slice.length - maxBytes);
-    if (slice.length < SAMPLE_RATE) return null; // < 0.5 s
-    const windowStartMs = startMs + Math.max(0, skipBytes / BYTES_PER_MS - (startMs - this.originMs));
-    const actualStart = this.originMs + (this.pcm.length - slice.length) / BYTES_PER_MS;
-    this.events.windowMs(slice.length / BYTES_PER_MS);
-    return { pcm: slice, windowStartMs: actualStart };
-  }
-
   async tick(): Promise<'ran' | 'skipped'> {
-    if (this.cheap || !this.speechActive) return 'skipped';
-    if (this.inflight) return 'skipped';
-    const win = this.windowSlice();
-    if (!win) return 'skipped';
-    return this.runDecode(win, false);
+    if (this.cheap || !this.speechActive || this.inflight) return 'skipped';
+    if (this.pcm.length < SAMPLE_RATE) return 'skipped'; // wait for 0.5 s of audio
+    return this.runDecode(this.pcm, false);
   }
 
-  /** Final decode of the uncommitted tail; commits everything. */
+  /**
+   * End of turn: waits for a tick still in flight, then decodes the whole turn once more (padded
+   * to 1 s) and reports that as the final text. If that decode fails, the last tick's words are kept.
+   */
   async finalize(): Promise<string> {
     this.stopTicks();
-    const win = this.windowSlice();
-    if (win) await this.runDecode(win, true);
-    const text = this.committedText;
-    const startMs = this.committed[0]?.startMs ?? 0;
-    const endMs = this.lastCommittedEndMs;
-    if (text) this.events.final({ text, startMs, endMs });
+    this.speechActive = false;
+    while (this.inflight) await this.inflight;
+    if (this.pcm.length) {
+      const minBytes = SAMPLE_RATE * 2; // 1 s: whisper.cpp ignores clips much shorter than that
+      const pcm = this.pcm.length >= minBytes ? this.pcm : Buffer.concat([this.pcm, Buffer.alloc(minBytes - this.pcm.length)]);
+      await this.runDecode(pcm, true);
+    }
+    const text = this.finalText ?? joinWords([...this.committed, ...this.tentative]);
+    this.tentative = [];
+    const startMs = this.startedAt ?? this.now();
+    if (text) this.events.final({ text, startMs, endMs: startMs + this.pcm.length / BYTES_PER_MS });
     return text;
   }
 
@@ -248,93 +225,61 @@ export class StreamingTranscriber {
     this.pcm = Buffer.alloc(0);
   }
 
-  private async runDecode(win: { pcm: Buffer; windowStartMs: number }, commitAll: boolean): Promise<'ran' | 'skipped'> {
-    if (this.inflight) return 'skipped';
-    this.inflight = true;
-    try {
+  private runDecode(pcm: Buffer, final: boolean): Promise<'ran' | 'skipped'> {
+    if (this.inflight) return Promise.resolve('skipped');
+    this.events.windowMs(pcm.length / BYTES_PER_MS);
+    const run = (async (): Promise<'ran' | 'skipped'> => {
       const p = this.prompt();
       const result = await this.client.decode({
-        pcm: win.pcm,
-        windowStartMs: win.windowStartMs,
-        prompt: clipWhisperPrompt(p.vocab, p.committedHint || this.committedText),
+        pcm,
+        windowStartMs: 0,
+        prompt: clipWhisperPrompt(p.vocab, p.committedHint),
         source: this.source,
-        priority: this.source === 'mic' ? 'low' : 'high',
+        priority: final ? 'final' : this.source === 'mic' ? 'low' : 'high',
+        wordTimestamps: false,
       });
       if (!result || isRepetitiveHallucination(result.text)) return 'ran';
-      this.applyHypothesis(wordsFromResult(result, win.windowStartMs), commitAll, result.wordTimestamps);
+      if (final) {
+        const text = tokenizeDisplay(result.text).join(' ');
+        if (text) this.finalText = text;
+        return 'ran';
+      }
+      this.applyHypothesis(wordsFromResult(result), false, result.wordTimestamps);
       return 'ran';
-    } finally {
-      this.inflight = false;
-    }
+    })().catch((): 'ran' => 'ran');
+    this.inflight = run;
+    return run.finally(() => {
+      if (this.inflight === run) this.inflight = null;
+    });
   }
 
-  applyHypothesis(hyp: HypothesisWord[], commitAll: boolean, wordTimestamps: boolean): void {
-    const rem = hyp.filter((w) => w.endMs > this.lastCommittedEndMs && normalizeWord(w.text));
-    const remNorm = rem.map((w) => normalizeWord(w.text));
-    if (!rem.length) {
-      this.events.interim({ committed: this.committedText, tentative: '' });
-      return;
-    }
+  /**
+   * LocalAgreement-2 over whole-turn hypotheses: the prefix this hypothesis shares with the
+   * previous one is committed once it is longer than what is committed, and only while it still
+   * starts with the committed words (they never change). `commitAll` commits the whole hypothesis.
+   */
+  applyHypothesis(hyp: HypothesisWord[], commitAll: boolean, _wordTimestamps: boolean): void {
+    const words = hyp.filter((w) => normalizeWord(w.text));
+    const norm = words.map((w) => normalizeWord(w.text));
+    const keepsCommitted = this.committed.every((c, i) => normalizeWord(c.text) === norm[i]);
     if (commitAll) {
-      this.committed.push(...rem);
-      this.previousRemNorm = [];
+      if (keepsCommitted) this.committed.push(...words.slice(this.committed.length));
+      else this.committed = words;
       this.events.committedAdvanced(this.committedText);
-      this.trimAudio();
+      this.previousNorm = norm;
+      this.tentative = [];
       this.events.interim({ committed: this.committedText, tentative: '' });
       return;
     }
-    if (!wordTimestamps) {
-      const lcp = longestCommonPrefix(this.previousRemNorm, remNorm);
-      this.previousRemNorm = remNorm;
-      if (lcp === remNorm.length && remNorm.length > 0) {
-        this.committed.push(...rem);
-        this.events.committedAdvanced(this.committedText);
-        this.previousRemNorm = [];
-        this.trimAudio();
-        this.events.interim({ committed: this.committedText, tentative: '' });
-        return;
-      }
-      this.events.interim({ committed: this.committedText, tentative: joinWords(rem) });
-      return;
-    }
-    const hypNorm = hyp.map((w) => normalizeWord(w.text)).filter(Boolean);
-    const prefixMatch =
-      this.committed.length === 0 ||
-      (hyp.length >= this.committed.length &&
-        this.committed.every((c, i) => normalizeWord(c.text) === normalizeWord(hyp[i]?.text ?? '')));
-    if (prefixMatch) {
-      const lcp = longestCommonPrefix(this.previousFullNorm, hypNorm);
+    if (keepsCommitted) {
+      const lcp = longestCommonPrefix(this.previousNorm, norm);
       if (lcp > this.committed.length) {
-        this.committed.push(...hyp.slice(this.committed.length, lcp));
+        this.committed.push(...words.slice(this.committed.length, lcp));
         this.events.committedAdvanced(this.committedText);
-        this.trimAudio();
       }
-      this.previousFullNorm = hypNorm;
-      this.previousRemNorm = hypNorm.slice(this.committed.length);
-      this.events.interim({ committed: this.committedText, tentative: joinWords(hyp.slice(this.committed.length)) });
-      return;
     }
-    const windowed = (hyp[0]?.startMs ?? 0) > 0 && hyp[0]!.startMs >= this.lastCommittedEndMs - WINDOW_OVERLAP_MS;
-    if (windowed) {
-      const lcp = longestCommonPrefix(this.previousRemNorm, remNorm);
-      if (lcp > 0) {
-        this.committed.push(...rem.slice(0, lcp));
-        this.events.committedAdvanced(this.committedText);
-        this.trimAudio();
-      }
-      this.previousRemNorm = remNorm.slice(lcp);
-      this.events.interim({ committed: this.committedText, tentative: joinWords(rem.slice(lcp)) });
-      return;
-    }
-    this.events.interim({ committed: this.committedText, tentative: joinWords(rem) });
-  }
-
-  private trimAudio(): void {
-    const keepFrom = Math.max(0, this.lastCommittedEndMs - WINDOW_OVERLAP_MS);
-    const skip = Math.max(0, Math.floor((keepFrom - this.originMs) * BYTES_PER_MS));
-    if (skip > 0 && skip < this.pcm.length) {
-      this.pcm = this.pcm.subarray(skip);
-      this.originMs += skip / BYTES_PER_MS;
-    }
+    this.previousNorm = norm;
+    this.tentative = words.slice(Math.min(this.committed.length, words.length));
+    this.events.interim({ committed: this.committedText, tentative: joinWords(this.tentative) });
   }
 }

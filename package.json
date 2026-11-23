@@ -18,7 +18,7 @@
     "test:ts": "vitest run",
     "test:e2e": "pnpm build && playwright test -c tests/e2e/playwright.config.ts",
     "build": "pnpm native:build && pnpm --filter @hirora/desktop build",
-    "package:win": "pnpm build && pnpm --filter @hirora/desktop package:win",
+    "package:win": "pnpm build && node tools/fetch-sava-onnx.mjs && pnpm --filter @hirora/desktop package:win",
     "perf": "node tools/perf/run-local-bench.mjs",
     "native:build": "cargo build --release --manifest-path native/windows-audio/Cargo.toml",
     "native:build:debug": "cargo build --manifest-path native/windows-audio/Cargo.toml",

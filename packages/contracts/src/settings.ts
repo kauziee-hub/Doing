@@ -144,13 +144,14 @@ export const AppSettingsSchema = z.object({
       /** Whisper language code (e.g. en, hi). Empty string = automatic detection. */
       language: z.string().max(20).default(''),
       customVocabulary: z.array(z.string().max(50)).max(100).default([]),
-      /** LocalAgreement sliding windows instead of re-sending the whole utterance. */
-      streamingTranscription: z.boolean().default(true),
+      /**
+       * Live path with SAVA end-of-turn and LocalAgreement text (LiveCapture). Off by default until
+       * it is faster than the 0.3.1 path in live tests (docs/STT_STREAMING.md).
+       */
+      streamingTranscription: z.boolean().default(false),
       /** SAVA end-of-turn; `energy` is the previous VAD + 300 ms pause. */
       sttTurnDetector: z.enum(['sava', 'energy']).default('sava'),
-      /** Interviewer = system loopback, me = mic. Off = previous autoAnswerSources behaviour. */
-      roleSeparation: z.boolean().default(true),
-      /** `single-mic` treats everything as one unknown stream (answers all turns). */
+      /** `single-mic`: one mic for everyone in the room, so mic turns are answered too and not labelled as yours. */
       captureMode: z.enum(['two-stream', 'single-mic']).default('two-stream'),
       /** Optional high-beam full-utterance decode for saved history only (never the live answer). */
       highBeamHistory: z.boolean().default(false),

@@ -529,6 +529,20 @@ describe('SessionController', () => {
     expect(c.sessionState).toBe('idle');
   });
 
+  it('remembers a question on your own mic for the Ask hotkey without answering it', async () => {
+    const { c, asked, fake } = setup();
+    await c.start(true);
+    await vi.waitFor(() => expect(fake.sessions.length).toBe(2));
+    const loud = frame(9000);
+    for (let i = 0; i < 10; i++) c.onFrame('mic', loud);
+    const [micSess] = fake.sessions;
+    micSess!.h.onFinalSegment('What is the difference between TCP and UDP?');
+    micSess!.h.onUtteranceEnd();
+    await vi.waitFor(() => expect(c.snapshot().questionCandidate?.source).toBe('mic'));
+    expect(asked).toEqual([]);
+    await c.stop();
+  });
+
   async function listening(gate?: (u: string) => Promise<GateDecision | null>) {
     const ctx = setup(() => undefined, gate);
     await ctx.c.start(true);
@@ -826,8 +840,8 @@ describe('screen context', () => {
   });
 });
 
-describe('priming prefix stays byte-identical when conversation grows', () => {
-  it('buildPrimingMessages does not include conversation turns', async () => {
+describe('priming prefix stays byte-identical when the call goes on', () => {
+  it('role-labelled transcript lines come after the cached prefix, once', async () => {
     const { buildMessages, buildPrimingMessages } = await import('./prompt');
     const s = defaultSettings();
     const base = {
@@ -838,23 +852,22 @@ describe('priming prefix stays byte-identical when conversation grows', () => {
       session: null,
       evidence: [] as RetrievedChunk[],
     };
+    const seg = (id: string, source: 'mic' | 'system', role: 'me' | 'interviewer', text: string) => ({ id, source, text, final: true, startedAt: 1, endedAt: 2, isQuestion: false, questionScore: 0, role });
     const a = buildPrimingMessages(base);
     const b = buildMessages({
       ...base,
       question: 'Why Go?',
       questionOrigin: 'system audio',
-      recentTranscript: [],
+      recentTranscript: [seg('1', 'system', 'interviewer', 'Tell me about yourself'), seg('2', 'mic', 'me', 'I write Go')],
       memory: [],
-      conversation: [
-        { role: 'interviewer', text: 'Tell me about yourself', ts: 1 },
-        { role: 'me', text: 'I write Go', ts: 2 },
-      ],
     });
     expect(a[0]!.content).toBe(b[0]!.content);
     const primeUser = a[1]!.content as string;
     const fullUser = b[1]!.content as string;
     expect(fullUser.startsWith(primeUser)).toBe(true);
-    expect(primeUser).not.toContain('Interviewer:');
-    expect(fullUser).toContain('Interviewer:');
+    expect(fullUser).toContain('[other side] Tell me about yourself');
+    expect(fullUser).toContain('[user] I write Go');
+    // Each line once: no second copy of the transcript in another block.
+    expect(fullUser.split('I write Go').length - 1).toBe(1);
   });
 });

@@ -56,6 +56,14 @@ describe('LocalWhisperTranscriber (fixture whisper.cpp server)', () => {
     expect(wav.readUInt32LE(40)).toBe(320);
     expect(whisperText({ text: 'fallback' })).toBe('fallback');
     expect(stripAnnotations('[BLANK_AUDIO] So (music) tell me')).toBe('So tell me');
+    // whisper-server started with -nt lists words but with null times: fall back, drop nothing.
+    const noTimes = parseWhisperResponse({
+      text: ' What is a thread?',
+      segments: [{ text: ' What is a thread?', words: [{ word: ' What', start: null, end: null }, { word: ' thread?', start: null, end: null }] }],
+    });
+    expect(noTimes.wordTimestamps).toBe(false);
+    expect(noTimes.text).toBe('What is a thread?');
+    expect(noTimes.words).toEqual([]);
     const parsed = parseWhisperResponse({
       text: 'How would you',
       segments: [

@@ -4,7 +4,8 @@
  */
 export const SAVA_FRAME_MS = 40;
 export const SAVA_LOOKAHEAD_MS = 120;
-export const MAX_UTTERANCE_MS = 45_000;
+/** A turn is decoded whole (StreamingTranscriber.WHOLE_TURN_MS = 28 s): end it just before. */
+export const MAX_UTTERANCE_MS = 27_000;
 
 export type TurnAggressiveness = 'low' | 'medium' | 'high';
 
@@ -43,6 +44,10 @@ export interface SavaFrame {
   /** Frame time in stream ms (after shifting speech back by lookahead). */
   tsMs: number;
   energyDbfs: number;
+  /** Audio this update covers: 40 ms for SAVA, 20 ms for the energy fallback. */
+  frameMs?: number;
+  /** When the voice was last heard, if earlier than tsMs (the energy VAD's hangover). */
+  voiceTs?: number;
 }
 
 export type TurnEvent =
@@ -85,6 +90,7 @@ export class TurnDetector {
 
   push(frame: SavaFrame): TurnEvent | null {
     const t = this.thresholds;
+    const step = frame.frameMs ?? SAVA_FRAME_MS;
     const loudEnough = frame.energyDbfs >= t.minEnergyDbfs;
     const speech = loudEnough && frame.speech >= t.speechOnThreshold;
     if (!this.speaking) {
@@ -93,33 +99,33 @@ export class TurnDetector {
         this.endedAt = null;
         this.lowSpeechMs = 0;
         this.turnHold = 0;
-        this.lastVoiceTs = frame.tsMs;
+        this.lastVoiceTs = frame.voiceTs ?? frame.tsMs;
         return { type: 'resumed', at: frame.tsMs };
       }
       this.speechFrames = speech ? this.speechFrames + 1 : 0;
       if (this.speechFrames >= 2) {
         this.speaking = true;
         this.startedAt = frame.tsMs;
-        this.voicedMs = SAVA_FRAME_MS * 2;
+        this.voicedMs = step * 2;
         this.utteranceMs = this.voicedMs;
-        this.lastVoiceTs = frame.tsMs;
+        this.lastVoiceTs = frame.voiceTs ?? frame.tsMs;
         this.endedAt = null;
         return { type: 'speechStart', at: frame.tsMs };
       }
       return null;
     }
-    this.utteranceMs += SAVA_FRAME_MS;
+    this.utteranceMs += step;
     if (speech) {
-      this.voicedMs += SAVA_FRAME_MS;
+      this.voicedMs += step;
       this.lowSpeechMs = 0;
       this.turnHold = 0;
-      this.lastVoiceTs = frame.tsMs;
+      this.lastVoiceTs = frame.voiceTs ?? frame.tsMs;
       if (this.utteranceMs >= MAX_UTTERANCE_MS && this.voicedMs >= t.minSpeechMs) {
         return this.end(frame.tsMs);
       }
       return { type: 'speechActive', at: frame.tsMs };
     }
-    this.lowSpeechMs += SAVA_FRAME_MS;
+    this.lowSpeechMs += step;
     if (frame.turn >= t.turnThreshold) this.turnHold += 1;
     else this.turnHold = 0;
     const turnOk = this.turnHold >= t.turnHoldFrames && this.lowSpeechMs >= t.minSilenceGuardMs;
@@ -129,14 +135,20 @@ export class TurnDetector {
     return { type: 'speechActive', at: frame.tsMs };
   }
 
-  /** Energy-VAD bridge: treat loud as speech=1, quiet as speech=0 / turn after hangover. */
-  pushEnergy(levelDbfs: number, tsMs: number, speaking: boolean, silenceMs: number): TurnEvent | null {
-    const t = this.thresholds;
+  /**
+   * Energy-VAD fallback, one 20 ms frame per call. The VAD's own hangover (300 ms) decides the
+   * pause, as in 0.3.1: speech while it says speaking, end of turn once it stops. The level gate
+   * is skipped during the hangover, where quiet frames are expected.
+   */
+  pushEnergy(levelDbfs: number, tsMs: number, speaking: boolean, silenceMs: number, frameMs = 20): TurnEvent | null {
     return this.push({
-      speech: speaking && silenceMs < 40 ? 0.9 : speaking ? 0.4 : 0.05,
-      turn: !speaking || silenceMs >= t.minSilenceGuardMs ? 0.7 : 0.1,
+      speech: speaking ? 0.9 : 0.05,
+      turn: speaking ? 0.05 : 0.9,
       tsMs,
-      energyDbfs: levelDbfs,
+      energyDbfs: speaking ? 0 : levelDbfs,
+      frameMs,
+      // The pause mark is when the voice stopped, not when the hangover ran out.
+      voiceTs: speaking && Number.isFinite(silenceMs) ? tsMs - silenceMs : undefined,
     });
   }
 

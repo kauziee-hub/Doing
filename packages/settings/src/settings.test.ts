@@ -64,7 +64,7 @@ describe('upgrade from 0.2.x', () => {
     expect(s.onboardingComplete).toBe(true);
     expect(s.stt.language).toBe('en');
     expect(s.stt.customVocabulary).toEqual([]);
-    expect(s.stt.streamingTranscription).toBe(true);
+    expect(s.stt.streamingTranscription).toBe(false);
     expect(s.answer.format).toBe('paragraph');
     expect(s.audio.micDeviceId).toBe('buds');
     expect(JSON.stringify(s)).not.toMatch(/vercel|cloud|primaryProvider|budget/);

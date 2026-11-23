@@ -42,10 +42,10 @@ function chunkDbfs(pcm: Buffer): number {
 
 interface WhisperSegment {
   text?: string;
-  start?: number;
-  end?: number;
+  start?: number | null;
+  end?: number | null;
   no_speech_prob?: number;
-  words?: Array<{ word?: string; start?: number; end?: number; probability?: number }>;
+  words?: Array<{ word?: string; start?: number | null; end?: number | null; probability?: number }>;
 }
 
 /** Drops segments Whisper itself marks as probably-not-speech (its classic silence hallucinations). */
@@ -101,13 +101,19 @@ export interface WhisperParse {
   wordTimestamps: boolean;
 }
 
-/** Merge token-level verbose_json "words" into display words (split_on_word / leading space). */
+/**
+ * Merge token-level verbose_json "words" into display words (split_on_word / leading space).
+ * whisper-server started with -nt (no timestamps) still lists words, but with null times: then
+ * this reports wordTimestamps=false and falls back to segment text, so nothing is dropped.
+ */
 export function parseWhisperResponse(j: { text?: string; segments?: WhisperSegment[] }): WhisperParse {
   const text = stripAnnotations(whisperText(j));
+  const timed = (x: { start?: number | null; end?: number | null }): boolean => typeof x.start === 'number' && typeof x.end === 'number';
+  const kept = (j.segments ?? []).filter((seg) => (seg.no_speech_prob ?? 0) < 0.6);
+  const wordTimestamps = kept.some((seg) => Array.isArray(seg.words) && seg.words.length > 0 && seg.words.every(timed));
   const words: WhisperWord[] = [];
-  for (const seg of j.segments ?? []) {
-    if ((seg.no_speech_prob ?? 0) >= 0.6) continue;
-    if (Array.isArray(seg.words) && seg.words.length) {
+  for (const seg of kept) {
+    if (wordTimestamps && Array.isArray(seg.words) && seg.words.length) {
       for (const w of seg.words) {
         const raw = (w.word ?? '').replace(/\s+/g, ' ');
         if (!raw.trim()) continue;
@@ -120,16 +126,15 @@ export function parseWhisperResponse(j: { text?: string; segments?: WhisperSegme
           last.endMs = endMs;
         }
       }
-    } else if (seg.text?.trim()) {
+    } else if (seg.text?.trim() && timed(seg)) {
       words.push({
         text: stripAnnotations(seg.text.trim()),
-        startMs: Math.round((seg.start ?? 0) * 1000),
-        endMs: Math.round((seg.end ?? seg.start ?? 0) * 1000),
+        startMs: Math.round(seg.start! * 1000),
+        endMs: Math.round(seg.end! * 1000),
       });
     }
   }
-  const wordTimestamps = (j.segments ?? []).some((s) => Array.isArray(s.words) && s.words.length > 0);
-  return { text, words: wordTimestamps ? words.filter((w) => w.text) : words, wordTimestamps };
+  return { text, words: words.filter((w) => w.text), wordTimestamps };
 }
 
 export async function runWhisperInference(

@@ -1,8 +1,10 @@
 import type { AudioSource } from '@hirora/contracts';
 import { pcmLevelDbfs, EnergyVad } from './vad';
 import { StreamingTranscriber, type WhisperClient } from './streamingTranscriber';
-import { TurnDetector, thresholdsFor, SAVA_FRAME_MS, type TurnThresholds } from './turnDetector';
+import { TurnDetector, thresholdsFor, SAVA_FRAME_MS, SAVA_LOOKAHEAD_MS, type TurnEvent, type TurnThresholds } from './turnDetector';
 import type { SpeakerRole } from './conversationContext';
+
+export type SavaScore = { speech: number; turn: number };
 
 export interface LiveCaptureDeps {
   source: AudioSource;
@@ -18,96 +20,138 @@ export interface LiveCaptureDeps {
   onPause: (lastVoiceTs: number) => void;
   onResume: () => void;
   onWindowMs: (ms: number) => void;
-  savaScores?: (pcm: Buffer, energyDbfs: number) => { speech: number; turn: number } | null;
+  /** SAVA for one 40 ms block of this source, in order. null = not loaded or failed: the energy VAD decides. */
+  savaScores?: (pcm40: Buffer) => Promise<SavaScore | null> | SavaScore | null;
+  /** SAVA loaded and usable right now (checked per frame, so it can come up after the session starts). */
+  savaReady?: () => boolean;
 }
 
 const FRAME_MS = 20;
+const SAVA_BLOCK_BYTES = (16_000 * 2 * SAVA_FRAME_MS) / 1000; // 1280
+/** Audio kept from before speech is detected, so the first word isn't clipped (SAVA needs ~250 ms to confirm speech). */
+export const PREROLL_MS = 500;
+/** Energy fallback: VAD hangover + the detector's 80 ms guard ≈ the 300 ms pause of 0.3.1. */
+const ENERGY_HANGOVER_MS = 220;
 
 /**
- * One audio source: SAVA or energy VAD + sliding-window transcriber.
+ * One audio source: SAVA (or the energy VAD) decides turns, and each turn gets its own
+ * sliding-window transcriber. Every 20 ms frame of a turn reaches Whisper.
  */
 export class LiveCapture {
-  readonly transcriber: StreamingTranscriber;
   readonly turn: TurnDetector;
-  private readonly energy = new EnergyVad(9, 3, 300);
-  private savaPcm = Buffer.alloc(0);
-  private streamMs = 0;
+  private readonly energy = new EnergyVad(9, 3, ENERGY_HANGOVER_MS);
   private readonly now: () => number;
+  /** Transcriber of the turn in progress; one that is finishing its last decode is no longer here. */
+  private transcriber: StreamingTranscriber | null = null;
+  /** Frames since the last turn ended, up to PREROLL_MS. */
+  private preroll: Buffer[] = [];
+  private savaPcm = Buffer.alloc(0);
+  private savaQueue: Promise<void> = Promise.resolve();
+  private disposed = false;
+  /** Text of the previous turn: context for Whisper's prompt. */
+  private lastFinal = '';
 
   constructor(private readonly deps: LiveCaptureDeps) {
     this.now = deps.now ?? Date.now;
     this.turn = new TurnDetector(deps.thresholds());
-    this.transcriber = new StreamingTranscriber(
-      deps.source,
-      deps.client,
-      {
-        interim: (e) => deps.onInterim(e.committed, e.tentative),
-        committedAdvanced: () => undefined,
-        final: (e) => deps.onFinal(e.text, e.startMs, e.endMs),
-        windowMs: (ms) => deps.onWindowMs(ms),
-      },
-      () => ({ vocab: deps.vocab(), committedHint: this.transcriber.committedText }),
-      this.now,
-    );
-    this.transcriber.setCheap(deps.cheap);
+  }
+
+  /** The turn in progress (tests). */
+  get current(): StreamingTranscriber | null {
+    return this.transcriber;
+  }
+
+  /** Resolves once every queued SAVA block has been applied (tests). */
+  idle(): Promise<void> {
+    return this.savaQueue;
   }
 
   pushFrame(pcm: Buffer): void {
+    if (this.disposed) return;
+    const at = this.now();
     const energy = pcmLevelDbfs(pcm);
-    this.streamMs += FRAME_MS;
     this.turn.setThresholds(this.deps.thresholds());
-    let ev = null;
-    if (this.deps.useSava && this.deps.savaScores) {
-      this.savaPcm = Buffer.concat([this.savaPcm, pcm]);
-      while (this.savaPcm.length >= 1280) {
-        const frame = this.savaPcm.subarray(0, 1280);
-        this.savaPcm = this.savaPcm.subarray(1280);
-        const scores = this.deps.savaScores(frame, energy);
-        if (scores) {
-          ev = this.turn.push({
-            speech: scores.speech,
-            turn: scores.turn,
-            tsMs: this.now() - 120,
-            energyDbfs: energy,
-          });
-          this.handleTurn(ev, pcm, energy);
-        } else {
-          this.energyPush(pcm, energy);
-        }
-      }
+    // Audio first: inside a turn every frame goes to Whisper; between turns it waits in the pre-roll.
+    if (this.turn.isSpeaking && this.transcriber) this.transcriber.pushPcm(pcm, at);
+    else {
+      this.preroll.push(pcm);
+      if (this.preroll.length > PREROLL_MS / FRAME_MS) this.preroll.shift();
+    }
+    this.energy.push(energy, FRAME_MS, at);
+    const sava = this.deps.useSava && this.deps.savaScores && (this.deps.savaReady?.() ?? true);
+    if (!sava) {
+      this.savaPcm = Buffer.alloc(0);
+      this.handle(this.turn.pushEnergy(energy, at, this.energy.isSpeaking, this.energy.silenceMs), at);
       return;
     }
-    this.energyPush(pcm, energy);
+    this.savaPcm = Buffer.concat([this.savaPcm, pcm]);
+    while (this.savaPcm.length >= SAVA_BLOCK_BYTES) {
+      const block = this.savaPcm.subarray(0, SAVA_BLOCK_BYTES);
+      this.savaPcm = this.savaPcm.subarray(SAVA_BLOCK_BYTES);
+      const speaking = this.energy.isSpeaking;
+      const silenceMs = this.energy.silenceMs;
+      const blockDb = pcmLevelDbfs(block);
+      // One block at a time, in order: SAVA's state carries from each block to the next.
+      this.savaQueue = this.savaQueue.then(async () => {
+        if (this.disposed) return;
+        const scores = await Promise.resolve(this.deps.savaScores!(block)).catch(() => null);
+        if (this.disposed) return;
+        const ev = scores
+          ? this.turn.push({ speech: scores.speech, turn: scores.turn, tsMs: at - SAVA_LOOKAHEAD_MS, energyDbfs: blockDb, frameMs: SAVA_FRAME_MS })
+          : this.turn.pushEnergy(blockDb, at, speaking, silenceMs, SAVA_FRAME_MS);
+        this.handle(ev, at);
+      });
+    }
   }
 
-  private energyPush(pcm: Buffer, energy: number): void {
-    this.energy.push(energy, FRAME_MS, this.now());
-    const ev = this.turn.pushEnergy(energy, this.now(), this.energy.isSpeaking, this.energy.silenceMs === Infinity ? 9999 : this.energy.silenceMs);
-    this.handleTurn(ev, pcm, energy);
-  }
-
-  private handleTurn(
-    ev: { type: string; at?: number; lastVoiceTs?: number } | null,
-    pcm: Buffer,
-    _energy: number,
-  ): void {
-    if (ev?.type === 'speechStart' || ev?.type === 'resumed') {
-      if (ev.type === 'speechStart') this.transcriber.resetUtterance();
-      this.transcriber.setSpeechActive(true);
+  private handle(ev: TurnEvent | null, at: number): void {
+    if (!ev) return;
+    if (ev.type === 'speechStart' || ev.type === 'resumed') {
       if (ev.type === 'resumed') this.deps.onResume();
+      // A new transcriber per turn: the previous one may still be finishing its last decode.
+      const t = this.newTranscriber();
+      for (const f of this.preroll.splice(0)) t.pushPcm(f, at);
+      t.setSpeechActive(true);
+      this.transcriber = t;
+      return;
     }
-    if (this.turn.isSpeaking || ev?.type === 'speechActive' || ev?.type === 'speechStart' || ev?.type === 'resumed') {
-      this.transcriber.pushPcm(pcm, this.now());
+    if (ev.type === 'turnEnd') {
+      const t = this.transcriber;
+      this.transcriber = null;
+      this.deps.onPause(ev.lastVoiceTs);
+      if (t) void t.finalize();
     }
-    if (ev?.type === 'turnEnd') {
-      this.transcriber.setSpeechActive(false);
-      this.deps.onPause(ev.lastVoiceTs ?? this.now());
-      void this.transcriber.finalize();
-    }
+  }
+
+  private newTranscriber(): StreamingTranscriber {
+    const t: StreamingTranscriber = new StreamingTranscriber(
+      this.deps.source,
+      this.deps.client,
+      {
+        // Only the turn in progress updates the live line; a finishing one reports just its final text.
+        interim: (e) => {
+          if (t === this.transcriber) this.deps.onInterim(e.committed, e.tentative);
+        },
+        committedAdvanced: () => undefined,
+        final: (e) => {
+          this.lastFinal = e.text;
+          this.deps.onFinal(e.text, e.startMs, e.endMs);
+        },
+        windowMs: (ms) => this.deps.onWindowMs(ms),
+      },
+      () => ({ vocab: this.deps.vocab(), committedHint: this.lastFinal }),
+      this.now,
+    );
+    t.setCheap(this.deps.cheap);
+    t.resetUtterance();
+    return t;
   }
 
   dispose(): void {
-    this.transcriber.dispose();
+    this.disposed = true;
+    this.transcriber?.dispose();
+    this.transcriber = null;
+    this.preroll = [];
   }
 }
 

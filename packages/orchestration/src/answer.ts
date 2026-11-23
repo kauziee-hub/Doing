@@ -354,12 +354,6 @@ export class AnswerEngine {
       session: ctx.session,
       evidence,
       recentTranscript: lean ? ctx.transcript.slice(-2) : input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
-      conversation: ctx.transcript.some((s) => s.role)
-        ? ctx.transcript
-            .filter((s) => s.final && s.text.trim())
-            .slice(-8)
-            .map((s) => ({ role: s.role ?? 'unknown', text: s.text, ts: s.startedAt }))
-        : undefined,
       memory: input.useMemory === false || lean ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
       compact,
       missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),

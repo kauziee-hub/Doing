@@ -60,8 +60,12 @@ export interface SessionDeps {
   now?: () => number;
   /** Sliding-window Whisper (Change 1). Absent → old whole-utterance path even if the flag is on. */
   whisperClient?: WhisperClient;
-  /** SAVA probabilities for 40 ms (640-sample) PCM; null → energy VAD. */
-  savaScores?: (source: AudioSource, pcm40: Buffer, energyDbfs: number) => { speech: number; turn: number } | null;
+  /** SAVA probabilities for one 40 ms (640-sample) block, awaited in order per source; null → energy VAD. */
+  savaScores?: (source: AudioSource, pcm40: Buffer) => Promise<{ speech: number; turn: number } | null>;
+  /** SAVA is loaded (it loads in the background after launch). */
+  savaReady?: () => boolean;
+  /** A new stream for this source: SAVA starts from a zero state. */
+  savaReset?: (source: AudioSource) => void;
   profileVocabulary?: () => string[];
 }
 
@@ -223,7 +227,7 @@ export class SessionController {
       (seg) => this.onSegmentFinal(seg),
       this.now,
       2500,
-      settings0.stt.roleSeparation ? role : null,
+      role === 'unknown' ? null : role,
     );
     const sttOpts = (): SttOptions => {
       const s = this.deps.settings().stt;
@@ -249,7 +253,8 @@ export class SessionController {
       now: this.now,
     });
     const streaming = settings0.stt.streamingTranscription && !!this.deps.whisperClient;
-    const cheap = settings0.stt.roleSeparation && settings0.stt.captureMode === 'two-stream' && role === 'me';
+    // Your own mic, when it isn't answered automatically: no live text, one decode at the end of each turn.
+    const cheap = role === 'me' && !settings0.answer.autoAnswerSources.includes('mic');
     const live = streaming
       ? new LiveCapture({
           source,
@@ -269,14 +274,17 @@ export class SessionController {
           },
           thresholds: () => savaThresholdsFromSettings(this.deps.settings().stt),
           useSava: settings0.stt.sttTurnDetector === 'sava' && !!this.deps.savaScores,
+          savaReady: () => this.deps.savaReady?.() ?? true,
           now: this.now,
           onInterim: (committed, tentative) => {
             assembler.live(committed, tentative);
             if (!cheap && this.state === 'listening' && this.isAutoSource(source) && (this.deps.earlyAnswers?.() ?? true)) {
+              // The whole latest decode, as in 0.3.1: committed words alone lag a tick behind, so an
+              // early answer from them would miss the end of the question.
               this.speculate({
                 id: assembler.inProgressText,
                 source,
-                text: committed,
+                text: [committed, tentative].filter(Boolean).join(' '),
                 final: false,
                 startedAt: this.now(),
                 endedAt: null,
@@ -295,12 +303,11 @@ export class SessionController {
           onPause: (lastVoiceTs) => this.onPause(source, lastVoiceTs),
           onResume: () => this.onSpeechResume(source),
           onWindowMs: (ms) => this.deps.perf({ stage: 'stt_window', ms, at: this.now(), provider: 'local-whisper', model: null, label: source }),
-          savaScores: this.deps.savaScores
-            ? (pcm, energy) => this.deps.savaScores!(source, pcm, energy)
-            : undefined,
+          savaScores: this.deps.savaScores ? (pcm) => this.deps.savaScores!(source, pcm) : undefined,
         })
       : null;
-    if (settings0.stt.sttTurnDetector === 'sava' && !this.deps.savaScores && !this.savaNotice) {
+    if (live) this.deps.savaReset?.(source);
+    if (live && settings0.stt.sttTurnDetector === 'sava' && !(this.deps.savaReady?.() ?? !!this.deps.savaScores) && !this.savaNotice) {
       this.savaNotice = true;
       this.deps.emit({ type: 'toast', level: 'info', message: 'Turn detection is using the energy voice detector (SAVA is not loaded).' });
     }
@@ -367,9 +374,8 @@ export class SessionController {
   private isAutoSource(source: TranscriptSegment['source']): boolean {
     const s = this.deps.settings();
     if (!s.answer.autoAnswer) return false;
-    if (s.stt.roleSeparation && s.stt.captureMode === 'two-stream') {
-      return roleForSource(source as AudioSource, s.stt.captureMode) === 'interviewer';
-    }
+    // One mic for everyone in the room: every turn may be a question.
+    if (s.stt.captureMode === 'single-mic' && source === 'mic') return true;
     return s.answer.autoAnswerSources.includes(source as AudioSource);
   }
 
@@ -385,7 +391,7 @@ export class SessionController {
 
   /** Live text from the other side: start answering early if it already reads as a question. */
   private speculate(seg: TranscriptSegment): void {
-    const text = (seg.committedText ?? seg.text).trim();
+    const text = seg.text.trim();
     if (!text) return;
     const { triage } = triageUtterance(text);
     const cur = this.spec;
@@ -471,7 +477,8 @@ export class SessionController {
     if (this.recordHistory && this.sessionId) this.deps.history()?.segment(this.sessionId, seg);
     const autoSource = this.isAutoSource(seg.source);
     if (!autoSource) {
-      // Mic / "me" turns: stored as context, never auto-answered.
+      // Never auto-answered (e.g. the user's own mic): only remembered for the manual Ask hotkey.
+      if (seg.isQuestion) this.candidate = { text: extractQuestion(this.withLeadIn(seg)), source: seg.source as AudioSource, score: seg.questionScore };
       this.pushSnapshot();
       return;
     }

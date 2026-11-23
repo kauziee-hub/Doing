@@ -79,7 +79,9 @@ export class AppServices {
     this.captureResults = new CaptureResultStore(this.db);
     this.helper = new AudioHelper(resolveHelperPath(), log);
     this.sava = new SavaOnnxEngine(log);
-    void this.sava.start();
+    // Only the live path (stt.streamingTranscription) uses SAVA: don't load 27 MB otherwise.
+    const stt0 = this.settings.get().stt;
+    if (stt0.streamingTranscription && stt0.sttTurnDetector === 'sava') void this.sava.ensureStarted();
     this.engine = new EngineManager({
       log,
       settings: () => this.settings.get(),
@@ -145,7 +147,7 @@ export class AppServices {
               language: this.settings.get().stt.language,
               prompt: req.prompt,
               beamSize: req.beamSize,
-              wordTimestamps: true,
+              wordTimestamps: req.wordTimestamps ?? false,
             });
             return { text: parsed.text, words: parsed.words, wordTimestamps: parsed.wordTimestamps };
           } catch (err) {
@@ -154,7 +156,12 @@ export class AppServices {
           }
         },
       },
-      savaScores: (source, pcm, _energy) => (this.sava.ready ? this.sava.scores(source, pcm) : null),
+      savaScores: (source, pcm) => this.sava.score(source, pcm),
+      savaReady: () => {
+        void this.sava.ensureStarted();
+        return this.sava.ready;
+      },
+      savaReset: (source) => this.sava.reset(source),
       profileVocabulary: () => {
         const p = this.knowledge.getProfile();
         const sp = this.knowledge.getSessionProfile(this.settings.get().activeProfileId);

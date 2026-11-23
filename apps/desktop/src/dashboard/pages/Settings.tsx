@@ -51,28 +51,13 @@ function EngineTab() {
             <input className="vc-input" value={s.stt.language} onChange={(e) => void patch({ stt: { language: e.target.value.trim() } })} />
           </Field>
         </div>
-        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100). Empty = skills and company from your profile.">
+        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100). Skills and the company from your profile are added automatically.">
           <textarea className="vc-textarea" defaultValue={s.stt.customVocabulary.join('\n')} onBlur={(e) => void patch({ stt: { customVocabulary: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 100) } })} />
         </Field>
-        <Toggle checked={s.stt.streamingTranscription} label="Sliding-window transcription" description="Commit stable words as they agree. Off = previous whole-utterance re-decode every 350 ms." onChange={(v) => void patch({ stt: { streamingTranscription: v } })} />
-        <Toggle checked={s.stt.roleSeparation} label="Answer only the interviewer (system audio)" description="Microphone turns are stored as “Me” and never auto-answered. Off = previous auto-answer sources." onChange={(v) => void patch({ stt: { roleSeparation: v } })} />
-        <Field label="Capture mode">
+        <Field label="Where the conversation is" hint="On a call, the other side comes through system audio and your microphone is you. In a room, one microphone hears everyone, so every question it hears can be answered.">
           <select className="vc-select" value={s.stt.captureMode} onChange={(e) => void patch({ stt: { captureMode: e.target.value } })}>
-            <option value="two-stream">Two streams (system = interviewer, mic = me)</option>
-            <option value="single-mic">Single mic / in-person (answer everything)</option>
-          </select>
-        </Field>
-        <Field label="End of turn" hint="SAVA needs the ONNX weights in resources/sava. If they are missing, Hirora uses the energy detector automatically.">
-          <select className="vc-select" value={s.stt.sttTurnDetector} onChange={(e) => void patch({ stt: { sttTurnDetector: e.target.value } })}>
-            <option value="sava">SAVA (semantic end-of-turn)</option>
-            <option value="energy">Energy VAD + 300 ms pause (previous)</option>
-          </select>
-        </Field>
-        <Field label="SAVA aggressiveness">
-          <select className="vc-select" value={s.stt.savaAggressiveness} onChange={(e) => void patch({ stt: { savaAggressiveness: e.target.value } })}>
-            <option value="low">Low (wait longer)</option>
-            <option value="medium">Medium</option>
-            <option value="high">High (cut sooner)</option>
+            <option value="two-stream">On a call (system audio is the other side)</option>
+            <option value="single-mic">In a room (one microphone for everyone)</option>
           </select>
         </Field>
       </Card>

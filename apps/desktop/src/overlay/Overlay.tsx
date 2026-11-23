@@ -162,7 +162,7 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
 }
 
 export function TranscriptLine({ seg }: { seg: TranscriptSegment }) {
-  const label = seg.role === 'me' ? 'Me' : seg.role === 'interviewer' ? 'Interviewer' : SOURCE_LABEL[seg.source] ?? seg.source;
+  const label = SOURCE_LABEL[seg.source] ?? seg.source;
   const committed = seg.committedText ?? (seg.final ? seg.text : '');
   const tentative = seg.tentativeText ?? (!seg.final && !seg.committedText ? seg.text : '');
   return (

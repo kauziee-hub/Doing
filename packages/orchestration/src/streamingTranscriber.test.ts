@@ -103,7 +103,7 @@ describe('TurnDetector', () => {
 
   it('does not end on a brief mid-sentence pause', () => {
     const d = t();
-    let ts = speech(d, 8);
+    const ts = speech(d, 8);
     const ev = d.push({ speech: 0.1, turn: 0.2, tsMs: ts, energyDbfs: -55 });
     expect(ev?.type).not.toBe('turnEnd');
     expect(d.isSpeaking).toBe(true);
@@ -149,7 +149,9 @@ describe('TurnDetector', () => {
 describe('sameQuestion normalization', () => {
   it('treats case, punctuation and a short trailing extension as the same question', () => {
     expect(sameQuestion('How would you scale it?', 'how would you scale it')).toBe(true);
-    expect(sameQuestion('How would you scale it', 'How would you scale it to millions of users')).toBe(true);
+    expect(sameQuestion('How would you scale it', 'How would you scale it to millions')).toBe(true);
+    // More than 3 extra words is a different question: an early answer to the shorter one isn't kept.
+    expect(sameQuestion('What is the difference between', 'What is the difference between a process and a thread')).toBe(false);
     expect(sameQuestion('What is RBAC?', 'Explain CAP theorem')).toBe(false);
   });
 });
@@ -170,7 +172,7 @@ describe('conversation / bleed', () => {
 });
 
 describe('window bound', () => {
-  it('reports window length never above 15 s even after a long utterance', async () => {
+  it('never decodes more than 28 s (whisper.cpp window) even after a long utterance', async () => {
     const windows: number[] = [];
     const pcm = Buffer.alloc(16_000 * 2); // 1 s silence
     const client: WhisperClient = {
@@ -184,7 +186,7 @@ describe('window bound', () => {
     t.setSpeechActive(true);
     for (let i = 0; i < 40; i++) t.pushPcm(pcm, i * 1000);
     await t.tick();
-    expect(Math.max(0, ...windows.filter((x) => x > 10))).toBeLessThanOrEqual(15_000);
+    expect(Math.max(0, ...windows.filter((x) => x > 10))).toBeLessThanOrEqual(28_000);
     t.dispose();
   });
 });
