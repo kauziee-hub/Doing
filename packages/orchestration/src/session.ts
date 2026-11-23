@@ -67,6 +67,8 @@ export interface SessionDeps {
   /** A new stream for this source: SAVA starts from a zero state. */
   savaReset?: (source: AudioSource) => void;
   profileVocabulary?: () => string[];
+  /** Debug lines from the live path (numbers only). */
+  sttDebug?: (line: string) => void;
 }
 
 interface SourceRuntime {
@@ -300,9 +302,13 @@ export class SessionController {
             assembler.live(text, '');
             assembler.finalize();
           },
-          onPause: (lastVoiceTs) => this.onPause(source, lastVoiceTs),
+          // The final text follows within a decode: an early answer is shown then, once it is known
+          // to be for the whole question, not for the live text from up to a tick ago.
+          onPause: (lastVoiceTs) => this.onPause(source, lastVoiceTs, false),
           onResume: () => this.onSpeechResume(source),
           onWindowMs: (ms) => this.deps.perf({ stage: 'stt_window', ms, at: this.now(), provider: 'local-whisper', model: null, label: source }),
+          debug: this.deps.sttDebug,
+          onTiming: (e) => this.deps.perf({ stage: e.stage, ms: e.ms, at: this.now(), provider: 'local-whisper', model: null, label: e.label }),
           savaScores: this.deps.savaScores ? (pcm) => this.deps.savaScores!(source, pcm) : undefined,
         })
       : null;
@@ -442,8 +448,9 @@ export class SessionController {
   }
 
   /** The other side went quiet: show the early answer now if it is for this question. */
-  private onPause(source: AudioSource, lastSpeechAt: number): void {
+  private onPause(source: AudioSource, lastSpeechAt: number, reveal = true): void {
     this.pausedAt.set(source, lastSpeechAt);
+    if (!reveal) return;
     const spec = this.spec;
     if (!spec || spec.committed || spec.source !== source) return;
     if (isFragment(spec.text)) return; // a pause mid-question ("Can you tell me …"): wait for the rest

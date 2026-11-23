@@ -8,6 +8,9 @@ import { PageHeader } from '../App';
 const STAGE_INFO: Record<string, { label: string; target?: number; p: 50 | 95 }> = {
   hotkey_to_paint: { label: 'Hotkey → overlay paint', target: 100, p: 95 },
   screen_capture: { label: 'Screen capture for a question', p: 50 },
+  stt_decode: { label: 'Live path: one Whisper decode', p: 50 },
+  stt_final_wait: { label: 'Live path: wait before the final decode', p: 50 },
+  turn_end_detect: { label: 'Live path: end of speech → end of turn detected', p: 50 },
   stt_first_partial: { label: 'Speech onset → first transcript text', target: 500, p: 50 },
   speech_end_to_final: { label: 'End of speech → final transcript', p: 50 },
   final_to_question: { label: 'Final transcript → question dispatched', p: 50 },

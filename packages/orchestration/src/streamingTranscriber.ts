@@ -8,6 +8,8 @@
  * turns. The end-of-turn decode is the final text.
  */
 export const STREAMING_TICK_MS = 350;
+/** A decode counts as the final text if its audio reaches this far past the end of speech. */
+export const FINAL_COVER_MS = 40;
 /** Longest turn decoded in one piece (whisper.cpp's window is 30 s). */
 export const WHOLE_TURN_MS = 28_000;
 /** Kept for older callers: a turn is decoded whole, up to WHOLE_TURN_MS. */
@@ -51,6 +53,12 @@ export interface StreamingEvents {
   committedAdvanced(committedText: string): void;
   final(ev: { text: string; startMs: number; endMs: number }): void;
   windowMs(ms: number): void;
+  /**
+   * Timing of each decode (no text): how long it took, and for the final one how long it waited
+   * for a decode in flight. `reused`: the final text is the last decode, which already covered the
+   * end of speech, so no decode ran at the end of the turn.
+   */
+  decoded?(ev: { ms: number; final: boolean; waitedMs: number; audioMs: number; ok: boolean; reused?: boolean }): void;
 }
 
 export function normalizeWord(w: string): string {
@@ -132,6 +140,12 @@ export class StreamingTranscriber {
   private speechActive = false;
   private cheap = false;
   private startedAt: number | null = null;
+  private finalWaitMs = 0;
+  /** When the newest frame in the buffer arrived. */
+  private lastPushAt = 0;
+  /** Text of the last decode and when the newest frame it heard arrived. */
+  private lastHyp: { text: string; coversUntil: number } | null = null;
+  private quietPending = false;
 
   constructor(
     private readonly source: 'mic' | 'system' | 'app',
@@ -167,10 +181,13 @@ export class StreamingTranscriber {
     this.tentative = [];
     this.finalText = null;
     this.startedAt = null;
+    this.lastHyp = null;
+    this.quietPending = false;
   }
 
   pushPcm(pcm16: Buffer, atMs: number): void {
     if (this.startedAt === null) this.startedAt = atMs;
+    this.lastPushAt = atMs;
     this.pcm = Buffer.concat([this.pcm, pcm16]);
     // LiveCapture ends a turn before this; keep the latest WHOLE_TURN_MS if a caller doesn't.
     const cap = WHOLE_TURN_MS * BYTES_PER_MS;
@@ -201,14 +218,31 @@ export class StreamingTranscriber {
   }
 
   /**
-   * End of turn: waits for a tick still in flight, then decodes the whole turn once more (padded
-   * to 1 s) and reports that as the final text. If that decode fails, the last tick's words are kept.
+   * The speaker just went quiet: decode now rather than at the next tick, as 0.3.1 does. If they
+   * have finished, this decode already holds the whole question and becomes the final text.
    */
-  async finalize(): Promise<string> {
+  decodeNow(): Promise<'ran' | 'skipped'> {
+    // A decode in flight started before the speaker went quiet: run another as soon as it ends.
+    if (this.inflight) this.quietPending = true;
+    return this.tick();
+  }
+
+  /**
+   * End of turn: waits for a decode in flight. If the last decode heard audio up to FINAL_COVER_MS
+   * past `lastVoiceAt` (the end of speech), its text is the final one; otherwise the whole turn is
+   * decoded once more (padded to 1 s). If that decode fails, the last decode's words are kept.
+   */
+  async finalize(lastVoiceAt?: number): Promise<string> {
     this.stopTicks();
     this.speechActive = false;
+    const waitFrom = this.now();
     while (this.inflight) await this.inflight;
-    if (this.pcm.length) {
+    this.finalWaitMs = this.now() - waitFrom;
+    const covered = lastVoiceAt !== undefined && this.lastHyp && this.lastHyp.coversUntil >= lastVoiceAt + FINAL_COVER_MS;
+    if (covered && this.lastHyp!.text) {
+      this.finalText = this.lastHyp!.text;
+      this.events.decoded?.({ ms: 0, final: true, waitedMs: this.finalWaitMs, audioMs: this.pcm.length / BYTES_PER_MS, ok: true, reused: true });
+    } else if (this.pcm.length) {
       const minBytes = SAMPLE_RATE * 2; // 1 s: whisper.cpp ignores clips much shorter than that
       const pcm = this.pcm.length >= minBytes ? this.pcm : Buffer.concat([this.pcm, Buffer.alloc(minBytes - this.pcm.length)]);
       await this.runDecode(pcm, true);
@@ -230,6 +264,8 @@ export class StreamingTranscriber {
     this.events.windowMs(pcm.length / BYTES_PER_MS);
     const run = (async (): Promise<'ran' | 'skipped'> => {
       const p = this.prompt();
+      const t0 = this.now();
+      const coversUntil = this.lastPushAt;
       const result = await this.client.decode({
         pcm,
         windowStartMs: 0,
@@ -238,18 +274,25 @@ export class StreamingTranscriber {
         priority: final ? 'final' : this.source === 'mic' ? 'low' : 'high',
         wordTimestamps: false,
       });
+      this.events.decoded?.({ ms: this.now() - t0, final, waitedMs: final ? this.finalWaitMs : 0, audioMs: pcm.length / BYTES_PER_MS, ok: !!result });
       if (!result || isRepetitiveHallucination(result.text)) return 'ran';
       if (final) {
         const text = tokenizeDisplay(result.text).join(' ');
         if (text) this.finalText = text;
         return 'ran';
       }
+      this.lastHyp = { text: tokenizeDisplay(result.text).join(' '), coversUntil };
       this.applyHypothesis(wordsFromResult(result), false, result.wordTimestamps);
       return 'ran';
     })().catch((): 'ran' => 'ran');
     this.inflight = run;
     return run.finally(() => {
       if (this.inflight === run) this.inflight = null;
+      // The speaker went quiet while this one was running: decode again now, not at the next tick.
+      if (this.quietPending && !final) {
+        this.quietPending = false;
+        void this.tick();
+      }
     });
   }
 

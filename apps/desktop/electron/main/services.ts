@@ -162,6 +162,7 @@ export class AppServices {
         return this.sava.ready;
       },
       savaReset: (source) => this.sava.reset(source),
+      sttDebug: process.env.HIRORA_STT_DEBUG === '1' ? (line) => this.log.info('stt-debug', { line }) : undefined,
       profileVocabulary: () => {
         const p = this.knowledge.getProfile();
         const sp = this.knowledge.getSessionProfile(this.settings.get().activeProfileId);

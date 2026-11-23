@@ -335,6 +335,9 @@ export const PERF_STAGES = [
   'screen_capture',
   'stt_window',
   'last_word_to_first_token',
+  'stt_decode',
+  'stt_final_wait',
+  'turn_end_detect',
 ] as const;
 export type PerfStage = (typeof PERF_STAGES)[number];
 

@@ -17,9 +17,14 @@ export interface LiveCaptureDeps {
   now?: () => number;
   onInterim: (committed: string, tentative: string) => void;
   onFinal: (text: string, startMs: number, endMs: number) => void;
+  /** End of turn, with the end of speech. The final text follows from onFinal. */
   onPause: (lastVoiceTs: number) => void;
   onResume: () => void;
   onWindowMs: (ms: number) => void;
+  /** Debug only (HIRORA_STT_DEBUG=1): numbers per block (level, SAVA scores, turn events), never audio or text. */
+  debug?: (line: string) => void;
+  /** Timings only (no text), for the Performance page and checks. */
+  onTiming?: (e: { stage: 'stt_decode' | 'stt_final_wait' | 'turn_end_detect' | 'speech_end_to_final'; ms: number; label: string }) => void;
   /** SAVA for one 40 ms block of this source, in order. null = not loaded or failed: the energy VAD decides. */
   savaScores?: (pcm40: Buffer) => Promise<SavaScore | null> | SavaScore | null;
   /** SAVA loaded and usable right now (checked per frame, so it can come up after the session starts). */
@@ -32,6 +37,8 @@ const SAVA_BLOCK_BYTES = (16_000 * 2 * SAVA_FRAME_MS) / 1000; // 1280
 export const PREROLL_MS = 500;
 /** Energy fallback: VAD hangover + the detector's 80 ms guard ≈ the 300 ms pause of 0.3.1. */
 const ENERGY_HANGOVER_MS = 220;
+/** After this much quiet inside a turn, decode at once (the speaker may have finished). */
+export const QUIET_DECODE_MS = 60;
 
 /**
  * One audio source: SAVA (or the energy VAD) decides turns, and each turn gets its own
@@ -48,6 +55,10 @@ export class LiveCapture {
   private savaPcm = Buffer.alloc(0);
   private savaQueue: Promise<void> = Promise.resolve();
   private disposed = false;
+  /** End of speech of each finishing turn, for the end of speech → final timing. */
+  private readonly speechEnd = new Map<StreamingTranscriber, number>();
+  /** Which detector decided the last turn event. */
+  private detector: 'sava' | 'energy' = 'energy';
   /** Text of the previous turn: context for Whisper's prompt. */
   private lastFinal = '';
 
@@ -78,9 +89,12 @@ export class LiveCapture {
       if (this.preroll.length > PREROLL_MS / FRAME_MS) this.preroll.shift();
     }
     this.energy.push(energy, FRAME_MS, at);
+    // Quiet for QUIET_DECODE_MS inside a turn: decode now, so the whole question is in hand by the end of the turn.
+    if (this.turn.isSpeaking && this.transcriber && this.energy.isSpeaking && this.energy.silenceMs === QUIET_DECODE_MS) void this.transcriber.decodeNow();
     const sava = this.deps.useSava && this.deps.savaScores && (this.deps.savaReady?.() ?? true);
     if (!sava) {
       this.savaPcm = Buffer.alloc(0);
+      this.detector = 'energy';
       this.handle(this.turn.pushEnergy(energy, at, this.energy.isSpeaking, this.energy.silenceMs), at);
       return;
     }
@@ -90,15 +104,28 @@ export class LiveCapture {
       this.savaPcm = this.savaPcm.subarray(SAVA_BLOCK_BYTES);
       const speaking = this.energy.isSpeaking;
       const silenceMs = this.energy.silenceMs;
+      // Loud right now by the energy VAD (no hangover): counts as speech too. Measured live, SAVA
+      // sometimes took 0.6-0.75 s to call clear speech at the start of a question (the first word
+      // was lost); the energy VAD starts the turn as in 0.3.1, and SAVA decides when it ends.
+      const loudNow = speaking && silenceMs < 2 * FRAME_MS;
       const blockDb = pcmLevelDbfs(block);
       // One block at a time, in order: SAVA's state carries from each block to the next.
       this.savaQueue = this.savaQueue.then(async () => {
         if (this.disposed) return;
         const scores = await Promise.resolve(this.deps.savaScores!(block)).catch(() => null);
         if (this.disposed) return;
+        this.detector = scores ? 'sava' : 'energy';
         const ev = scores
-          ? this.turn.push({ speech: scores.speech, turn: scores.turn, tsMs: at - SAVA_LOOKAHEAD_MS, energyDbfs: blockDb, frameMs: SAVA_FRAME_MS })
+          ? this.turn.push({
+              speech: loudNow ? Math.max(scores.speech, 0.9) : scores.speech,
+              turn: scores.turn,
+              tsMs: at - SAVA_LOOKAHEAD_MS,
+              energyDbfs: blockDb,
+              frameMs: SAVA_FRAME_MS,
+              voiceTs: loudNow ? at : undefined,
+            })
           : this.turn.pushEnergy(blockDb, at, speaking, silenceMs, SAVA_FRAME_MS);
+        this.deps.debug?.(`${this.deps.source} ${at} db=${Math.round(blockDb)} sp=${scores ? scores.speech.toFixed(2) : '-'} tu=${scores ? scores.turn.toFixed(2) : '-'} spk=${this.turn.isSpeaking ? 1 : 0} ev=${ev?.type ?? ''} pre=${this.preroll.length}`);
         this.handle(ev, at);
       });
     }
@@ -118,8 +145,12 @@ export class LiveCapture {
     if (ev.type === 'turnEnd') {
       const t = this.transcriber;
       this.transcriber = null;
+      this.deps.onTiming?.({ stage: 'turn_end_detect', ms: this.now() - ev.lastVoiceTs, label: this.detector });
       this.deps.onPause(ev.lastVoiceTs);
-      if (t) void t.finalize();
+      if (t) {
+        this.speechEnd.set(t, ev.lastVoiceTs);
+        void t.finalize(ev.lastVoiceTs);
+      }
     }
   }
 
@@ -135,9 +166,16 @@ export class LiveCapture {
         committedAdvanced: () => undefined,
         final: (e) => {
           this.lastFinal = e.text;
+          const end = this.speechEnd.get(t);
+          this.speechEnd.delete(t);
+          if (end !== undefined) this.deps.onTiming?.({ stage: 'speech_end_to_final', ms: this.now() - end, label: `${this.deps.source}:live` });
           this.deps.onFinal(e.text, e.startMs, e.endMs);
         },
         windowMs: (ms) => this.deps.onWindowMs(ms),
+        decoded: (d) => {
+          this.deps.onTiming?.({ stage: 'stt_decode', ms: d.ms, label: `${this.deps.source}:${d.final ? (d.reused ? 'final-reused' : 'final') : 'tick'}${d.ok ? '' : ':failed'}` });
+          if (d.final) this.deps.onTiming?.({ stage: 'stt_final_wait', ms: d.waitedMs, label: this.deps.source });
+        },
       },
       () => ({ vocab: this.deps.vocab(), committedHint: this.lastFinal }),
       this.now,

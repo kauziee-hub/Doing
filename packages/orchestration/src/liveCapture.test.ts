@@ -92,6 +92,63 @@ describe('LiveCapture', () => {
   });
 });
 
+describe('LiveCapture: start and end of a turn', () => {
+  it('starts the turn when the voice is loud even if SAVA is slow to call it speech (first word kept)', async () => {
+    let block = 0;
+    // As measured live on the first question: SAVA says "not speech" for ~0.75 s of clear speech.
+    const sava = async (pcm: Buffer) => {
+      const loud = Math.abs(pcm.readInt16LE(2)) > 1000;
+      if (loud) block++;
+      return { speech: loud && block > 18 ? 0.98 : 0.02, turn: loud ? 0.02 : 0.95 };
+    };
+    const r = await runCapture({ sava });
+    expect(r.finals).toEqual(['hello there']);
+    // Loud from frame 10 (200 ms): the decoded audio starts before it, so the first word is in.
+    const windowMs = r.decodes[0]!.pcm.length / 32;
+    expect(windowMs).toBeGreaterThanOrEqual((r.pauseFrame + 1) * 20 - 200);
+  });
+
+  it('decodes as soon as the speaker goes quiet and uses that as the final text (no decode after the turn ends)', async () => {
+    let now = 50_000;
+    const decodes: Array<{ priority: string; at: number }> = [];
+    const timings: string[] = [];
+    const finals: string[] = [];
+    const cap = new LiveCapture({
+      source: 'system',
+      role: 'interviewer',
+      cheap: false,
+      client: {
+        decode: async (req) => {
+          decodes.push({ priority: req.priority, at: now });
+          return { text: ' What is a thread?', words: [], wordTimestamps: false };
+        },
+      },
+      vocab: () => [],
+      thresholds: () => thresholdsFor('medium'),
+      useSava: false,
+      now: () => now,
+      onInterim: () => undefined,
+      onFinal: (text) => finals.push(text),
+      onPause: () => undefined,
+      onResume: () => undefined,
+      onWindowMs: () => undefined,
+      onTiming: (e) => timings.push(`${e.stage}:${e.label}`),
+    });
+    for (let i = 0; i < 80; i++) {
+      cap.pushFrame(frame(i >= 10 && i < 60 ? 12_000 : 0));
+      await sleep(0);
+      now += 20;
+    }
+    for (let i = 0; i < 50 && !finals.length; i++) await sleep(5);
+    expect(finals).toEqual(['What is a thread?']);
+    // A decode started 60 ms after the last loud frame (frame 59), before the turn ended, and it is
+    // the final text: no decode ran at the end of the turn. (Periodic ticks may also have run.)
+    expect(decodes.some((d) => d.at - (50_000 + 59 * 20) === 60)).toBe(true);
+    expect(decodes.some((d) => d.priority === 'final')).toBe(false);
+    expect(timings).toContain('stt_decode:system:final-reused');
+  });
+});
+
 describe('StreamingTranscriber end of turn', () => {
   const setup = (decode: WhisperClient['decode']) => {
     const finals: string[] = [];
