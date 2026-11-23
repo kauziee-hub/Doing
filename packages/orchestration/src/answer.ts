@@ -185,6 +185,7 @@ export class AnswerEngine {
     if (f.firstTokenAt !== null) {
       f.record.firstTokenMs = Math.max(0, now - opts.questionEndedAt);
       this.deps.perf({ stage: 'question_to_first_token', ms: f.record.firstTokenMs, at: now, provider: f.record.provider, model: f.record.model, label: `${f.record.questionSource}:prefetched` });
+      this.deps.perf({ stage: 'last_word_to_first_token', ms: f.record.firstTokenMs, at: now, provider: f.record.provider, model: f.record.model, label: `${f.record.questionSource}:prefetched` });
     }
     if (!f.done) this.current = f;
     this.deps.emit({ ...f.record, text: '' });

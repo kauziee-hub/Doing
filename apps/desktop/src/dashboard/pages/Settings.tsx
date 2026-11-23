@@ -51,8 +51,14 @@ function EngineTab() {
             <input className="vc-input" value={s.stt.language} onChange={(e) => void patch({ stt: { language: e.target.value.trim() } })} />
           </Field>
         </div>
-        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100).">
+        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100). Skills and the company from your profile are added automatically.">
           <textarea className="vc-textarea" defaultValue={s.stt.customVocabulary.join('\n')} onBlur={(e) => void patch({ stt: { customVocabulary: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 100) } })} />
+        </Field>
+        <Field label="Where the conversation is" hint="On a call, the other side comes through system audio and your microphone is you. In a room, one microphone hears everyone, so every question it hears can be answered.">
+          <select className="vc-select" value={s.stt.captureMode} onChange={(e) => void patch({ stt: { captureMode: e.target.value } })}>
+            <option value="two-stream">On a call (system audio is the other side)</option>
+            <option value="single-mic">In a room (one microphone for everyone)</option>
+          </select>
         </Field>
       </Card>
     </>

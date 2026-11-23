@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { LocalWhisperTranscriber, pcmToWav, stripAnnotations, whisperText } from './whisper';
+import { LocalWhisperTranscriber, parseWhisperResponse, pcmToWav, stripAnnotations, whisperText } from './whisper';
 
 let server: Server;
 let base = '';
@@ -56,6 +56,30 @@ describe('LocalWhisperTranscriber (fixture whisper.cpp server)', () => {
     expect(wav.readUInt32LE(40)).toBe(320);
     expect(whisperText({ text: 'fallback' })).toBe('fallback');
     expect(stripAnnotations('[BLANK_AUDIO] So (music) tell me')).toBe('So tell me');
+    // whisper-server started with -nt lists words but with null times: fall back, drop nothing.
+    const noTimes = parseWhisperResponse({
+      text: ' What is a thread?',
+      segments: [{ text: ' What is a thread?', words: [{ word: ' What', start: null, end: null }, { word: ' thread?', start: null, end: null }] }],
+    });
+    expect(noTimes.wordTimestamps).toBe(false);
+    expect(noTimes.text).toBe('What is a thread?');
+    expect(noTimes.words).toEqual([]);
+    const parsed = parseWhisperResponse({
+      text: 'How would you',
+      segments: [
+        {
+          text: ' How would you',
+          no_speech_prob: 0.01,
+          words: [
+            { word: ' How', start: 0.1, end: 0.2 },
+            { word: ' would', start: 0.2, end: 0.35 },
+            { word: ' you', start: 0.35, end: 0.5 },
+          ],
+        },
+      ],
+    });
+    expect(parsed.wordTimestamps).toBe(true);
+    expect(parsed.words.map((w) => w.text)).toEqual(['How', 'would', 'you']);
   });
 
   it('transcribes an utterance when the speaker stops, drops no-speech segments, never sends silence', async () => {

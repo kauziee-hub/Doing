@@ -3,7 +3,7 @@
   "productName": "Hirora",
   "version": "0.3.1",
   "private": true,
-  "description": "Hirora \u2014 local-first real-time AI desktop copilot (BYOK)",
+  "description": "Hirora — local-first real-time AI desktop copilot (BYOK)",
   "author": "Hirora contributors",
   "main": "./out/main/index.js",
   "scripts": {
@@ -16,14 +16,14 @@
   "devDependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/outfit": "^5.3.0",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "@hirora/contracts": "workspace:^",
     "@hirora/knowledge": "workspace:^",
     "@hirora/orchestration": "workspace:^",
     "@hirora/providers": "workspace:^",
     "@hirora/settings": "workspace:^",
     "@hirora/ui": "workspace:^",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
@@ -38,5 +38,8 @@
     "zod": "^4.6.7",
     "zustand": "^5.1.0"
   },
-  "homepage": "https://example.invalid/hirora"
+  "homepage": "https://example.invalid/hirora",
+  "dependencies": {
+    "onnxruntime-node": "^1.31.1"
+  }
 }

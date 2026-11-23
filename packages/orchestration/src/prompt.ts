@@ -132,10 +132,13 @@ function transcriptBlock(segs: TranscriptSegment[], compact = false): string {
   const lines = segs
     .filter((s) => s.final && s.text.trim())
     .slice(compact ? -4 : -8)
-    .map((s) => `[${s.source === 'mic' ? 'microphone' : s.source === 'typed' ? 'typed' : 'system audio'}] ${s.text}`);
+    .map((s) => {
+      const who = s.role === 'me' ? 'user' : s.role === 'interviewer' ? 'other side' : s.source === 'mic' ? 'microphone' : s.source === 'typed' ? 'typed' : 'system audio';
+      return `[${who}] ${s.text}`;
+    });
   let text = lines.join('\n');
   if (text.length > 1600) text = text.slice(-1600);
-  return text ? `<transcript note="device labels only; speaker identity unknown">\n${escapeData(text)}\n</transcript>` : '';
+  return text ? `<transcript note="[user] = the user's microphone, [other side] = the call's audio; otherwise device labels">\n${escapeData(text)}\n</transcript>` : '';
 }
 
 function memoryBlock(turns: MemoryTurn[], compact = false): string {

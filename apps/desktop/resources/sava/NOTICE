@@ -1,0 +1,10 @@
+SAVA (Semantic Acoustic Voice Activity)
+Copyright 2025 Inworld AI
+
+Licensed under the Apache License, Version 2.0.
+Upstream: https://github.com/inworld-ai/sava
+Weights: https://huggingface.co/inworld/sava
+
+Hirora loads an unofficial ONNX export of those weights
+(https://huggingface.co/matthiastl/sava-onnx) for on-device inference.
+That export is also Apache-2.0 and is not made or endorsed by Inworld.

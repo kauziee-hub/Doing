@@ -17,6 +17,9 @@ tests/performance/results/*.json
 .env.*
 *.secret
 secrets.json
+# local owner notes — not product source
+decisions.md
+apps/desktop/resources/sava/*.onnx
 
 # website build artifacts (installer + screenshots are copied in by prepare-release)
 apps/website/public/download/

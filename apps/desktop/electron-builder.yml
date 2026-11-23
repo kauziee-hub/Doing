@@ -1,4 +1,5 @@
-# All runtime code is bundled by electron-vite, so no node_modules are packaged.
+# All runtime code is bundled by electron-vite. The one runtime dependency is onnxruntime-node
+# (native, for the SAVA turn model): only its Windows x64 CPU build is packaged.
 appId: app.hirora.desktop
 productName: Hirora
 copyright: Copyright © 2026 Hirora contributors
@@ -9,6 +10,13 @@ files:
   - out/**
   - package.json
   - "!**/*.map"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v6/darwin/**"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v6/linux/**"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"
+  - "!**/node_modules/onnxruntime-node/script/**"
+  # SAVA runs on the CPU execution provider: the DirectML (GPU) libraries aren't needed.
+  - "!**/node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll"
 asar: true
 extraResources:
   - from: ../../native/windows-audio/target/release/hirora-audio.exe
@@ -19,6 +27,8 @@ extraResources:
     to: tray.png
   - from: resources/tray@2x.png
     to: tray@2x.png
+  - from: resources/sava
+    to: sava
 win:
   target:
     - target: nsis

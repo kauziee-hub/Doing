@@ -1,4 +1,4 @@
-import type { AudioSource, TranscriptSegment } from '@hirora/contracts';
+import type { AudioSource, SpeakerRole, TranscriptSegment } from '@hirora/contracts';
 import { analyzeQuestion } from './question';
 
 /** Providers sometimes glue sentences together ("thread?You"): restore the missing space. */
@@ -26,6 +26,7 @@ interface Current {
   interim: string;
   startedAt: number;
   lastUpdateAt: number;
+  role?: TranscriptSegment['role'];
 }
 
 /**
@@ -44,6 +45,7 @@ export class TranscriptAssembler {
     private readonly now: () => number = Date.now,
     /** Finalize automatically when a provider never signals utterance end. */
     private readonly idleFinalizeMs = 2500,
+    private readonly role: SpeakerRole | null = null,
   ) {}
 
   private ensure(): Current {
@@ -66,6 +68,9 @@ export class TranscriptAssembler {
       endedAt: null,
       isQuestion: false,
       questionScore: 0,
+      role: this.role ?? undefined,
+      committedText: c.committed || undefined,
+      tentativeText: c.interim || undefined,
     });
     this.armIdle();
   }
@@ -80,6 +85,16 @@ export class TranscriptAssembler {
     if (!text.trim() && !this.current) return;
     const c = this.ensure();
     c.interim = text;
+    c.lastUpdateAt = this.now();
+    this.publish();
+  }
+
+  /** Streaming path: stable prefix + grey tail. Prefetch should use `committed` only. */
+  live(committed: string, tentative: string): void {
+    if (!committed.trim() && !tentative.trim() && !this.current) return;
+    const c = this.ensure();
+    c.committed = committed;
+    c.interim = tentative;
     c.lastUpdateAt = this.now();
     this.publish();
   }
@@ -116,6 +131,9 @@ export class TranscriptAssembler {
       endedAt: this.now(),
       isQuestion: q.isQuestion,
       questionScore: q.score,
+      role: this.role ?? undefined,
+      committedText: text,
+      tentativeText: '',
     };
     this.emit(seg);
     this.onFinal(seg);

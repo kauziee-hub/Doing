@@ -19,6 +19,10 @@ import { TranscriptAssembler } from './transcript';
 import { analyzeQuestion, extractQuestion, isFragment, sameQuestion, triageUtterance } from './question';
 import type { GateDecision } from './gate';
 import type { AnswerEngine } from './answer';
+import { LiveCapture, savaThresholdsFromSettings } from './liveCapture';
+import type { WhisperClient } from './streamingTranscriber';
+import { ConversationContext, isEchoBleed, roleForSource } from './conversationContext';
+import { WhisperLane } from './whisperLane';
 
 /** Abstraction over the native helper so the controller is testable without hardware. */
 export interface AudioInput {
@@ -54,12 +58,22 @@ export interface SessionDeps {
    */
   earlyAnswers?(): boolean;
   now?: () => number;
+  /** Sliding-window Whisper (Change 1). Absent → old whole-utterance path even if the flag is on. */
+  whisperClient?: WhisperClient;
+  /** SAVA probabilities for one 40 ms (640-sample) block, awaited in order per source; null → energy VAD. */
+  savaScores?: (source: AudioSource, pcm40: Buffer) => Promise<{ speech: number; turn: number } | null>;
+  /** SAVA is loaded (it loads in the background after launch). */
+  savaReady?: () => boolean;
+  /** A new stream for this source: SAVA starts from a zero state. */
+  savaReset?: (source: AudioSource) => void;
+  profileVocabulary?: () => string[];
 }
 
 interface SourceRuntime {
   status: SourceStatus;
   stt: SttStream;
   assembler: TranscriptAssembler;
+  live: LiveCapture | null;
   muted: boolean;
   peakSinceEmit: number;
 }
@@ -94,7 +108,12 @@ export class SessionController {
     committed: boolean;
     /** Set when they paused while the check was still running: reveal once it says ANSWER. */
     pausedAt: number | null;
+    prefetchWords: number;
   } | null = null;
+  private readonly conversation = new ConversationContext();
+  private readonly whisperLane = new WhisperLane();
+  private lastSystemFinal: { text: string; ts: number } | null = null;
+  private savaNotice = false;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
   private recordHistory = false;
   private readonly now: () => number;
@@ -109,6 +128,10 @@ export class SessionController {
 
   get transcript(): TranscriptSegment[] {
     return this.segments;
+  }
+
+  conversationBlock(): string {
+    return this.conversation.promptBlock();
   }
 
   private enabledSources(s: AppSettings): AudioSource[] {
@@ -164,7 +187,8 @@ export class SessionController {
       const rt = this.ensureSource(source);
       rt.status.state = 'connecting';
       rt.status.message = null;
-      rt.stt.start();
+      if (!rt.live) rt.stt.start();
+      else rt.status.sttState = 'open';
       try {
         await this.deps.audio.start(source, {
           deviceId: source === 'mic' ? settings.audio.micDeviceId : source === 'system' ? settings.audio.systemDeviceId : null,
@@ -195,11 +219,15 @@ export class SessionController {
       framesPadded: 0,
       message: null,
     };
+    const settings0 = this.deps.settings();
+    const role = roleForSource(source, settings0.stt.captureMode);
     const assembler = new TranscriptAssembler(
       source,
       (seg) => this.onSegmentUpdate(seg),
       (seg) => this.onSegmentFinal(seg),
       this.now,
+      2500,
+      role === 'unknown' ? null : role,
     );
     const sttOpts = (): SttOptions => {
       const s = this.deps.settings().stt;
@@ -214,7 +242,7 @@ export class SessionController {
       onFinal: (t) => assembler.finalSegment(t),
       onUtteranceEnd: () => assembler.finalize(),
       onPause: (lastSpeechAt) => this.onPause(source, lastSpeechAt),
-      onResume: () => this.pausedAt.delete(source),
+      onResume: () => this.onSpeechResume(source),
       onState: (st: SttConnState, err: ProviderError | null) => {
         status.sttState = st;
         status.sttError = err ? `${err.message}` : st === 'open' ? null : status.sttError;
@@ -224,7 +252,66 @@ export class SessionController {
       perf: (s) => this.deps.perf(s),
       now: this.now,
     });
-    rt = { status, stt, assembler, muted: false, peakSinceEmit: -100 };
+    const streaming = settings0.stt.streamingTranscription && !!this.deps.whisperClient;
+    // Your own mic, when it isn't answered automatically: no live text, one decode at the end of each turn.
+    const cheap = role === 'me' && !settings0.answer.autoAnswerSources.includes('mic');
+    const live = streaming
+      ? new LiveCapture({
+          source,
+          role,
+          cheap,
+          client: {
+            decode: async (req) => {
+              const raw = this.deps.whisperClient;
+              if (!raw) return null;
+              return this.whisperLane.run(req.source, req.priority, () => raw.decode(req));
+            },
+          },
+          vocab: () => {
+            const s = this.deps.settings();
+            const extra = this.deps.profileVocabulary?.() ?? [];
+            return [...s.stt.customVocabulary, ...extra].slice(0, 80);
+          },
+          thresholds: () => savaThresholdsFromSettings(this.deps.settings().stt),
+          useSava: settings0.stt.sttTurnDetector === 'sava' && !!this.deps.savaScores,
+          savaReady: () => this.deps.savaReady?.() ?? true,
+          now: this.now,
+          onInterim: (committed, tentative) => {
+            assembler.live(committed, tentative);
+            if (!cheap && this.state === 'listening' && this.isAutoSource(source) && (this.deps.earlyAnswers?.() ?? true)) {
+              // The whole latest decode, as in 0.3.1: committed words alone lag a tick behind, so an
+              // early answer from them would miss the end of the question.
+              this.speculate({
+                id: assembler.inProgressText,
+                source,
+                text: [committed, tentative].filter(Boolean).join(' '),
+                final: false,
+                startedAt: this.now(),
+                endedAt: null,
+                isQuestion: false,
+                questionScore: 0,
+                committedText: committed,
+                tentativeText: tentative,
+                role,
+              });
+            }
+          },
+          onFinal: (text) => {
+            assembler.live(text, '');
+            assembler.finalize();
+          },
+          onPause: (lastVoiceTs) => this.onPause(source, lastVoiceTs),
+          onResume: () => this.onSpeechResume(source),
+          onWindowMs: (ms) => this.deps.perf({ stage: 'stt_window', ms, at: this.now(), provider: 'local-whisper', model: null, label: source }),
+          savaScores: this.deps.savaScores ? (pcm) => this.deps.savaScores!(source, pcm) : undefined,
+        })
+      : null;
+    if (live) this.deps.savaReset?.(source);
+    if (live && settings0.stt.sttTurnDetector === 'sava' && !(this.deps.savaReady?.() ?? !!this.deps.savaScores) && !this.savaNotice) {
+      this.savaNotice = true;
+      this.deps.emit({ type: 'toast', level: 'info', message: 'Turn detection is using the energy voice detector (SAVA is not loaded).' });
+    }
+    rt = { status, stt, assembler, live, muted: false, peakSinceEmit: -100 };
     this.sources.set(source, rt);
     return rt;
   }
@@ -237,7 +324,8 @@ export class SessionController {
     rt.peakSinceEmit = Math.max(rt.peakSinceEmit, level);
     rt.status.levelDbfs = level;
     if (rt.muted) return;
-    rt.stt.pushFrame(pcm, level);
+    if (rt.live) rt.live.pushFrame(pcm);
+    else rt.stt.pushFrame(pcm, level);
   }
 
   onSourceStatus(source: AudioSource, state: string, info: { deviceName?: string | null; message?: string | null }): void {
@@ -279,12 +367,26 @@ export class SessionController {
 
   private onSegmentUpdate(seg: TranscriptSegment): void {
     this.deps.emit({ type: 'transcript', segment: seg });
+    if (seg.committedText !== undefined) return; // live path already speculated from committed text
     if (!seg.final && this.state === 'listening' && this.isAutoSource(seg.source) && (this.deps.earlyAnswers?.() ?? true)) this.speculate(seg);
   }
 
   private isAutoSource(source: TranscriptSegment['source']): boolean {
     const s = this.deps.settings();
-    return s.answer.autoAnswer && s.answer.autoAnswerSources.includes(source as AudioSource);
+    if (!s.answer.autoAnswer) return false;
+    // One mic for everyone in the room: every turn may be a question.
+    if (s.stt.captureMode === 'single-mic' && source === 'mic') return true;
+    return s.answer.autoAnswerSources.includes(source as AudioSource);
+  }
+
+  private onSpeechResume(source: AudioSource): void {
+    this.pausedAt.delete(source);
+    const spec = this.spec;
+    if (!spec || spec.source !== source) return;
+    if (!spec.committed) {
+      this.deps.answer.dropPrefetch();
+      this.spec = null;
+    }
   }
 
   /** Live text from the other side: start answering early if it already reads as a question. */
@@ -296,14 +398,17 @@ export class SessionController {
     // Still the same question, unless an unfinished fragment just became complete ("…a process and a" →
     // "…a process and a thread"): then start over from the complete text so it can be shown at the pause.
     const completed = !!cur && isFragment(cur.text) && !isFragment(text);
-    if (cur && cur.source === seg.source && sameQuestion(cur.text, text) && !(completed && !cur.committed)) return;
+    const words = text.split(/\s+/).filter(Boolean).length;
+    if (cur && cur.source === seg.source && sameQuestion(cur.text, text) && !(completed && !cur.committed)) {
+      if (words - cur.prefetchWords < 3) return;
+    }
     if (cur && !cur.committed) this.deps.answer.dropPrefetch();
     if (cur?.committed && cur.source === seg.source) return; // already on screen; the final decides
     this.spec = null;
     if (triage === 'ignore') return;
     if (triage === 'check' && !this.deps.gate && !seg.isQuestion && !analyzeQuestion(text).isQuestion) return;
     const id = this.deps.answer.prefetch({ question: extractQuestion(text), origin: seg.source as AudioSource });
-    const spec = { id, text, source: seg.source as AudioSource, decision: (triage === 'answer' || !this.deps.gate ? 'answer' : 'pending') as 'answer' | 'pending', committed: false, pausedAt: null as number | null };
+    const spec = { id, text, source: seg.source as AudioSource, decision: (triage === 'answer' || !this.deps.gate ? 'answer' : 'pending') as 'answer' | 'pending', committed: false, pausedAt: null as number | null, prefetchWords: text.split(/\s+/).filter(Boolean).length };
     this.spec = spec;
     if (spec.decision === 'pending') void this.checkSpec(spec);
     // The question only became clear after they had already gone quiet: show it now.
@@ -359,17 +464,22 @@ export class SessionController {
   }
 
   private onSegmentFinal(seg: TranscriptSegment): void {
+    const s = this.deps.settings();
+    const role = seg.role ?? roleForSource(seg.source as AudioSource, s.stt.captureMode);
+    if (role === 'me' && this.lastSystemFinal && isEchoBleed(seg.text, this.lastSystemFinal.text, seg.startedAt, this.lastSystemFinal.ts)) {
+      this.deps.perf({ stage: 'question_gate', ms: 0, at: this.now(), provider: null, model: null, label: 'mic-bleed-dropped' });
+      return;
+    }
+    if (role === 'interviewer') this.lastSystemFinal = { text: seg.text, ts: seg.startedAt };
+    this.conversation.push({ role, text: seg.text, ts: seg.startedAt });
     this.segments.push(seg);
     if (this.segments.length > MAX_SEGMENTS) this.segments.splice(0, this.segments.length - MAX_SEGMENTS);
     if (this.recordHistory && this.sessionId) this.deps.history()?.segment(this.sessionId, seg);
-    const s = this.deps.settings();
-    const autoSource = s.answer.autoAnswer && s.answer.autoAnswerSources.includes(seg.source as AudioSource);
+    const autoSource = this.isAutoSource(seg.source);
     if (!autoSource) {
       // Never auto-answered (e.g. the user's own mic): only remembered for the manual Ask hotkey.
-      if (seg.isQuestion) {
-        this.candidate = { text: extractQuestion(this.withLeadIn(seg)), source: seg.source as AudioSource, score: seg.questionScore };
-        this.pushSnapshot();
-      }
+      if (seg.isQuestion) this.candidate = { text: extractQuestion(this.withLeadIn(seg)), source: seg.source as AudioSource, score: seg.questionScore };
+      this.pushSnapshot();
       return;
     }
     // When the speaker actually stopped (the pause mark), not when the transcript arrived.
@@ -544,6 +654,7 @@ export class SessionController {
     for (const [src, rt] of this.sources) {
       rt.assembler.finalize();
       rt.stt.stop();
+      rt.live?.dispose();
       try {
         await this.deps.audio.stop(src);
       } catch {
