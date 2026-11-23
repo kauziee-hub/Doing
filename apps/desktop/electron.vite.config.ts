@@ -20,7 +20,7 @@ function cspPlugin(): Plugin {
 // Everything except Electron, Node built-ins and optional native accelerators is
 // bundled, so the packaged app needs no node_modules at runtime (simpler, smaller,
 // and no native modules to rebuild for Electron's ABI).
-const optionalNative = ['bufferutil', 'utf-8-validate', 'canvas', '@napi-rs/canvas'];
+const optionalNative = ['bufferutil', 'utf-8-validate', 'canvas', '@napi-rs/canvas', 'onnxruntime-node'];
 
 export default defineConfig({
   main: {

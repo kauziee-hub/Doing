@@ -825,3 +825,36 @@ describe('screen context', () => {
     expect(user.find((p) => p.type === 'image')?.base64).toBe('SCREEN');
   });
 });
+
+describe('priming prefix stays byte-identical when conversation grows', () => {
+  it('buildPrimingMessages does not include conversation turns', async () => {
+    const { buildMessages, buildPrimingMessages } = await import('./prompt');
+    const s = defaultSettings();
+    const base = {
+      depth: 'fast' as const,
+      settings: s.answer,
+      includeProfile: true,
+      personal: { fullName: 'Ada', headline: 'eng', summary: '', skills: ['Go'], speakingStyle: '' },
+      session: null,
+      evidence: [] as RetrievedChunk[],
+    };
+    const a = buildPrimingMessages(base);
+    const b = buildMessages({
+      ...base,
+      question: 'Why Go?',
+      questionOrigin: 'system audio',
+      recentTranscript: [],
+      memory: [],
+      conversation: [
+        { role: 'interviewer', text: 'Tell me about yourself', ts: 1 },
+        { role: 'me', text: 'I write Go', ts: 2 },
+      ],
+    });
+    expect(a[0]!.content).toBe(b[0]!.content);
+    const primeUser = a[1]!.content as string;
+    const fullUser = b[1]!.content as string;
+    expect(fullUser.startsWith(primeUser)).toBe(true);
+    expect(primeUser).not.toContain('Interviewer:');
+    expect(fullUser).toContain('Interviewer:');
+  });
+});

@@ -185,6 +185,7 @@ export class AnswerEngine {
     if (f.firstTokenAt !== null) {
       f.record.firstTokenMs = Math.max(0, now - opts.questionEndedAt);
       this.deps.perf({ stage: 'question_to_first_token', ms: f.record.firstTokenMs, at: now, provider: f.record.provider, model: f.record.model, label: `${f.record.questionSource}:prefetched` });
+      this.deps.perf({ stage: 'last_word_to_first_token', ms: f.record.firstTokenMs, at: now, provider: f.record.provider, model: f.record.model, label: `${f.record.questionSource}:prefetched` });
     }
     if (!f.done) this.current = f;
     this.deps.emit({ ...f.record, text: '' });
@@ -353,6 +354,12 @@ export class AnswerEngine {
       session: ctx.session,
       evidence,
       recentTranscript: lean ? ctx.transcript.slice(-2) : input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
+      conversation: ctx.transcript.some((s) => s.role)
+        ? ctx.transcript
+            .filter((s) => s.final && s.text.trim())
+            .slice(-8)
+            .map((s) => ({ role: s.role ?? 'unknown', text: s.text, ts: s.startedAt }))
+        : undefined,
       memory: input.useMemory === false || lean ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
       compact,
       missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),

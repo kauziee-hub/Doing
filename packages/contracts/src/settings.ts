@@ -144,6 +144,22 @@ export const AppSettingsSchema = z.object({
       /** Whisper language code (e.g. en, hi). Empty string = automatic detection. */
       language: z.string().max(20).default(''),
       customVocabulary: z.array(z.string().max(50)).max(100).default([]),
+      /** LocalAgreement sliding windows instead of re-sending the whole utterance. */
+      streamingTranscription: z.boolean().default(true),
+      /** SAVA end-of-turn; `energy` is the previous VAD + 300 ms pause. */
+      sttTurnDetector: z.enum(['sava', 'energy']).default('sava'),
+      /** Interviewer = system loopback, me = mic. Off = previous autoAnswerSources behaviour. */
+      roleSeparation: z.boolean().default(true),
+      /** `single-mic` treats everything as one unknown stream (answers all turns). */
+      captureMode: z.enum(['two-stream', 'single-mic']).default('two-stream'),
+      /** Optional high-beam full-utterance decode for saved history only (never the live answer). */
+      highBeamHistory: z.boolean().default(false),
+      savaAggressiveness: z.enum(['low', 'medium', 'high']).default('medium'),
+      speechOnThreshold: z.number().min(0).max(1).default(0.5),
+      turnThreshold: z.number().min(0).max(1).default(0.5),
+      turnHoldFrames: z.number().int().min(1).max(8).default(2),
+      maxSilenceMs: z.number().int().min(200).max(4000).default(1200),
+      savaMinEnergyDbfs: z.number().min(-90).max(0).default(-50),
     })
     .prefault({}),
   audio: z

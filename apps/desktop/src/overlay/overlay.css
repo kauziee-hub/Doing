@@ -59,6 +59,7 @@ html.is-overlay, html.is-overlay body, html.is-overlay #root { background: trans
 .ov-line__src.src-system, .ov-line__src.src-app { color: var(--sky-ink); }
 .ov-line__src.src-typed { color: var(--lilac-ink); }
 .ov-line__text { color: var(--text-2); flex: 1; }
+.ov-line__tentative { color: var(--text-3); opacity: 0.75; }
 .ov-line__ask { opacity: 0; border: 0; background: var(--sunken); color: var(--text-2); border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; cursor: pointer; flex: none; }
 .ov-line:hover .ov-line__ask, .ov-line__ask:focus-visible { opacity: 1; }
 

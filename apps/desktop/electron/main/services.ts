@@ -24,7 +24,7 @@ import {
 import type { SqlDatabase } from '@hirora/knowledge';
 import { AnswerEngine, SessionController, refersToScreen, runGate } from '@hirora/orchestration';
 import type { AudioInput } from '@hirora/orchestration';
-import { createAnswerProvider, createTranscriber, toProviderError } from '@hirora/providers';
+import { createAnswerProvider, createTranscriber, runWhisperInference, toProviderError } from '@hirora/providers';
 import type { FetchLike, TextModelProvider } from '@hirora/providers';
 import { SettingsStore } from '@hirora/settings';
 import { AudioHelper } from './audioHelper';
@@ -32,6 +32,7 @@ import type { Logger } from './logger';
 import type { WindowManager } from './windows';
 import { EngineManager } from './engine';
 import { captureScreen } from './screenCapture';
+import { SavaOnnxEngine } from './stt/savaOnnx';
 
 export function resolveHelperPath(): string | null {
   const exe = 'hirora-audio.exe';
@@ -59,6 +60,7 @@ export class AppServices {
   readonly answer: AnswerEngine;
   readonly session: SessionController;
   readonly engine: EngineManager;
+  readonly sava: SavaOnnxEngine;
   private answerProvider: TextModelProvider | null = null;
   windows: WindowManager | null = null;
   private keepWarmTimer: ReturnType<typeof setInterval> | null = null;
@@ -76,6 +78,8 @@ export class AppServices {
     this.usage = new UsageStore(this.db);
     this.captureResults = new CaptureResultStore(this.db);
     this.helper = new AudioHelper(resolveHelperPath(), log);
+    this.sava = new SavaOnnxEngine(log);
+    void this.sava.start();
     this.engine = new EngineManager({
       log,
       settings: () => this.settings.get(),
@@ -134,6 +138,28 @@ export class AppServices {
       perf: (s) => this.recordPerf(s),
       helperInfo: () => ({ running: this.helper.running, version: this.helper.version, error: this.helper.lastError }),
       earlyAnswers: () => this.engine.tier === 'gpu',
+      whisperClient: {
+        decode: async (req) => {
+          try {
+            const parsed = await runWhisperInference(`${this.engine.whisperUrl}/inference`, netFetch, req.pcm, {
+              language: this.settings.get().stt.language,
+              prompt: req.prompt,
+              beamSize: req.beamSize,
+              wordTimestamps: true,
+            });
+            return { text: parsed.text, words: parsed.words, wordTimestamps: parsed.wordTimestamps };
+          } catch (err) {
+            this.log.warn('whisper window decode failed', { error: (err as Error).message, source: req.source });
+            return null;
+          }
+        },
+      },
+      savaScores: (source, pcm, _energy) => (this.sava.ready ? this.sava.scores(source, pcm) : null),
+      profileVocabulary: () => {
+        const p = this.knowledge.getProfile();
+        const sp = this.knowledge.getSessionProfile(this.settings.get().activeProfileId);
+        return [...p.skills, sp?.company ?? '', sp?.role ?? ''].map((x) => x.trim()).filter(Boolean);
+      },
       // Same local model as answers: one fast one-word call for lines that might be questions.
       // Hirora's Ollama serves two requests at once, so the check never waits behind an answer.
       gate: async (utterance, recent, signal) => {

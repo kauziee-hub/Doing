@@ -226,6 +226,8 @@ export interface SourceStatus {
 
 export type SessionState = 'idle' | 'starting' | 'listening' | 'paused' | 'stopping' | 'error';
 
+export type SpeakerRole = 'interviewer' | 'me' | 'unknown';
+
 export interface TranscriptSegment {
   id: string;
   source: AudioSource | 'typed';
@@ -235,6 +237,11 @@ export interface TranscriptSegment {
   endedAt: number | null;
   isQuestion: boolean;
   questionScore: number;
+  role?: SpeakerRole;
+  /** Locked prefix (streaming transcription). */
+  committedText?: string;
+  /** Unstable tail shown grey in the overlay. */
+  tentativeText?: string;
 }
 
 export type AnswerStatus = 'queued' | 'retrieving' | 'waiting' | 'streaming' | 'done' | 'error' | 'cancelled';
@@ -326,6 +333,8 @@ export const PERF_STAGES = [
   'app_cold_start',
   'provider_preconnect',
   'screen_capture',
+  'stt_window',
+  'last_word_to_first_token',
 ] as const;
 export type PerfStage = (typeof PERF_STAGES)[number];
 

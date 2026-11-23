@@ -162,10 +162,16 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
 }
 
 export function TranscriptLine({ seg }: { seg: TranscriptSegment }) {
+  const label = seg.role === 'me' ? 'Me' : seg.role === 'interviewer' ? 'Interviewer' : SOURCE_LABEL[seg.source] ?? seg.source;
+  const committed = seg.committedText ?? (seg.final ? seg.text : '');
+  const tentative = seg.tentativeText ?? (!seg.final && !seg.committedText ? seg.text : '');
   return (
     <div className={cx('ov-line', !seg.final && 'is-interim', seg.isQuestion && 'is-question')}>
-      <span className={cx('ov-line__src', `src-${seg.source}`)}>{SOURCE_LABEL[seg.source] ?? seg.source}</span>
-      <span className="ov-line__text">{seg.text}</span>
+      <span className={cx('ov-line__src', `src-${seg.source}`)}>{label}</span>
+      <span className="ov-line__text">
+        {committed}
+        {tentative ? <span className="ov-line__tentative">{committed ? ' ' : ''}{tentative}</span> : null}
+      </span>
       {seg.final && seg.source !== 'typed' ? (
         <button type="button" className="ov-line__ask" title="Answer this" onClick={() => void invoke('ask:segment', { segmentId: seg.id })}>
           <ArrowUpRight size={12} />

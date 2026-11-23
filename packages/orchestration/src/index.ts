@@ -7,3 +7,8 @@ export * from './answer';
 export * from './sttStream';
 export * from './session';
 export * from './screen';
+export * from './streamingTranscriber';
+export * from './turnDetector';
+export * from './conversationContext';
+export * from './whisperLane';
+export * from './liveCapture';

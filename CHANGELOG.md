@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+**Faster last-word → first-token path** (feature-flagged; off restores 0.3.1).
+- Sliding-window Whisper with LocalAgreement-2 commit (`stt.streamingTranscription`). Prefetch uses committed text only. Final LLM text is the stitch, not a second high-beam pass.
+- SAVA end-of-turn when `sava-int8.onnx` is present (`stt.sttTurnDetector=sava`); automatic energy-VAD fallback. No extra process.
+- Role separation: system = interviewer, mic = me; only interviewer turns auto-answer. Bleed filter for headphone-less mics.
+- KPI: perf stage `last_word_to_first_token`. Docs: `docs/STT_STREAMING.md`.
+
 ## 0.3.1 — 2026-11-22 (unsigned)
 **One assistant that also reads the shared screen** (ADR 0013).
 - **No modes.** Meeting Notes, General Q&A, Explain / Teach, Coding, Interview Practice and Live Copilot are merged into one assistant whose prompt covers every kind of request: questions about the user (first person, from the résumé, missing facts flagged), code and design tasks (answer, approach, code, complexity, tests), concepts, summaries of the call (decisions, owners, open questions), anything else. The mode pickers are gone from Home, the overlay, onboarding, Profiles and Settings; Home shows what the assistant can do instead. A saved mode from 0.3.0 loads as `assistant`. Automatic answers are no longer switched off by a "notes" mode.

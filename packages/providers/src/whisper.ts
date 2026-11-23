@@ -42,7 +42,10 @@ function chunkDbfs(pcm: Buffer): number {
 
 interface WhisperSegment {
   text?: string;
+  start?: number;
+  end?: number;
   no_speech_prob?: number;
+  words?: Array<{ word?: string; start?: number; end?: number; probability?: number }>;
 }
 
 /** Drops segments Whisper itself marks as probably-not-speech (its classic silence hallucinations). */
@@ -81,6 +84,88 @@ interface WhisperEndpoint {
   /** Extra silence after the VAD's end of speech before the final transcription. */
   endDebounceMs: number;
   timeoutMs: number;
+}
+
+/** whisper.cpp initial_prompt is truncated around this many tokens. */
+export const WHISPER_PROMPT_MAX_TOKENS = 224;
+
+export interface WhisperWord {
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
+export interface WhisperParse {
+  text: string;
+  words: WhisperWord[];
+  wordTimestamps: boolean;
+}
+
+/** Merge token-level verbose_json "words" into display words (split_on_word / leading space). */
+export function parseWhisperResponse(j: { text?: string; segments?: WhisperSegment[] }): WhisperParse {
+  const text = stripAnnotations(whisperText(j));
+  const words: WhisperWord[] = [];
+  for (const seg of j.segments ?? []) {
+    if ((seg.no_speech_prob ?? 0) >= 0.6) continue;
+    if (Array.isArray(seg.words) && seg.words.length) {
+      for (const w of seg.words) {
+        const raw = (w.word ?? '').replace(/\s+/g, ' ');
+        if (!raw.trim()) continue;
+        const startMs = Math.round((w.start ?? 0) * 1000);
+        const endMs = Math.round((w.end ?? w.start ?? 0) * 1000);
+        if (raw.startsWith(' ') || words.length === 0) words.push({ text: raw.trim(), startMs, endMs });
+        else {
+          const last = words[words.length - 1]!;
+          last.text += raw.trim();
+          last.endMs = endMs;
+        }
+      }
+    } else if (seg.text?.trim()) {
+      words.push({
+        text: stripAnnotations(seg.text.trim()),
+        startMs: Math.round((seg.start ?? 0) * 1000),
+        endMs: Math.round((seg.end ?? seg.start ?? 0) * 1000),
+      });
+    }
+  }
+  const wordTimestamps = (j.segments ?? []).some((s) => Array.isArray(s.words) && s.words.length > 0);
+  return { text, words: wordTimestamps ? words.filter((w) => w.text) : words, wordTimestamps };
+}
+
+export async function runWhisperInference(
+  url: string,
+  fetchImpl: FetchLike,
+  pcm: Buffer,
+  opts: {
+    language: string;
+    prompt: string;
+    timeoutMs?: number;
+    beamSize?: number;
+    wordTimestamps?: boolean;
+  },
+): Promise<WhisperParse> {
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(pcmToWav(pcm))], { type: 'audio/wav' }), 'utterance.wav');
+  form.append('temperature', '0.0');
+  form.append('response_format', opts.wordTimestamps === false ? 'json' : 'verbose_json');
+  if (opts.wordTimestamps !== false) {
+    form.append('token_timestamps', 'true');
+    form.append('split_on_word', 'true');
+  }
+  const lang = opts.language.split('-')[0]?.toLowerCase() ?? '';
+  form.append('language', /^[a-z]{2}$/.test(lang) ? lang : 'auto');
+  if (opts.prompt) form.append('prompt', opts.prompt.slice(0, WHISPER_PROMPT_MAX_TOKENS * 4));
+  if (opts.beamSize && opts.beamSize > 1) form.append('beam_size', String(opts.beamSize));
+  const res = await fetchImpl(url, { method: 'POST', body: form, signal: AbortSignal.timeout(opts.timeoutMs ?? 8000) });
+  const body = await res.text();
+  if (!res.ok) throw mapHttpError('local-whisper', res.status, body);
+  let j: { text?: string; segments?: WhisperSegment[] };
+  try {
+    j = JSON.parse(body) as typeof j;
+  } catch {
+    throw new ProviderError('local-whisper', 'server_error', 'Transcription server returned non-JSON');
+  }
+  return parseWhisperResponse(j);
 }
 
 /** Default address of the whisper.cpp server Hirora starts (loopback only). */
