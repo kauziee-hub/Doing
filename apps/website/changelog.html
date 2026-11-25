@@ -29,7 +29,23 @@
       <div class="page-body">
         <div class="wrap">
           <section class="release">
-            <div><h2>0.3.3</h2><time datetime="2026-11-26">26 November 2026</time><span class="badge">Latest</span></div>
+            <div><h2>0.3.5</h2><time datetime="2026-11-26">26 November 2026</time><span class="badge">Latest</span></div>
+            <ul>
+              <li>A follow-up about one thing you’ve used (“random forest? what did you do with it?”) is answered from your own documents only; an example in Hirora’s instructions could slip into answers.</li>
+              <li>“What do you know in ML?” lists methods and models, not web frameworks or cloud services.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.3.4</h2><time datetime="2026-11-26">26 November 2026</time></div>
+            <ul>
+              <li><strong>Answers that sound like you talking.</strong> Asked “what do you know in ML?”, Hirora now gives the plain list, and a follow-up like “random forest? what did you do with it?” gets one or two sentences, not a story. Short answers are one to three spoken sentences, medium two to five; Expand still gives the long version.</li>
+              <li>On NVIDIA graphics cards, answers no longer stop mid-sentence when you’ve added a full résumé: the answer engine now has twice the room.</li>
+              <li>Fixed: after one over-long question, later answers could come back slow or empty until Hirora was restarted.</li>
+              <li>Questions about your own work (“Did you write all this code yourself?”) no longer read the screen.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.3.3</h2><time datetime="2026-11-26">26 November 2026</time></div>
             <ul>
               <li><strong>More documents, still answers.</strong> Adding several documents next to a résumé could make every answer fail, because the prompt no longer fitted the local model. Hirora now keeps the material it sends within the model's limit, résumé first, and retries with less if it ever overflows.</li>
               <li>Screen reading no longer starts on everyday phrases like “Where do you see yourself in five years?” or “How would you improve it?”. It looks at the screen only when a question points at something shown.</li>

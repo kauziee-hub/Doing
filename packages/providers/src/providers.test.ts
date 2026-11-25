@@ -10,7 +10,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { SseParser } from './sse';
 import { mapHttpError } from './errors';
-import { OllamaProvider, validateLocalBaseUrl } from './openaiCompatible';
+import { OllamaProvider, isContextOverflowMessage, validateLocalBaseUrl } from './openaiCompatible';
 import { createAnswerProvider, createTranscriber } from './index';
 import type { StreamChunk } from './types';
 
@@ -117,6 +117,59 @@ describe('Answer engine stream (fixture)', () => {
     const r = await collect(p.stream({ model: 'x', messages: [{ role: 'user', content: 'q' }], maxOutputTokens: 5, effort: 'fast', signal: new AbortController().signal }));
     expect(r.text).toBe('ok');
     expect(n).toBe(2);
+    // Remembered: the next request goes without them straight away.
+    n = 0;
+    await collect(p.stream({ model: 'x', messages: [{ role: 'user', content: 'q' }], maxOutputTokens: 5, effort: 'fast', signal: new AbortController().signal }));
+    expect(n).toBe(1);
+  });
+
+  it('keeps reasoning off after a prompt that is too long for the context', async () => {
+    routes.clear();
+    let tooLong = true;
+    const bodies: Array<Record<string, unknown>> = [];
+    routes.set('/v1/chat/completions', (_r, body, res) => {
+      bodies.push(JSON.parse(body));
+      if (tooLong) {
+        res.writeHead(400).end(JSON.stringify({ error: { message: 'the request exceeds the available context size, try increasing it' } }));
+        return;
+      }
+      sse(res, [JSON.stringify({ choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] }), '[DONE]']);
+    });
+    const p = new OllamaProvider(`${base}/v1`, fetch);
+    const req = () => p.stream({ model: 'qwen3.5:4b', messages: [{ role: 'user', content: 'q' }], maxOutputTokens: 5, effort: 'fast', signal: new AbortController().signal });
+    await expect(collect(req())).rejects.toMatchObject({ status: 400 });
+    expect(bodies).toHaveLength(1); // no pointless retry without the fields
+    tooLong = false;
+    const r = await collect(req());
+    expect(r.text).toBe('ok');
+    expect(bodies[1]).toMatchObject({ reasoning_effort: 'none' });
+  });
+
+  it('does not forget the fields when the retry without them fails too', async () => {
+    routes.clear();
+    let broken = true;
+    const bodies: Array<Record<string, unknown>> = [];
+    routes.set('/v1/chat/completions', (_r, body, res) => {
+      bodies.push(JSON.parse(body));
+      if (broken) {
+        res.writeHead(400).end(JSON.stringify({ error: { message: 'bad request' } }));
+        return;
+      }
+      sse(res, [JSON.stringify({ choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] }), '[DONE]']);
+    });
+    const p = new OllamaProvider(`${base}/v1`, fetch);
+    const req = () => p.stream({ model: 'qwen3.5:4b', messages: [{ role: 'user', content: 'q' }], maxOutputTokens: 5, effort: 'fast', signal: new AbortController().signal });
+    await expect(collect(req())).rejects.toMatchObject({ status: 400 });
+    expect(bodies).toHaveLength(2);
+    broken = false;
+    await collect(req());
+    expect(bodies[2]).toMatchObject({ reasoning_effort: 'none' });
+  });
+
+  it('recognises the engine wording for an over-long prompt', () => {
+    expect(isContextOverflowMessage('prompt is longer than the context length')).toBe(true);
+    expect(isContextOverflowMessage('the request exceeds the available context size, try increasing it')).toBe(true);
+    expect(isContextOverflowMessage('unknown field reasoning_effort')).toBe(false);
   });
 
   it('aborts promptly when the signal fires mid-stream', async () => {

@@ -21,6 +21,12 @@ export interface TierCatalog {
   /** How often live text is refreshed while someone speaks. */
   interimEveryMs: number;
   whisperThreads: number;
+  /**
+   * Tokens per answer slot (Ollama's OLLAMA_CONTEXT_LENGTH). The prompt alone reaches ~4,000
+   * tokens with a full résumé, so at 4K the answer got as few as 67 tokens and stopped
+   * mid-sentence (measured 2026-11-26). 8K on the GPU costs 256 MiB more for the two slots.
+   */
+  answerContext: number;
 }
 
 const WHISPER = 'https://github.com/ggml-org/whisper.cpp/releases/download/b5454';
@@ -56,6 +62,7 @@ export const CATALOG: Record<EngineTier, TierCatalog> = {
     answerModel: { tag: 'qwen3.5:4b', label: 'Qwen 3.5 4B', bytes: 3_324_173_934, vision: true },
     interimEveryMs: 350,
     whisperThreads: 4,
+    answerContext: 8192,
   },
   cpu: {
     speechRuntime: {
@@ -81,6 +88,8 @@ export const CATALOG: Record<EngineTier, TierCatalog> = {
     answerModel: { tag: 'qwen3:1.7b', label: 'Qwen 3 1.7B', bytes: 1_359_292_957, vision: false },
     interimEveryMs: 700,
     whisperThreads: 0, // 0 = half the logical processors, decided at start
+    // Lean prompts on the CPU tier; 8K would hold ~1 GB more RAM for the two slots.
+    answerContext: 4096,
   },
 };
 

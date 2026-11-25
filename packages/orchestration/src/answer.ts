@@ -13,7 +13,7 @@ import type {
   Usage,
 } from '@hirora/contracts';
 import { LOCAL_ENGINE, PROVIDER_ERROR_HINTS } from '@hirora/contracts';
-import { ProviderError, toProviderError } from '@hirora/providers';
+import { ProviderError, isContextOverflowMessage, toProviderError } from '@hirora/providers';
 import type { ContentPart, TextModelProvider } from '@hirora/providers';
 import { buildMessages, buildPrimingMessages, missingFacts } from './prompt';
 import type { MemoryTurn } from './prompt';
@@ -115,7 +115,7 @@ export function fitEvidence(first: RetrievedChunk[], rest: RetrievedChunk[], bud
 
 /** Ollama's reply when the prompt doesn't fit the model's context window. */
 export function isContextOverflow(e: { message: string }): boolean {
-  return /context length|prompt is longer/i.test(e.message);
+  return isContextOverflowMessage(e.message);
 }
 
 const FATAL_FOR_RETRY: ProviderErrorCode[] = ['invalid_key', 'permission_denied', 'quota_exceeded', 'model_not_found', 'content_filtered', 'bad_request', 'aborted', 'not_configured', 'budget_exceeded'];

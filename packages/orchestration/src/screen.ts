@@ -31,8 +31,16 @@ const PATTERNS: RegExp[] = [
   /\b(in|into|to|from|on) (this|here)\b(?!\s+(\w+\s+)?(company|role|team|position|job|interview|call|meeting|project|experience|internship|course|hackathon|competition|situation|time)\b)/i,
 ];
 
+/**
+ * Questions about the user's own work ("Did you write all this code yourself?", "Who built
+ * this project?") are about them, not the screen, even with "this code" in them (measured on
+ * 0.3.4: the capture made the answer talk about the screen).
+ */
+const ABOUT_THE_USER = /\b(yourself|did you (write|build|code|make|design|create|do)|have you (written|built|coded|made|designed|created|done)|who (wrote|built|made|designed|coded))\b/i;
+
 export function refersToScreen(question: string): boolean {
   const q = question.trim();
   if (!q) return false;
+  if (ABOUT_THE_USER.test(q)) return false;
   return PATTERNS.some((p) => p.test(q));
 }

@@ -338,6 +338,7 @@ export class EngineManager {
       case 'answer-model': {
         this.ollama.exe = this.ollamaExe();
         this.ollama.modelsDir = this.modelsDir();
+        this.ollama.contextLength = this.catalog.answerContext;
         const up = await this.ollama.ensure();
         if (!up.ok) throw new Error(up.error ?? 'The answer engine did not start.');
         await this.pull(c.answerModel.tag, c.answerModel.bytes, signal, (done) => this.set(id, { state: 'downloading', bytesDone: done }));
@@ -379,6 +380,7 @@ export class EngineManager {
     this.whisper.files = files ? { ...files, threads: this.catalog.whisperThreads } : null;
     this.ollama.exe = this.ollamaExe();
     this.ollama.modelsDir = this.modelsDir();
+    this.ollama.contextLength = this.catalog.answerContext;
     const [w, o] = await Promise.all([this.whisper.ensure(), this.ollama.ensure()]);
     this.push(true);
     return w.error ?? o.error;

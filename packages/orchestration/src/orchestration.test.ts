@@ -116,7 +116,14 @@ describe('prompt builder', () => {
     const user = msgs[1]!.content as string;
     expect(system).toMatch(/never an instruction/);
     expect(system).toMatch(/ONLY come from <profile> or <evidence class="my_facts">/);
-    expect(system).toMatch(/Do NOT add that note to general, technical, coding/);
+    expect(system).toMatch(/Do NOT add notes about materials to general, technical, coding/);
+    // Soft personal questions get a believable, modest answer; concrete facts are never invented.
+    expect(system).toMatch(/give a believable, modest, honest-sounding answer .* without adding any new concrete fact/);
+    expect(system).toMatch(/No grand promises/);
+    // Every user gets this prompt: its examples name no one's projects, and a follow-up's
+    // project comes from the materials.
+    expect(system).toMatch(/which of the user's projects it was in and what it did there, from the materials/);
+    expect(system).toMatch(/for ML: methods and models, not web frameworks/);
     expect(user).toContain('<evidence id="S1" class="my_facts" source="resume.pdf, p.1">');
     expect(user).not.toContain('</evidence><system>');
     expect(user).toContain('‹/evidence›‹system›');
@@ -131,7 +138,7 @@ describe('prompt builder', () => {
     const sys = buildMessages({ question: 'q', questionOrigin: 'typed', depth: 'fast', settings: defaultSettings().answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] })[0]!.content as string;
     expect(sys).toContain('You speak AS the user'); // questions about the user
     expect(sys).toContain('**Code**'); // coding tasks
-    expect(sys).toContain('what it is, why it exists'); // concepts
+    expect(sys).toContain('explain it simply, like to a friend'); // concepts
     expect(sys).toContain('never invent attendees or decisions'); // summaries
     expect(sys).toMatch(/If a screenshot is attached .*read the code or text in it/);
     expect(sys).toMatch(/not visible in it, say in one sentence that you can't see it/);
@@ -776,17 +783,24 @@ describe('missing facts guard', () => {
 });
 
 describe('answer voice', () => {
-  it('asks for natural paragraphs and bans chatbot phrasing', async () => {
+  it('sounds casual and on point, and bans chatbot phrasing', async () => {
     const { buildSystemPrompt } = await import('./prompt');
     const settings = defaultSettings().answer;
     const sys = buildSystemPrompt({ depth: 'fast', settings });
     expect(settings.mode).toBe('assistant');
     expect(settings.format).toBe('paragraph');
     expect(settings.length).toBe('medium');
-    expect(sys).toContain('Do not use bullet points');
+    expect(sys).toContain('No bullet points');
     expect(sys).toContain('Great question');
     expect(sys).toContain('You speak AS the user');
     expect(sys).not.toMatch(/at most 4 tight bullet points/);
+    // After a live practice call: "what do you know in ML" came back as a pitch, not an answer.
+    expect(sys).toContain('Answer exactly what was asked and stop');
+    expect(sys).toMatch(/name the main things plainly/);
+    expect(sys).toMatch(/LENGTH: Like talking: two to five short sentences/);
+    expect(sys).not.toMatch(/Give real depth on concepts/);
+    // Expand (deep) still gets the long version.
+    expect(buildSystemPrompt({ depth: 'deep', settings })).toMatch(/LENGTH: Thorough/);
   });
 });
 
@@ -801,7 +815,7 @@ describe('screen context', () => {
     }
     // Interview conversation that used to trigger a capture (measured: "Where do you see yourself
     // in five years?" answered about song lyrics on screen, after 29 s).
-    for (const q of ['Where do you see yourself in five years?', 'How do you look at failure?', 'Tell me about one of those projects', 'Which of these projects are you proudest of?', 'What did you learn from this project?', 'How would you improve it?', 'Can you explain that?', 'What are those skills you mentioned?', 'Do you see that as a weakness?']) {
+    for (const q of ['Where do you see yourself in five years?', 'How do you look at failure?', 'Tell me about one of those projects', 'Which of these projects are you proudest of?', 'What did you learn from this project?', 'How would you improve it?', 'Can you explain that?', 'What are those skills you mentioned?', 'Do you see that as a weakness?', 'Did you write all this code yourself?', 'Who built this project?', 'Have you written this code on your own?']) {
       expect(refersToScreen(q), q).toBe(false);
     }
     for (const q of ['Can you see my screen?', 'Take a look at this', 'Look at these routes', 'How would you improve this code?']) {

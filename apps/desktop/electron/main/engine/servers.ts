@@ -130,6 +130,8 @@ export class OllamaServer extends ManagedServer {
   logFile: string | null = null;
   /** Always passed explicitly, so Hirora's server and a user's own Ollama agree on where models are. */
   modelsDir: string | null = null;
+  /** Tokens per answer slot; null leaves Ollama's default (4K). */
+  contextLength: number | null = null;
 
   constructor(log: Logger, private readonly port: number) {
     super(log, 'Answer engine', `http://127.0.0.1:${port}/api/version`, 60_000);
@@ -144,6 +146,7 @@ export class OllamaServer extends ManagedServer {
       OLLAMA_MAX_LOADED_MODELS: '1',
     };
     if (this.modelsDir) env.OLLAMA_MODELS = this.modelsDir;
+    if (this.contextLength) env.OLLAMA_CONTEXT_LENGTH = String(this.contextLength);
     // Tests measure a PC without a GPU this way. Hiding CUDA alone is not enough: Ollama then
     // runs on the same card through Vulkan.
     if (process.env.HIRORA_ENGINE_FORCE_CPU === '1') {

@@ -115,11 +115,15 @@ export class OpenAICompatibleProvider implements TextModelProvider {
           body: JSON.stringify(build(withExtras, this.flavor.supportsStreamUsage)),
           signal: req.signal,
         });
+        // Only a request that worked without the fields proves the model rejects them.
+        if (attempt > 0 && !withExtras) this.rejectedExtras.add(extrasKey);
       } catch (err) {
         const pe = toProviderError(this.id, err);
         // Some models reject optional fields (e.g. thinking toggles): retry once without them.
-        if ((pe.status === 400 || pe.status === 422) && withExtras && this.flavor.fastExtras && req.effort === 'fast' && attempt === 0) {
-          this.rejectedExtras.add(extrasKey);
+        // Not for an over-long prompt: that 400 says nothing about the fields, and dropping
+        // `reasoning_effort` for good made qwen3.5 think on every later answer, which then came
+        // back slow or empty (measured on 0.3.4, 2026-11-26).
+        if ((pe.status === 400 || pe.status === 422) && !isContextOverflowMessage(pe.message) && withExtras && this.flavor.fastExtras && req.effort === 'fast' && attempt === 0) {
           withExtras = false;
           continue;
         }
@@ -163,6 +167,11 @@ export class OpenAICompatibleProvider implements TextModelProvider {
     }
     yield { type: 'done', finishReason };
   }
+}
+
+/** Ollama / llama.cpp wording for a prompt that does not fit the context. */
+export function isContextOverflowMessage(message: string): boolean {
+  return /context length|prompt is longer|exceeds? (the )?(available )?context|context (size|window)/i.test(message);
 }
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
