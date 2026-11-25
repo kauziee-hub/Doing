@@ -269,14 +269,17 @@ export class AppServices {
     }, 4 * 60_000);
   }
 
-  /** The newest résumé in reading order, capped so prompt + answer fit a 4K local context. */
+  /**
+   * The newest résumé in reading order, capped so prompt + answer fit a 4K local context with up
+   * to three other passages and the profile (the answer engine's EVIDENCE_PROMPT_CHARS budget).
+   */
   stableResume(): RetrievedChunk[] {
     const doc = this.knowledge.listDocuments().find((d) => d.kind === 'resume');
     if (!doc) return [];
     const out: RetrievedChunk[] = [];
     let chars = 0;
     for (const c of this.knowledge.getChunks(doc.id)) {
-      if (chars + c.text.length > 8000) break;
+      if (chars + c.text.length > 5200) break;
       chars += c.text.length;
       out.push({ chunkId: c.id, documentId: doc.id, documentTitle: doc.title, fileName: doc.fileName, kind: 'resume', evidence: 'my_facts', page: c.page, section: c.section, ordinal: c.ordinal, text: c.text, score: 1, matchedBy: ['profile'] });
     }

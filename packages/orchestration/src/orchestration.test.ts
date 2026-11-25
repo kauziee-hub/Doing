@@ -799,6 +799,14 @@ describe('screen context', () => {
     for (const q of ['What is RBAC?', 'Tell me about yourself', 'Why do you want to join this company?', 'Tell me about a challenging project you worked on', 'What did we agree on in this meeting?', 'Write a function that reverses a string', 'Can you hear me okay?']) {
       expect(refersToScreen(q), q).toBe(false);
     }
+    // Interview conversation that used to trigger a capture (measured: "Where do you see yourself
+    // in five years?" answered about song lyrics on screen, after 29 s).
+    for (const q of ['Where do you see yourself in five years?', 'How do you look at failure?', 'Tell me about one of those projects', 'Which of these projects are you proudest of?', 'What did you learn from this project?', 'How would you improve it?', 'Can you explain that?', 'What are those skills you mentioned?', 'Do you see that as a weakness?']) {
+      expect(refersToScreen(q), q).toBe(false);
+    }
+    for (const q of ['Can you see my screen?', 'Take a look at this', 'Look at these routes', 'How would you improve this code?']) {
+      expect(refersToScreen(q), q).toBe(true);
+    }
   });
 
   it('attaches the screen to the request and marks the answer', async () => {
@@ -837,6 +845,54 @@ describe('screen context', () => {
     expect(records.get(id)?.usedScreen).toBe(true);
     const user = seen[0]!.messages[1]!.content as Array<{ type: string; base64?: string }>;
     expect(user.find((p) => p.type === 'image')?.base64).toBe('SCREEN');
+  });
+});
+
+describe('prompt fits the local context', () => {
+  const chunk = (id: string, kind: 'resume' | 'project', len: number): RetrievedChunk => ({ chunkId: id, documentId: `doc-${kind}-${id}`, documentTitle: kind, fileName: `${kind}.md`, kind, evidence: 'my_facts', page: null, section: null, ordinal: 0, text: 'x'.repeat(len), score: 1, matchedBy: ['fts'] });
+
+  it('keeps the résumé first and adds passages only while they fit the budget', async () => {
+    const { fitEvidence, EVIDENCE_PROMPT_CHARS } = await import('./answer');
+    const resume = [chunk('r1', 'resume', 2600), chunk('r2', 'resume', 2600)];
+    const passages = [chunk('p1', 'project', 900), chunk('p2', 'project', 900), chunk('p3', 'project', 900)];
+    const out = fitEvidence(resume, passages);
+    expect(out.map((c) => c.chunkId)).toEqual(['r1', 'r2', 'p1', 'p2']);
+    expect(out.reduce((n, c) => n + c.text.length, 0)).toBeLessThanOrEqual(EVIDENCE_PROMPT_CHARS);
+  });
+
+  it('retries once with half the evidence when the engine says the prompt is too long', async () => {
+    const seen: StreamRequest[] = [];
+    const provider: TextModelProvider = {
+      id: 'ollama',
+      label: 'fake',
+      listModels: async () => [],
+      preconnect: async () => undefined,
+      async *stream(req: StreamRequest) {
+        seen.push(req);
+        if (seen.length === 1) throw new ProviderError('ollama', 'bad_request', 'the prompt is longer than the context length currently available to the model');
+        yield { type: 'text', text: 'I built VitaSense.' } as StreamChunk;
+      },
+    };
+    const records = new Map<string, AnswerRecord>();
+    const s = defaultSettings();
+    const { AnswerEngine } = await import('./answer');
+    const e = new AnswerEngine({
+      settings: () => s,
+      resolveProvider: () => ({ provider, model: 'm', deepModel: 'm' }),
+      retrieve: async () => ({ chunks: [chunk('p1', 'project', 900), chunk('p2', 'project', 900)], ms: 1 }),
+      stableResume: () => [chunk('r1', 'resume', 2000), chunk('r2', 'resume', 2000)],
+      context: () => ({ personal: null, session: null, transcript: [] }),
+      recordUsage: () => undefined,
+      perf: () => undefined,
+      emit: (r) => records.set(r.requestId, r),
+      emitDelta: () => undefined,
+    });
+    const id = e.ask({ question: 'Tell me about VitaSense', origin: 'typed' });
+    await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
+    expect(records.get(id)?.text).toBe('I built VitaSense.');
+    expect(seen).toHaveLength(2);
+    const size = (r: StreamRequest) => JSON.stringify(r.messages).length;
+    expect(size(seen[1]!)).toBeLessThan(size(seen[0]!) - 2000);
   });
 });
 

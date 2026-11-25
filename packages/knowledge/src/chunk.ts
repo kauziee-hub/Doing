@@ -26,15 +26,16 @@ function units(text: string): string[] {
       out.push(t);
       continue;
     }
-    // Split long paragraphs on sentence boundaries.
-    const sentences = t.match(/[^.!?\n]+(?:[.!?]+["')\]]?|\n|$)/g) ?? [t];
+    // Split long paragraphs on sentence boundaries: punctuation followed by white space, so a
+    // decimal ("0.25 s", "CGPA 8.50", "TLS 1.3") is never cut in two.
+    const sentences = t.split(/(?<=[.!?]["')\]]?)\s+|\n+/).filter(Boolean);
     let buf = '';
     for (const s of sentences) {
-      if ((buf + s).length > 400 && buf) {
+      if (buf.length + 1 + s.length > 400 && buf) {
         out.push(buf.trim());
         buf = '';
       }
-      buf += s;
+      buf += (buf ? ' ' : '') + s;
     }
     if (buf.trim()) out.push(buf.trim());
   }

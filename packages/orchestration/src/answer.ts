@@ -88,6 +88,36 @@ interface Inflight {
 /** First-token limit for a request carrying a screen capture (see streamOnce). */
 export const IMAGE_FIRST_TOKEN_TIMEOUT_MS = 15_000;
 
+/**
+ * Evidence characters in one prompt. The local models run with a 4K context: measured on
+ * 2026-11-26, an 8,000-character résumé plus three 900-character passages and a filled-in
+ * profile overflowed it, and every answer failed with "the prompt is longer than the context
+ * length". The résumé comes first (it is capped lower in the app, so the cached prefix stays
+ * the same), then other passages while they fit.
+ */
+export const EVIDENCE_PROMPT_CHARS = 7_400;
+
+export function fitEvidence(first: RetrievedChunk[], rest: RetrievedChunk[], budget = EVIDENCE_PROMPT_CHARS): RetrievedChunk[] {
+  const out: RetrievedChunk[] = [];
+  let used = 0;
+  for (const c of first) {
+    if (used + c.text.length > budget) break;
+    out.push(c);
+    used += c.text.length;
+  }
+  for (const c of rest) {
+    if (used + c.text.length > budget) continue;
+    out.push(c);
+    used += c.text.length;
+  }
+  return out;
+}
+
+/** Ollama's reply when the prompt doesn't fit the model's context window. */
+export function isContextOverflow(e: { message: string }): boolean {
+  return /context length|prompt is longer/i.test(e.message);
+}
+
 const FATAL_FOR_RETRY: ProviderErrorCode[] = ['invalid_key', 'permission_denied', 'quota_exceeded', 'model_not_found', 'content_filtered', 'bad_request', 'aborted', 'not_configured', 'budget_exceeded'];
 const DELTA_FLUSH_MS = 33;
 /** First answers from a local model: ~300 words, which leaves room for the prompt in a 4K context. */
@@ -324,7 +354,7 @@ export class AnswerEngine {
         const stable = compact ? (this.deps.stableResume?.() ?? []) : [];
         // Local model: the whole résumé in a fixed order first, then up to 3 other passages.
         const stableDocs = new Set(stable.map((c) => c.documentId));
-        evidence = stable.length ? [...stable, ...r.chunks.filter((c) => !stableDocs.has(c.documentId)).slice(0, 3)] : r.chunks;
+        evidence = stable.length ? fitEvidence(stable, r.chunks.filter((c) => !stableDocs.has(c.documentId)).slice(0, 3)) : fitEvidence([], r.chunks);
         this.deps.perf({ stage: 'retrieval', ms: r.ms, at: this.now(), provider: null, model: null, label: f.record.mode });
       } catch {
         evidence = [];
@@ -342,7 +372,7 @@ export class AnswerEngine {
     }));
 
     const ctx = this.deps.context();
-    const messages = buildMessages({
+    const build = (ev: RetrievedChunk[]) => buildMessages({
       question: input.question,
       questionOrigin:
         input.origin === 'typed' ? 'typed by the user' : input.origin === 'clipboard' ? 'from clipboard, approved by the user' : input.origin === 'screen' ? 'about the attached screenshot, approved by the user' : `heard on ${input.origin === 'mic' ? 'microphone' : 'system audio'}`,
@@ -352,15 +382,17 @@ export class AnswerEngine {
       includeProfile: settings.privacy.includeProfileInPrompts,
       personal: ctx.personal,
       session: ctx.session,
-      evidence,
+      evidence: ev,
       recentTranscript: lean ? ctx.transcript.slice(-2) : input.origin === 'typed' || input.origin === 'clipboard' ? ctx.transcript.slice(-3) : ctx.transcript,
       memory: input.useMemory === false || lean ? [] : this.memory.slice(-(compact ? Math.min(2, settings.answer.memoryTurns) : settings.answer.memoryTurns)),
       compact,
-      missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...evidence.map((c) => c.text)].join('\n')),
+      missingFacts: missingFacts(input.question, [ctx.personal ? JSON.stringify(ctx.personal) : '', ...ev.map((c) => c.text)].join('\n')),
       images: input.images?.length ? input.images : (screen ?? undefined),
       instruction: input.instruction,
       priorAnswer: input.priorAnswer,
     });
+    let messages = build(evidence);
+    let shrunk = false;
 
     let lastErr: ProviderError | null = null;
     for (let i = 0; i < resolved.length; i++) {
@@ -384,6 +416,15 @@ export class AnswerEngine {
         if (result === 'stale') return;
         lastErr = result;
         this.deps.onProviderResult?.(id, result);
+        // The prompt didn't fit the model's context: once, with half the evidence (résumé first).
+        if (!shrunk && f.record.text.length === 0 && isContextOverflow(result) && evidence.length > 0) {
+          shrunk = true;
+          evidence = fitEvidence(evidence, [], Math.floor(evidence.reduce((n, c) => n + c.text.length, 0) / 2));
+          f.record.sources = f.record.sources.slice(0, evidence.length);
+          messages = build(evidence);
+          attempt = -1;
+          continue;
+        }
         // Never retry once text was shown (would duplicate/garble output).
         if (f.record.text.length > 0) {
           this.fail(f, result);

@@ -47,6 +47,16 @@ describe('chunker', () => {
     const texts = chunks.map((c) => c.text.toLowerCase());
     expect(new Set(texts).size).toBe(texts.length);
   });
+
+  it('never splits a number at its decimal point inside a long paragraph', () => {
+    // Measured on 0.3.2: "0.25 s" became "0.\n\n25 s" and "Avinya 2.0" became "2.\n\n0".
+    const para = 'On an RTX 4060 laptop a 3-second spoken question is transcribed in 0.14 to 0.25 s and an answer starts a median 0.45 s after it. ' + 'It started at the Avinya 2.0 hackathon with a CGPA of 8.50 and TLS 1.3 on the load balancer. '.repeat(5);
+    const text = chunkPages([{ page: 1, text: para }]).map((c) => c.text).join(' ');
+    expect(text).toContain('0.25 s');
+    expect(text).toContain('Avinya 2.0');
+    expect(text).toContain('8.50');
+    expect(text).not.toMatch(/\d\.\s+\d/);
+  });
 });
 
 describe('KnowledgeStore + HybridRetriever', () => {

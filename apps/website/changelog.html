@@ -29,7 +29,15 @@
       <div class="page-body">
         <div class="wrap">
           <section class="release">
-            <div><h2>0.3.2</h2><time datetime="2026-11-24">24 November 2026</time><span class="badge">Latest</span></div>
+            <div><h2>0.3.3</h2><time datetime="2026-11-26">26 November 2026</time><span class="badge">Latest</span></div>
+            <ul>
+              <li><strong>More documents, still answers.</strong> Adding several documents next to a résumé could make every answer fail, because the prompt no longer fitted the local model. Hirora now keeps the material it sends within the model's limit, résumé first, and retries with less if it ever overflows.</li>
+              <li>Screen reading no longer starts on everyday phrases like “Where do you see yourself in five years?” or “How would you improve it?”. It looks at the screen only when a question points at something shown.</li>
+              <li>Numbers in long document paragraphs stay intact (“0.25 s” was being split at the decimal point).</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.3.2</h2><time datetime="2026-11-24">24 November 2026</time></div>
             <ul>
               <li><strong>In a room, too.</strong> Settings → Engine → <em>Where the conversation is</em>: on a call (as before), or in a room, where one microphone hears everyone and the questions it hears are answered as well.</li>
               <li>Without headphones your microphone picks up the call; Hirora no longer reads that copy as something you said.</li>

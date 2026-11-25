@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 — 2026-11-26 (unsigned)
+Three fixes found while loading a real set of interview documents (a short résumé, six project write-ups and a company profile) and asking 37 interview questions:
+- **Adding documents could make every answer fail.** The prompt overflowed the local model's 4K context ("the prompt is longer than the context length currently available to the model"): an 8,000-character résumé plus three 900-character passages and a filled-in profile. Evidence now has a budget (`EVIDENCE_PROMPT_CHARS` = 7,400 characters): the résumé first, capped at 5,200 so the cached prefix stays the same, then other passages while they fit. If the engine still reports an overflow, the answer retries once with half the evidence.
+- **Screen reading triggered on ordinary conversation.** "Where do you see yourself in five years?" captured the screen and answered about what happened to be on it, after 29 s. A capture now needs something shown ("this code", "my screen", "fix this", "which of these routes"); "see yourself", "look at failure", "those projects", "what did you learn from this project" and "how would you improve it" no longer count.
+- **Numbers were cut at the decimal point** in long document paragraphs ("0.25 s" became "0." and "25 s", "Avinya 2.0" became "2." and "0"). Sentences now break only at punctuation followed by a space.
+
 ## 0.3.2 — 2026-11-24 (unsigned)
 For users: a new choice in Settings → Engine, *Where the conversation is*: on a call (as before) or in a room, where one microphone hears everyone and its questions are answered too. When the microphone picks up the call through the speakers (no headphones), the answer model no longer reads that copy as something you said. The model now sees which transcript lines are yours and which are the other side's. Everything else below is an experimental speech path that is off by default. The installer grows from 114 MB to 143 MB because it now carries that path's turn model (SAVA, 26 MB) and runtime.
 
