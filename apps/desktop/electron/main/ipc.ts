@@ -20,6 +20,7 @@ import type { AppServices } from './services';
 import type { WindowManager } from './windows';
 import type { HotkeyManager, TrayController } from './shell';
 import { runCaptureCheck } from './capture';
+import type { UpdateManager } from './updates';
 
 const EXTERNAL_HOSTS = new Set([
   'aistudio.google.com',
@@ -32,6 +33,7 @@ const EXTERNAL_HOSTS = new Set([
   'learn.microsoft.com',
   'www.electronjs.org',
   'support.microsoft.com',
+  'github.com',
 ]);
 
 type Handler<C extends IpcChannel> = (payload: unknown, event: IpcMainInvokeEvent) => Promise<IpcResponses[C]> | IpcResponses[C];
@@ -42,6 +44,7 @@ export interface IpcContext {
   hotkeys: HotkeyManager;
   tray: TrayController;
   paintTokens: Map<string, { at: number; stage: 'hotkey_to_paint' }>;
+  updates: UpdateManager;
 }
 
 function isTrustedSender(e: IpcMainInvokeEvent): boolean {
@@ -76,6 +79,9 @@ export function registerIpc(ctx: IpcContext): void {
       await shell.openExternal(u.toString());
       return { ok: true };
     },
+    'update:status': () => ctx.updates.status(),
+    'update:check': () => ctx.updates.check(true),
+    'update:install': () => ctx.updates.install(),
     'app:openDataFolder': async () => {
       await shell.openPath(app.getPath('userData'));
       return { ok: true };

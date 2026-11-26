@@ -60,13 +60,14 @@
             <p>Raw audio and pictures of your screen are never written to disk. Screenshots you take yourself are held in memory for up to five minutes while you preview them, then discarded.</p>
 
             <h2 id="network">Network use</h2>
-            <p>The app connects to the internet only for the one-time engine setup, to download:</p>
+            <p>The app connects to the internet for the one-time engine setup, to download:</p>
             <ul>
               <li>the Ollama runtime and whisper.cpp from GitHub,</li>
               <li>the Whisper speech model from Hugging Face,</li>
               <li>the Qwen answer model from the Ollama library.</li>
             </ul>
             <p>These are ordinary file downloads: no account, key or personal data is involved, and each file is checked against its published SHA-256. Hirora's speech and answer engines then run on <code>127.0.0.1</code> and accept no connections from other computers.</p>
+            <p>From version 0.3.8, Hirora also asks GitHub once a day which version is the latest (<code>api.github.com</code>), so it can tell you about updates. The request carries only Hirora's version number; nothing about you, your calls or your documents. Turn it off in Settings → Updates. An update downloads only when you press <em>Download and install</em>, from Hirora's GitHub releases, and is checked against its SHA-256 before it runs.</p>
 
             <h2 id="capture">Audio and screen</h2>
             <ul>

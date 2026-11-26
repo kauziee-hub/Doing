@@ -30,6 +30,10 @@ export const IpcRequestSchemas = {
   'app:info': z.void(),
   'app:openExternal': z.object({ url: z.string().url().max(2048) }),
   'app:openDataFolder': z.void(),
+  'update:status': z.void(),
+  'update:check': z.void(),
+  /** Download the newer installer, check its SHA-256, install it over this copy and restart. */
+  'update:install': z.void(),
   'settings:get': z.void(),
   'settings:update': z.record(z.string(), z.unknown()),
   'settings:reset': z.object({ section: z.enum(['overlay', 'hotkeys', 'all']) }),
@@ -106,6 +110,21 @@ export const IpcRequestSchemas = {
 
 export type IpcChannel = keyof typeof IpcRequestSchemas;
 export const IPC_CHANNELS = Object.keys(IpcRequestSchemas) as IpcChannel[];
+
+/** Updates from GitHub Releases (Settings → Updates). */
+export interface UpdateStatus {
+  current: string;
+  phase: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'verifying' | 'installing' | 'error';
+  latest: string | null;
+  notes: string | null;
+  pageUrl: string | null;
+  bytes: number | null;
+  done: number | null;
+  checkedAt: number | null;
+  error: string | null;
+  /** False in a development build, which can check but not install. */
+  canInstall: boolean;
+}
 
 export interface AppInfo {
   version: string;
@@ -213,6 +232,9 @@ export interface IpcResponses {
   'app:info': AppInfo;
   'app:openExternal': { ok: boolean };
   'app:openDataFolder': { ok: boolean };
+  'update:status': UpdateStatus;
+  'update:check': UpdateStatus;
+  'update:install': { ok: boolean; error: string | null };
   'settings:get': AppSettings;
   'settings:update': AppSettings;
   'settings:reset': AppSettings;

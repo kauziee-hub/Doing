@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Monitor, Moon, RefreshCw, Sun, Trash2, Volume2 } from 'lucide-react';
-import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction } from '@hirora/contracts';
+import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction, UpdateStatus } from '@hirora/contracts';
 import { DEFAULT_HOTKEYS, HOTKEY_LABELS } from '@hirora/contracts';
 import { Button, Card, Field, LevelMeter, Toggle, cx } from '@hirora/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';
 import { EngineSetup } from '../EngineSetup';
+import { Markdown } from '../../shared/Markdown';
 
-const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data'] as const;
+const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates'] as const;
 type Tab = (typeof TABS)[number];
 
 export function usePatch() {
@@ -274,6 +275,90 @@ function HotkeysTab() {
   );
 }
 
+const UPDATE_BUSY: ReadonlyArray<UpdateStatus['phase']> = ['checking', 'downloading', 'verifying', 'installing'];
+
+function updateLine(u: UpdateStatus): string {
+  const mb = (n: number | null) => `${Math.round((n ?? 0) / 1048576)} MB`;
+  switch (u.phase) {
+    case 'idle':
+      return 'Not checked yet.';
+    case 'checking':
+      return 'Checking GitHub for a newer version…';
+    case 'up-to-date':
+      return 'This is the latest version.';
+    case 'available':
+      return `Hirora ${u.latest} is available.`;
+    case 'downloading':
+      return `Downloading ${u.latest}: ${mb(u.done)} of ${mb(u.bytes)}…`;
+    case 'verifying':
+      return 'Checking the download’s SHA-256…';
+    case 'installing':
+      return 'Installing. Hirora closes now and opens again when the update is done.';
+    case 'error':
+      return u.error ?? 'Something went wrong.';
+  }
+}
+
+function UpdatesTab() {
+  const s = useLive((x) => x.settings)!;
+  const patch = usePatch();
+  const toast = useLive((x) => x.toast);
+  const [u, setU] = useState<UpdateStatus | null>(null);
+  const refresh = useCallback(async () => setU(await invoke('update:status')), []);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  const busy = !!u && UPDATE_BUSY.includes(u.phase);
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => void refresh(), 400);
+    return () => clearInterval(t);
+  }, [busy, refresh]);
+  const pct = u?.bytes ? Math.min(100, ((u.done ?? 0) / u.bytes) * 100) : 0;
+  return (
+    <>
+      <Card title="Hirora version" actions={<Button size="sm" icon={<RefreshCw size={12} />} disabled={busy} onClick={async () => setU(await invoke('update:check'))}>Check for updates</Button>}>
+        <p className="dash-small" style={{ marginTop: 0 }}>
+          You have <strong>{u?.current ?? '…'}</strong>. {u ? updateLine(u) : null}
+        </p>
+        {u && (u.phase === 'downloading' || u.phase === 'verifying' || u.phase === 'installing') ? (
+          <div className="eng-bar" role="progressbar" aria-label="Update progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+            <span className={cx(u.phase !== 'downloading' && 'is-indeterminate')} style={{ width: u.phase === 'downloading' ? `${pct}%` : '100%' }} />
+          </div>
+        ) : null}
+        {u?.phase === 'available' ? (
+          <>
+            {u.notes ? <Markdown text={u.notes} /> : null}
+            <div className="vc-row">
+              <Button
+                variant="primary"
+                disabled={!u.canInstall}
+                onClick={async () => {
+                  const r = await invoke('update:install');
+                  if (r.error) toast('error', r.error);
+                  void refresh();
+                }}
+              >
+                Download and install {u.latest}
+              </Button>
+              {u.pageUrl ? <Button variant="ghost" onClick={() => void invoke('app:openExternal', { url: u.pageUrl! })}>Release page</Button> : null}
+            </div>
+            <p className="dash-small">
+              {u.canInstall
+                ? `The installer (${Math.round((u.bytes ?? 0) / 1048576)} MB) comes from Hirora's GitHub releases and must match its published SHA-256 before it runs. Hirora closes, installs the update and opens again; your settings, documents and engine stay as they are.`
+                : 'This is a development build: it can check for updates but not install them.'}
+            </p>
+          </>
+        ) : null}
+      </Card>
+      <Card title="Automatic check">
+        <Toggle checked={s.updates.checkAutomatically} label="Check for a new version once a day" onChange={(v) => void patch({ updates: { checkAutomatically: v } })} />
+        <p className="dash-small">Hirora asks GitHub which version is the latest and tells you when there is a newer one. Nothing about you, your calls or your documents is sent, and nothing installs until you press the button.</p>
+      </Card>
+    </>
+  );
+}
+
 function PrivacyTab() {
   const s = useLive((x) => x.settings)!;
   const patch = usePatch();
@@ -285,8 +370,9 @@ function PrivacyTab() {
         <ul className="dash-small" style={{ marginTop: 0 }}>
           <li>Audio: captured only after you press Start and confirm consent, transcribed on this PC, never written to disk.</li>
           <li>Answers: the question, a few passages from your documents, your profile summary (if allowed below) and the recent transcript go to the answer model on this PC.</li>
-          <li>Clipboard and screenshots: used only after you preview and press Send. Possible secrets are flagged and can be redacted.</li>
-          <li>The only internet use is the one-time engine download (GitHub, Hugging Face and the Ollama model library).</li>
+          <li>Clipboard: used only after you preview and press Send. Possible secrets are flagged and can be redacted.</li>
+          <li>Screen: looked at when a question points at it or you press Ctrl+Shift+O; the picture stays in memory and only the model on this PC reads it.</li>
+          <li>Internet: the one-time engine download (GitHub, Hugging Face and the Ollama model library) and, unless you turn it off in Updates, a daily check on GitHub for a newer Hirora.</li>
         </ul>
         <Toggle checked={p.includeProfileInPrompts} label="Include personal profile summary in prompts" onChange={(v) => void patch({ privacy: { includeProfileInPrompts: v } })} />
         <Toggle checked={p.includeDocumentsInPrompts} label="Include retrieved document passages in prompts" onChange={(v) => void patch({ privacy: { includeDocumentsInPrompts: v } })} />
@@ -354,6 +440,7 @@ export function SettingsPage() {
       {tab === 'Overlay & capture' && <OverlayTab />}
       {tab === 'Hotkeys' && <HotkeysTab />}
       {tab === 'Privacy & data' && <PrivacyTab />}
+      {tab === 'Updates' && <UpdatesTab />}
     </>
   );
 }

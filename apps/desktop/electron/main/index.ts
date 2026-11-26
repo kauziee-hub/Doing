@@ -1,5 +1,5 @@
-import { app, dialog, powerMonitor, screen, session } from 'electron';
-import { join } from 'node:path';
+import { app, dialog, net, powerMonitor, screen, session } from 'electron';
+import { dirname, join } from 'node:path';
 import type { HotkeyAction } from '@hirora/contracts';
 import { Logger } from './logger';
 import { AppServices } from './services';
@@ -7,6 +7,7 @@ import { UI_PARTITION, WindowManager } from './windows';
 import { HotkeyManager, TrayController } from './shell';
 import { registerIpc } from './ipc';
 import { LEGACY_PROFILE_DIR_NAME, migrateLegacyProfile } from './migrate';
+import { UpdateManager } from './updates';
 
 const processStart = performance.timeOrigin;
 
@@ -154,7 +155,19 @@ async function main(): Promise<void> {
   };
 
   const hotkeys = new HotkeyManager(services.settings, onHotkey, log);
-  registerIpc({ services, windows, hotkeys, tray, paintTokens });
+  const updates = new UpdateManager({
+    fetchImpl: (url, init) => net.fetch(url, init),
+    log,
+    current: process.env.HIRORA_UPDATE_AS_VERSION?.trim() || app.getVersion(),
+    packaged: app.isPackaged,
+    installDir: dirname(process.execPath),
+    tempDir: app.getPath('temp'),
+    autoCheck: () => services.settings.get().updates.checkAutomatically,
+    notify: (message) => services.emit({ type: 'toast', level: 'info', message }),
+    quit: () => app.quit(),
+  });
+  registerIpc({ services, windows, hotkeys, tray, paintTokens, updates });
+  updates.startAutoCheck();
 
   const dash = windows.createDashboard();
   dash.once('ready-to-show', () => {
@@ -186,6 +199,7 @@ async function main(): Promise<void> {
     windows.quitting = true;
   });
   app.on('will-quit', (e) => {
+    updates.stop();
     hotkeys.dispose();
     tray.destroy();
     if (services.helper.running) {

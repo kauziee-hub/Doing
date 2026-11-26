@@ -224,6 +224,12 @@ export const AppSettingsSchema = z.object({
       theme: z.enum(['system', 'light', 'dark']).default('system'),
     })
     .prefault({}),
+  updates: z
+    .object({
+      /** Ask GitHub once a day whether a newer Hirora is out, and say so (it never installs on its own). */
+      checkAutomatically: z.boolean().default(true),
+    })
+    .prefault({}),
   activeProfileId: z.string().max(64).nullable().default(null),
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
