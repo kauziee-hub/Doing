@@ -20,7 +20,7 @@
 | Overlay: translucent, always-on-top, never steals focus, global hotkeys | **Verified** |
 | Screen-capture exclusion (on by default) | **Measured**: left out of a real Chrome 157 / Edge 158 screen share, GDI and desktopCapturer (`capture.e2e.ts`). Live Meet/Teams/Zoom calls: *not verified*. Never "invisible". |
 | Security: sandboxed renderer, Zod-validated allowlisted IPC, CSP, engine on loopback only | **Verified** by e2e + unit tests |
-| Windows installer (NSIS, per-user, unsigned) and install website | **Verified**; website on Vercel (`apps/hosting`), installer on Vercel Blob |
+| Windows installer (NSIS, per-user, unsigned) and install website | **Verified**; website on Vercel (`apps/hosting`), installer on [GitHub Releases](https://github.com/kauziee-hub/hirora/releases) |
 
 Measured numbers and their limits are in [docs/PERF_RESULTS.md](docs/PERF_RESULTS.md); the acceptance matrix is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 

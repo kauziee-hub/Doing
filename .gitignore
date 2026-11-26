@@ -21,6 +21,9 @@ secrets.json
 decisions.md
 apps/desktop/resources/sava/*.onnx
 
+# scratch copies of packaged builds
+apps/desktop/release-check/
+
 # website build artifacts (installer + screenshots are copied in by prepare-release)
 apps/website/public/download/
 apps/website/public/img/home-*.png
