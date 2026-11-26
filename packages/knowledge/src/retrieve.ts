@@ -18,6 +18,21 @@ export function queryTerms(q: string): string[] {
   return [...new Set(terms)].slice(0, 24);
 }
 
+/** Title words that say what kind of note it is, not what it is about. */
+const GENERIC_TITLE_WORDS = new Set('deep dive project projects other notes note talking points basics resume résumé interview company document details overview personal profile technologies technology'.split(' '));
+
+/**
+ * Query words that name a document ("Lumen" in "explain how you built Lumen", with a note
+ * titled "Lumen - deep dive"). Measured on 2026-11-26: without this, "procedure" (rare, so
+ * ranked high) pulled another project's notes and none of the named project's came back. Only
+ * notes about the user's own work get the boost; a "Kafka background" note shouldn't outrank
+ * the résumé on "your Kafka migration".
+ */
+export function namesDocument(terms: string[], title: string): boolean {
+  const words = new Set((title.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length >= 4 && !GENERIC_TITLE_WORDS.has(w)));
+  return terms.some((t) => words.has(t));
+}
+
 /** Builds a safe FTS5 MATCH expression: every term quoted, OR-combined. */
 export function ftsQuery(q: string): string | null {
   const terms = queryTerms(q);
@@ -57,6 +72,8 @@ export interface RetrieveOptions {
   topK: number;
   /** Résumé chunks attached to questions about the candidate (default: the whole résumé, up to 12). */
   maxResumeChunks?: number;
+  /** Passages from one document (default 3, for variety); a walkthrough of one project takes more. */
+  perDocument?: number;
   queryVector?: Float32Array | null;
   embeddingModel?: string | null;
 }
@@ -148,6 +165,7 @@ export class HybridRetriever {
 
     if (ranked.size === 0) return [];
     const firstPerson = isFirstPersonQuestion(question);
+    const terms = queryTerms(question);
     const chunks = this.fetchChunks([...ranked.keys()]);
     const results: RetrievedChunk[] = [];
     for (const [id, r] of ranked) {
@@ -158,6 +176,7 @@ export class HybridRetriever {
       let score = r.score;
       if (firstPerson && evidence === 'my_facts') score *= 1.35;
       if (r.by.size > 1) score *= 1.15;
+      if (evidence === 'my_facts' && namesDocument(terms, c.title)) score *= 2;
       results.push({
         chunkId: c.id,
         documentId: c.document_id,
@@ -174,14 +193,14 @@ export class HybridRetriever {
       });
     }
     results.sort((a, b) => b.score - a.score);
-    // Diversity: at most 3 chunks per document, except the résumé on questions about the candidate.
+    // Diversity: at most 3 chunks per document (perDocument), except the résumé on questions about the candidate.
     const perDoc = new Map<string, number>();
     const out: RetrievedChunk[] = [];
     const resumeCap = Math.max(1, Math.min(RESUME_CHUNKS_FOR_CANDIDATE, opts.maxResumeChunks ?? RESUME_CHUNKS_FOR_CANDIDATE));
     const limit = resumeId ? Math.max(k, resumeCap + 2) : k;
     for (const r of results) {
       const n = perDoc.get(r.documentId) ?? 0;
-      if (n >= (r.documentId === resumeId ? resumeCap : 3)) continue;
+      if (n >= (r.documentId === resumeId ? resumeCap : opts.perDocument ?? 3)) continue;
       perDoc.set(r.documentId, n + 1);
       out.push(r);
       if (out.length >= limit) break;

@@ -346,10 +346,13 @@ export class AppServices {
     await this.warmUp();
   }
 
-  async retrieve(question: string, _signal: AbortSignal, opts?: { compact?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number; usedVectors: boolean }> {
+  async retrieve(question: string, _signal: AbortSignal, opts?: { compact?: boolean; wide?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number; usedVectors: boolean }> {
     const t0 = performance.now();
     const s = this.settings.get();
-    const chunks = this.retriever.retrieve(question, { topK: s.knowledge.topK, queryVector: null, embeddingModel: null, maxResumeChunks: opts?.compact ? 6 : undefined });
+    // Compact prompts carry the résumé themselves (stableResume), so its chunks here only take
+    // places: ask for that many more, so other documents still get topK (+3 when wide).
+    const topK = opts?.compact ? s.knowledge.topK + 6 + (opts.wide ? 3 : 0) : s.knowledge.topK;
+    const chunks = this.retriever.retrieve(question, { topK, queryVector: null, embeddingModel: null, maxResumeChunks: opts?.compact ? 6 : undefined, perDocument: opts?.wide ? 5 : 3 });
     return { chunks, ms: performance.now() - t0, usedVectors: false };
   }
 

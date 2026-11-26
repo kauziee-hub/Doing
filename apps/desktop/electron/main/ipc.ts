@@ -212,7 +212,9 @@ export function registerIpc(ctx: IpcContext): void {
       let id: string;
       switch (action) {
         case 'expand':
-          id = svc.answer.ask({ ...base, depth: 'deep', useMemory: true, instruction: 'Give the in-depth version: deeper reasoning, examples and trade-offs.' });
+          // "Examples and trade-offs" made the small model invent both for the user's own work
+          // (2026-11-26: a made-up "trade-off with random forest", "decoding in 20 ms").
+          id = svc.answer.ask({ ...base, depth: 'deep', useMemory: true, instruction: 'Give the in-depth version in the same spoken voice: more of the detail the materials hold (how it works, what was decided and why, results, problems). Never add numbers, tools, trade-offs or events that are not in the materials. For a general concept, explain it more fully with one simple example.' });
           break;
         case 'beginner':
           id = svc.answer.ask({ ...base, priorAnswer: rec.text, instruction: 'Re-explain the answer for a beginner: simple words, one analogy, define any jargon. Keep all facts unchanged.' });

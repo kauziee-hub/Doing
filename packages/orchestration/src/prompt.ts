@@ -51,7 +51,8 @@ const LENGTH_RULES: Record<'short' | 'medium' | 'long', string> = {
 const VOICE_RULES = [
   'HOW TO SOUND:',
   '- Casual and on point, the way the user would actually say it in a relaxed conversation: plain everyday words, short sentences. Not a written exam answer, not a pitch, and not a machine firing out a perfect rapid-fire answer: a person who knows their stuff, honest and modest. No grand promises ("I\'ll revolutionise...", "I\'ll give everything"). Don\'t add fillers like "oh, that one"; the user adds those.',
-  '- Answer exactly what was asked and stop. No intro, no summary, no mission statement (never things like "I focus on building end-to-end AI products that are explainable and safe"), and no story or project walkthrough unless they ask for an example or "a time when".',
+  '- Answer exactly what was asked and stop. No intro, no summary, no mission statement (never things like "I focus on building end-to-end AI products that are explainable and safe"), and no story or project walkthrough unless they ask for one ("how did you build it", "walk me through it"), an example or "a time when".',
+  '- "How did you build X", "explain the architecture" or "walk me through X" (one of the user\'s projects): a short spoken walkthrough of about 80 to 120 words, even when answers are short: the main parts (app, backend, database, AI model) and what each is built with, then how the data moves: where it comes from, how it is fetched and processed, and how the result gets back to the person. Only facts from the materials; no list of tool names on its own.',
   '- "What do you know in X" or "what have you worked with": name the main things plainly ("regression, random forest, XGBoost, CNNs, graph neural networks...") and stop. Only things that belong to X (for ML: methods and models, not web frameworks, databases or cloud services); they will ask about the one they care about.',
   '- A follow-up about one thing ("Random forest? What did you do with it?") gets the specific fact in one or two sentences: which of the user\'s projects it was in and what it did there, from the materials.',
   '- Never use chatbot phrasing: no "Certainly", "Sure", "Great question", "I\'d be happy to help", "Let\'s dive in", "In summary", "Overall", "I hope this helps", and no closing offer or question back.',
@@ -198,6 +199,26 @@ export function isCodeTask(question: string, withScreen = false): boolean {
   return CODE_TASK.test(question) || (withScreen && SHOWN_CODE_TASK.test(question));
 }
 
+/**
+ * "How did you build the app?", "explain the procedure you built it with", "walk me through the
+ * architecture". The owner (2026-11-26): a short answer that only names the stack isn't enough;
+ * it should say the architecture, what was used and how the data is fetched, briefly. Short
+ * answers are 15 to 50 words, so these get their own length.
+ */
+const BUILD_WALKTHROUGH = new RegExp(
+  '\\bhow (?:did|do|have|would) (?:you|u) (?:build|built|make|made|design|designed|develop|developed|create|created|implement|implemented|architect|set up|structure)\\b' +
+    '|\\bwalk (?:me|us) through (?:how|the|it|this|that)\\b' +
+    '|\\b(?:architecture|procedure|data ?flow|pipeline|system design)\\b' +
+    '|\\b(?:explain|describe|tell (?:me|us) about) (?:how|the way) (?:you|u|it|this|that)\\b' +
+    '|\\bhow (?:does|did|is|was) (?:it|this|that) (?:work|built|made|structured|put together)\\b' +
+    '|\\bhow (?:you|u) (?:built|made|developed|designed|created)\\b',
+  'i',
+);
+
+export function isBuildWalkthrough(question: string): boolean {
+  return BUILD_WALKTHROUGH.test(question) && !CODE_TASK.test(question);
+}
+
 export function buildMessages(input: PromptInput): ChatMessage[] {
   const system = buildSystemPrompt(input);
   const parts: string[] = [];
@@ -213,6 +234,9 @@ export function buildMessages(input: PromptInput): ChatMessage[] {
   parts.push(`QUESTION (${origin}):\n${input.question.trim()}`);
   if (!input.priorAnswer && isAskedOfTheUser(input.question)) {
     parts.push('ANSWER AS THE USER: this is asked of the user about themself. Reply in the first person ("I", "my") with words they can say out loud; never call the user "you".');
+  }
+  if (!input.priorAnswer && input.depth !== 'deep' && isBuildWalkthrough(input.question)) {
+    parts.push('HOW IT IS BUILT: this asks how something was built or how it works. Answer in about 80 to 120 words (this replaces LENGTH): the main parts and what each is built with, then how the data moves through them (where it comes from, how it is fetched and processed, how the result reaches the person). Spoken sentences, in the first person ("I used…") when it is the user\'s own project; no list; only facts from the materials.');
   }
   if (!input.priorAnswer && isCodeTask(input.question, !!input.images?.length)) {
     const tests = input.settings.codingIncludeTests ? ', **Tests**' : '';

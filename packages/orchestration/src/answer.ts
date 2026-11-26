@@ -15,7 +15,7 @@ import type {
 import { LOCAL_ENGINE, PROVIDER_ERROR_HINTS } from '@hirora/contracts';
 import { ProviderError, isContextOverflowMessage, toProviderError } from '@hirora/providers';
 import type { ContentPart, TextModelProvider } from '@hirora/providers';
-import { buildMessages, buildPrimingMessages, missingFacts } from './prompt';
+import { buildMessages, buildPrimingMessages, isBuildWalkthrough, missingFacts } from './prompt';
 import type { MemoryTurn } from './prompt';
 
 export interface ResolvedProvider {
@@ -27,7 +27,8 @@ export interface ResolvedProvider {
 export interface AnswerEngineDeps {
   settings(): AppSettings;
   resolveProvider(id: ProviderId): ResolvedProvider | null;
-  retrieve(question: string, signal: AbortSignal, opts?: { compact?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number }>;
+  /** `wide`: Expand or a build walkthrough on the GPU tier, which takes more passages. */
+  retrieve(question: string, signal: AbortSignal, opts?: { compact?: boolean; wide?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number }>;
   /**
    * The user's résumé as evidence, identical on every call (local models only). It goes
    * first in the prompt so the model can keep it pre-read between questions (see prime()).
@@ -96,6 +97,14 @@ export const IMAGE_FIRST_TOKEN_TIMEOUT_MS = 15_000;
  * the same), then other passages while they fit.
  */
 export const EVIDENCE_PROMPT_CHARS = 7_400;
+/**
+ * Expand and "how did you build it" questions on the GPU tier (8K tokens per slot): up to five
+ * other passages, so the architecture and data-flow sections fit next to the résumé. About 800
+ * more prompt tokens, still inside 8K with Expand's 2,500 output tokens.
+ */
+export const WIDE_EVIDENCE_PROMPT_CHARS = 10_400;
+/** Added to the search for a build walkthrough (not to the prompt). */
+const WALKTHROUGH_QUERY_TERMS = 'architecture stack backend frontend database data collection fetch sync pipeline';
 
 export function fitEvidence(first: RetrievedChunk[], rest: RetrievedChunk[], budget = EVIDENCE_PROMPT_CHARS): RetrievedChunk[] {
   const out: RetrievedChunk[] = [];
@@ -350,11 +359,18 @@ export class AnswerEngine {
     let evidence: RetrievedChunk[] = [];
     if (settings.privacy.includeDocumentsInPrompts) {
       try {
-        const r = await this.deps.retrieve(input.question, f.controller.signal, { compact });
+        // A walkthrough also looks for the architecture and data-flow sections, which rarely
+        // share a word with the question ("explain the procedure you built X with").
+        const walkthrough = isBuildWalkthrough(input.question);
+        const wide = !lean && (depth === 'deep' || walkthrough);
+        const query = walkthrough ? `${input.question} ${WALKTHROUGH_QUERY_TERMS}` : input.question;
+        const r = await this.deps.retrieve(query, f.controller.signal, { compact, wide });
         const stable = compact ? (this.deps.stableResume?.() ?? []) : [];
-        // Local model: the whole résumé in a fixed order first, then up to 3 other passages.
+        // Local model: the whole résumé in a fixed order first, then up to 3 other passages
+        // (5 for Expand and build walkthroughs on the GPU tier, which need the details).
         const stableDocs = new Set(stable.map((c) => c.documentId));
-        evidence = stable.length ? fitEvidence(stable, r.chunks.filter((c) => !stableDocs.has(c.documentId)).slice(0, 3)) : fitEvidence([], r.chunks);
+        const budget = wide ? WIDE_EVIDENCE_PROMPT_CHARS : EVIDENCE_PROMPT_CHARS;
+        evidence = stable.length ? fitEvidence(stable, r.chunks.filter((c) => !stableDocs.has(c.documentId)).slice(0, wide ? 5 : 3), budget) : fitEvidence([], r.chunks, budget);
         this.deps.perf({ stage: 'retrieval', ms: r.ms, at: this.now(), provider: null, model: null, label: f.record.mode });
       } catch {
         evidence = [];
@@ -481,7 +497,9 @@ export class AnswerEngine {
         // A local model's whole context is ~4K tokens: keep prompt + answer inside it.
         maxOutputTokens: depth === 'deep' ? settings.answer.deepMaxOutputTokens : f.compact ? Math.min(settings.answer.maxOutputTokens, LOCAL_MAX_OUTPUT_TOKENS) : settings.answer.maxOutputTokens,
         temperature: settings.answer.temperature,
-        effort: depth,
+        // Thinking stays off for Expand too. With it on (2026-11-26), qwen3.5 thought through
+        // Expand's whole output budget and no answer ever appeared.
+        effort: 'fast',
         signal: attemptCtl.signal,
       })) {
         if (!this.isLive(f)) return 'stale';

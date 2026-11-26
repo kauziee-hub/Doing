@@ -118,6 +118,20 @@ describe('KnowledgeStore + HybridRetriever', () => {
     expect(r[0]!.matchedBy).toContain('vector');
   });
 
+  it('a question that names a note ranks that note first', () => {
+    const store = new KnowledgeStore(freshDb());
+    store.ingestText('lumen', 'Lumen - deep dive', 'project', [
+      '## Lumen architecture\nOne Expo codebase for web and Android; the backend is a FastAPI service with a Postgres database.',
+      '## Lumen data collection\nSync runs when the app opens and every 30 minutes in the background.',
+    ].join('\n\n'));
+    store.ingestText('other', 'Kiln and Ember - deep dive', 'project', 'The procedure I built for Kiln: a training procedure with a validation procedure, built step by step.');
+    const r = new HybridRetriever(store).retrieve('can you explain the procedure you built lumen', { topK: 3 });
+    expect(r[0]!.documentId).toBe('lumen');
+    // Words that only say what kind of note it is don't count as naming it.
+    const plain = new HybridRetriever(store).retrieve('what was the procedure in your deep dive', { topK: 3 });
+    expect(plain[0]!.documentId).toBe('other');
+  });
+
   it('treats hostile query text as literal search terms', () => {
     expect(ftsQuery('"); DROP TABLE chunks; -- NEAR(a b) OR *')).toBe('"drop" OR "table" OR "chunks" OR "near"');
     const store = new KnowledgeStore(freshDb());

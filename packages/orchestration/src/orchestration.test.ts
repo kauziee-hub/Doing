@@ -908,6 +908,68 @@ describe('prompt fits the local context', () => {
     const size = (r: StreamRequest) => JSON.stringify(r.messages).length;
     expect(size(seen[1]!)).toBeLessThan(size(seen[0]!) - 2000);
   });
+
+  it('Expand and "how did you build it" get more passages on the GPU tier, not on the CPU tier', async () => {
+    const evidenceIds = async (question: string, depth: 'fast' | 'deep', lean: boolean) => {
+      const seen: StreamRequest[] = [];
+      const provider: TextModelProvider = {
+        id: 'ollama',
+        label: 'fake',
+        listModels: async () => [],
+        preconnect: async () => undefined,
+        async *stream(req: StreamRequest) {
+          seen.push(req);
+          yield { type: 'text', text: 'ok' } as StreamChunk;
+        },
+      };
+      const records = new Map<string, AnswerRecord>();
+      const { AnswerEngine } = await import('./answer');
+      const e = new AnswerEngine({
+        settings: () => defaultSettings(),
+        resolveProvider: () => ({ provider, model: 'm', deepModel: 'm' }),
+        retrieve: async () => ({ chunks: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id) => chunk(id, 'project', 900)), ms: 1 }),
+        stableResume: () => [chunk('r1', 'resume', 2600), chunk('r2', 'resume', 2600)],
+        context: () => ({ personal: null, session: null, transcript: [] }),
+        lean: () => lean,
+        recordUsage: () => undefined,
+        perf: () => undefined,
+        emit: (r) => records.set(r.requestId, r),
+        emitDelta: () => undefined,
+      });
+      const id = e.ask({ question, origin: 'typed', depth });
+      await vi.waitFor(() => expect(records.get(id)?.status).toBe('done'));
+      return { ids: (records.get(id)?.sources ?? []).map((s) => s.label), req: seen[0]! };
+    };
+    expect((await evidenceIds('What is WER?', 'fast', false)).ids).toHaveLength(4); // résumé + 2 passages
+    expect((await evidenceIds('Can you explain the procedure you built the app with?', 'fast', false)).ids).toHaveLength(7); // résumé + 5
+    expect((await evidenceIds('What is WER?', 'deep', false)).ids).toHaveLength(7);
+    expect((await evidenceIds('How did you build it?', 'fast', true)).ids).toHaveLength(4); // CPU tier: 4K context
+    // Expand never turns the model's thinking on: with it on, no answer ever appeared.
+    expect((await evidenceIds('What is WER?', 'deep', false)).req.effort).toBe('fast');
+  });
+});
+
+describe('build walkthroughs', () => {
+  it('knows "how did you build it" questions', async () => {
+    const { isBuildWalkthrough } = await import('./prompt');
+    for (const q of ['can you explain the procedure you built the app', 'How did you build it?', 'how did u make that', 'Walk me through the architecture', 'Explain the architecture of your project', 'How does it work?', 'Tell me how you built the backend', 'explain how you fetch the data']) {
+      expect(isBuildWalkthrough(q), q).toBe(true);
+    }
+    for (const q of ['What is WER?', 'What do you know in ML?', 'Tell me about yourself', 'Write a function that reverses a string', 'Why do you want to join us?', 'Random forest? What did you do with it?']) {
+      expect(isBuildWalkthrough(q), q).toBe(false);
+    }
+  });
+
+  it('asks for parts, tools and data flow in about 100 words, except in Expand', () => {
+    const s = defaultSettings();
+    s.answer.length = 'short';
+    const base = { questionOrigin: 'typed', settings: s.answer, includeProfile: false, personal: null, session: null, evidence: [], recentTranscript: [], memory: [] };
+    const fast = buildMessages({ ...base, question: 'How did you build it?', depth: 'fast' });
+    expect(fast[1]!.content).toMatch(/HOW IT IS BUILT: .*about 80 to 120 words \(this replaces LENGTH\).*how the data moves/);
+    expect(fast[0]!.content).toMatch(/"How did you build X".*about 80 to 120 words, even when answers are short/);
+    expect(buildMessages({ ...base, question: 'How did you build it?', depth: 'deep' })[1]!.content).not.toMatch(/HOW IT IS BUILT/);
+    expect(buildMessages({ ...base, question: 'What is WER?', depth: 'fast' })[1]!.content).not.toMatch(/HOW IT IS BUILT/);
+  });
 });
 
 describe('priming prefix stays byte-identical when the call goes on', () => {
