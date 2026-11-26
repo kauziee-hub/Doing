@@ -242,6 +242,7 @@ export function registerIpc(ctx: IpcContext): void {
       const id = svc.answer.ask({ question: q, origin: 'screen', images: [{ type: 'image', mimeType: prev.mime, base64: prev.base64 }], questionEndedAt: Date.now() });
       return { requestId: id, error: null };
     },
+    'ask:screenNow': () => svc.askFromScreen(),
     'answer:cancel': () => ({ ok: svc.answer.cancel('user') }),
     'context:readClipboard': async () => {
       const raw = String(await clipboard.readText());

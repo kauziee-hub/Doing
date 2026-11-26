@@ -32,6 +32,13 @@ import type { Logger } from './logger';
 import type { WindowManager } from './windows';
 import { EngineManager } from './engine';
 import { captureScreen } from './screenCapture';
+
+/**
+ * What the screen key asks. Worded so it doesn't force the code layout (the screen may show a
+ * non-coding question), while a coding problem still gets approach, code and complexity.
+ */
+export const SCREEN_QUESTION =
+  'Read the question or task on my screen and answer it. If it is a coding problem: the approach in a few sentences, then the full solution in one code block in the language shown on the screen (Python if none), then the time and space complexity.';
 import { SavaOnnxEngine } from './stt/savaOnnx';
 
 export function resolveHelperPath(): string | null {
@@ -332,6 +339,25 @@ export class AppServices {
     const shot = await captureScreen(this.windows);
     this.recordPerf({ stage: 'screen_capture', ms: performance.now() - t0, at: Date.now(), provider: null, model: null, label: shot ? `${shot.width}x${shot.height}` : 'failed' });
     return shot ? [{ type: 'image', mimeType: 'image/jpeg', base64: shot.base64 }] : null;
+  }
+
+  /**
+   * Ctrl+Shift+O and the overlay's screen button: look at the screen now and answer whatever
+   * question or task is on it (a coding problem the interviewer shares, or one opened from a
+   * link), with no preview and nothing to type or paste. The owner (2026-11-27): "without
+   * pasting it and getting answer". The picture stays in memory for this one request.
+   */
+  async askFromScreen(): Promise<{ requestId: string | null; error: string | null }> {
+    if (!this.engine.answerModelReadsImages) {
+      return { requestId: null, error: 'The answer model on this PC can’t read the screen (it needs the NVIDIA GPU setup).' };
+    }
+    const t0 = performance.now();
+    const shot = await captureScreen(this.windows);
+    this.recordPerf({ stage: 'screen_capture', ms: performance.now() - t0, at: Date.now(), provider: null, model: null, label: shot ? `${shot.width}x${shot.height}` : 'failed' });
+    if (!shot) return { requestId: null, error: 'Screen capture returned no image (permission or capture API unavailable).' };
+    this.session.noteTyped(`[screen] ${SCREEN_QUESTION}`);
+    const requestId = this.answer.ask({ question: SCREEN_QUESTION, origin: 'screen', images: [{ type: 'image', mimeType: 'image/jpeg', base64: shot.base64 }], questionEndedAt: Date.now() });
+    return { requestId, error: null };
   }
 
   /** For an answer about to be sent: waits for a warm-up in progress, or starts the engine if it is down. */

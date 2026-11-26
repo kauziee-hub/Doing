@@ -378,7 +378,8 @@ export class AnswerEngine {
     }
     const screen = await screenShot;
     if (!this.isLive(f)) return;
-    if (screen?.length) f.record.usedScreen = true;
+    // A capture made here (`auto`/`always`) or passed in (the screen key, Ctrl+Shift+O).
+    if (screen?.length || input.images?.length) f.record.usedScreen = true;
     f.record.sources = evidence.map((c, i): AnswerSource => ({
       label: `S${i + 1}`,
       documentTitle: c.documentTitle,

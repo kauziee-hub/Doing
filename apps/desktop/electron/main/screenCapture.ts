@@ -10,11 +10,13 @@ export interface ScreenShot {
 
 /**
  * Captures the monitor the user is working on (where the mouse is), downscaled to at most
- * `maxWidth`, as JPEG in memory only. Hirora's own windows are excluded from the capture for
+ * `maxWidth`, as JPEG in memory only. 1600 px (was 1280): measured 2026-11-27 on a 3200x2000
+ * screen at 200% with a coding problem, qwen3.5:4b read the title and signature at 1600 and
+ * missed the title at 1280; about 1,600 prompt tokens with the picture, first word in 1.4 s. Hirora's own windows are excluded from the capture for
  * that moment even when the user turned screen-share hiding off, so an answer never shows up
  * in the picture it is about.
  */
-export async function captureScreen(windows: WindowManager | null, maxWidth = 1280): Promise<ScreenShot | null> {
+export async function captureScreen(windows: WindowManager | null, maxWidth = 1600): Promise<ScreenShot | null> {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const ours = windows?.all() ?? [];
   for (const w of ours) w.setContentProtection(true);

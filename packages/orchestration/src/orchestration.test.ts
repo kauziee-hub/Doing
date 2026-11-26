@@ -796,6 +796,9 @@ describe('answer voice', () => {
     expect(sys).not.toMatch(/at most 4 tight bullet points/);
     // After a live practice call: "what do you know in ML" came back as a pitch, not an answer.
     expect(sys).toContain('Answer exactly what was asked and stop');
+    // No [S1]/[S2] source markers in answers (owner, 2026-11-27).
+    expect(sys).toContain('Never write source markers such as [S1]');
+    expect(sys).not.toMatch(/put its marker/);
     expect(sys).toMatch(/name the main things plainly/);
     expect(sys).toMatch(/LENGTH: Like talking: two to five short sentences/);
     expect(sys).not.toMatch(/Give real depth on concepts/);
@@ -821,6 +824,26 @@ describe('screen context', () => {
     for (const q of ['Can you see my screen?', 'Take a look at this', 'Look at these routes', 'How would you improve this code?']) {
       expect(refersToScreen(q), q).toBe(true);
     }
+  });
+
+  it('knows a coding round: a problem shared on screen or opened from a link', async () => {
+    const { refersToScreen } = await import('./screen');
+    const { isCodeTask } = await import('./prompt');
+    for (const q of ['Can you solve this?', 'So can you solve this problem?', 'Here is the problem, take your time', "Here's a coding question for you", 'I have sent you a link, please open it', 'Open the link in the chat', 'Can you write the code for this?', 'How would you approach this problem?', 'Read the question and tell me your approach', 'This is the question']) {
+      expect(refersToScreen(q), q).toBe(true);
+    }
+    // Still about the user, not the screen.
+    for (const q of ['How did you solve it?', 'Tell me about a problem you faced', 'Have you solved this kind of problem before?', 'What was the hardest problem in this project?', 'Tell me about yourself', 'What is a linked list?']) {
+      expect(refersToScreen(q), q).toBe(false);
+    }
+    // Not questions, but they ask for the problem on screen to be answered.
+    for (const q of ['Here is the problem, take your time', 'I have sent you a link, please open it', 'Open the link in the chat']) {
+      expect(triageUtterance(q).triage, q).toBe('answer');
+    }
+    expect(triageUtterance('How did you solve it?').triage).not.toBe('ignore');
+    // With the screen attached, these get the code layout.
+    expect(isCodeTask('Can you solve this problem?', true)).toBe(true);
+    expect(isCodeTask('Can you solve this problem?', false)).toBe(false);
   });
 
   it('attaches the screen to the request and marks the answer', async () => {

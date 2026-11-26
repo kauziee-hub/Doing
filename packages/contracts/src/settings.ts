@@ -91,7 +91,7 @@ export const HOTKEY_LABELS: Record<HotkeyAction, string> = {
   focusAsk: 'Type a question (focus Ask box)',
   nextMonitor: 'Move overlay to next monitor',
   toggleCompact: 'Compact / expanded overlay',
-  screenContext: 'Screen context (preview first)',
+  screenContext: 'Answer from the screen',
 };
 
 export const BoundsSchema = z.object({

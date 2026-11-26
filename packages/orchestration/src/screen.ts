@@ -32,15 +32,35 @@ const PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Coding rounds (owner, 2026-11-27): the problem is on the screen, shared by the interviewer or
+ * opened from a link they sent, and they say "can you solve this", "here's the problem", "open
+ * the link" or "write the code for it". Several of these aren't questions, so they are also
+ * answered without the question check (see triageUtterance).
+ */
+const CODING_ROUND: RegExp[] = [
+  /\b(solve|solving|crack|attempt|tackle|approach|code up|work out)\s+(this|it|that|these|the (\w+\s+)?(problem|question|challenge|task|exercise))\b/i,
+  /\b(write|give|code)\s+(me\s+)?(the |a )?(code|solution|function|program|query)\s+(for|to|of)\s+(this|it|that|the (\w+\s+)?(problem|question|challenge|task))\b/i,
+  /\b(here'?s|here is)\s+(the|a|your)\s+(\w+\s+)?(question|problem|challenge|task|exercise)\b|\bthis is the (coding |programming )?(question|problem)\b/i,
+  /\b(open|opened|check|click|clicked|visit|follow)\s+(the|this|that|my)\s+link\b|\blink\s+(in|on)\s+(the|your)\s+(chat|screen)\b|\b(sent|shared|pasted|dropped|posted)\s+(you\s+)?(the|a)\s+link\b/i,
+  /\b(read|go through|look at|have a look at|see)\s+(the|this)\s+(\w+\s+)?(question|problem|challenge)\b/i,
+];
+
+/**
  * Questions about the user's own work ("Did you write all this code yourself?", "Who built
  * this project?") are about them, not the screen, even with "this code" in them (measured on
  * 0.3.4: the capture made the answer talk about the screen).
  */
-const ABOUT_THE_USER = /\b(yourself|did you (write|build|code|make|design|create|do)|have you (written|built|coded|made|designed|created|done)|who (wrote|built|made|designed|coded))\b/i;
+const ABOUT_THE_USER = /\b(yourself|did you (write|build|code|make|design|create|do|solve|fix|handle|approach|tackle)|have you (written|built|coded|made|designed|created|done|solved|fixed|handled)|who (wrote|built|made|designed|coded)|you (faced|solved|fixed|handled))\b/i;
 
 export function refersToScreen(question: string): boolean {
   const q = question.trim();
   if (!q) return false;
   if (ABOUT_THE_USER.test(q)) return false;
-  return PATTERNS.some((p) => p.test(q));
+  return PATTERNS.some((p) => p.test(q)) || CODING_ROUND.some((p) => p.test(q));
+}
+
+/** "Can you solve this?", "Here's the problem", "Open the link I sent": a problem shown on the screen to answer. */
+export function asksAboutShownProblem(text: string): boolean {
+  const q = text.trim();
+  return !!q && !ABOUT_THE_USER.test(q) && CODING_ROUND.some((p) => p.test(q));
 }

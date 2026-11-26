@@ -59,6 +59,8 @@ export const IpcRequestSchemas = {
     action: z.enum(['expand', 'beginner', 'concise', 'retry']),
   }),
   'ask:screen': z.object({ previewId: z.string().max(64), question: z.string().max(4000) }),
+  /** Capture the screen now and answer the question or task shown on it (no preview, no typing). */
+  'ask:screenNow': z.void(),
   'answer:cancel': z.void(),
   'context:readClipboard': z.void(),
   'context:captureScreen': z.object({ displayId: z.number().optional() }),
@@ -232,6 +234,7 @@ export interface IpcResponses {
   'ask:segment': { requestId: string | null; error: string | null };
   'ask:followup': { requestId: string | null; error: string | null };
   'ask:screen': { requestId: string | null; error: string | null };
+  'ask:screenNow': { requestId: string | null; error: string | null };
   'answer:cancel': { ok: boolean };
   'context:readClipboard': ClipboardContext;
   'context:captureScreen': ScreenPreview | { error: string };

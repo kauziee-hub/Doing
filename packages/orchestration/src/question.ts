@@ -1,3 +1,5 @@
+import { asksAboutShownProblem } from './screen';
+
 const INTERROGATIVE_START =
   /^(?:so,?\s+|and\s+|okay,?\s+|ok,?\s+|alright,?\s+|now,?\s+|well,?\s+|great,?\s+)?(what|what's|whats|why|how|when|where|who|whom|whose|which|can|could|would|will|do|does|did|is|are|was|were|have|has|had|should|shall|may|might|tell me|walk me|describe|explain|give me|talk (?:me )?(?:through|about)|share|name|list|define|compare|implement|write|design)\b/i;
 
@@ -93,6 +95,9 @@ export function triageUtterance(raw: string): { triage: Triage; score: number } 
   const { score } = analyzeQuestion(text);
   const words = text ? text.split(' ').length : 0;
   if (!text || FILLER_ONLY.test(text) || isFragment(text)) return { triage: 'ignore', score: 0 };
+  // A coding problem put on the screen ("Here's the problem, take your time", "open the link I
+  // sent"): not phrased as a question, but it asks for an answer from the screen.
+  if (asksAboutShownProblem(text)) return { triage: 'answer', score: Math.max(score, 0.8) };
   if (CHATTER.test(text) && score < 0.5) return { triage: 'ignore', score };
   const vocative = VOCATIVE.test(text);
   const logistics = LOGISTICS.test(text);

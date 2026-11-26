@@ -4,7 +4,7 @@ import {
   ArrowUpRight, Camera, ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, EyeOff, LayoutDashboard, Mic, MicOff, Pause, Play,
   RotateCcw, Send, Speaker, Square, Sparkles, Baby, Minimize2, X, ShieldAlert, Check,
 } from 'lucide-react';
-import type { AnswerRecord, AudioSource, ClipboardContext, ScreenPreview, SourceStatus, TranscriptSegment } from '@hirora/contracts';
+import type { AnswerRecord, AudioSource, ClipboardContext, SourceStatus, TranscriptSegment } from '@hirora/contracts';
 import { PROVIDER_ERROR_HINTS } from '@hirora/contracts';
 import { Badge, Button, LevelMeter, cx } from '@hirora/ui';
 import { invoke } from '../shared/api';
@@ -98,26 +98,14 @@ function ClipboardModal({ ctx, onClose }: { ctx: ClipboardContext; onClose: () =
   );
 }
 
-function ScreenModal({ preview, onClose }: { preview: ScreenPreview; onClose: () => void }) {
-  const [question, setQuestion] = useState('');
-  return (
-    <div className="ov-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview">
-      <div className="ov-modal__box ov-modal__box--wide">
-        <h2><Camera size={16} /> Send this screenshot?</h2>
-        <p className="ov-muted">{preview.displayLabel}. Screenshots can include private information (messages, other windows, notifications). Nothing is sent until you press Send.</p>
-        <img src={preview.dataUrl} alt="Screenshot preview" className="ov-shot" />
-        <input className="vc-input" placeholder="What should Hirora do with it? (e.g. solve the coding problem shown)" value={question} onChange={(e) => setQuestion(e.target.value)} autoFocus />
-        <div className="vc-row" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
-          <Button variant="ghost" onClick={async () => { await invoke('context:discardScreen', { previewId: preview.previewId }); onClose(); }}>Discard</Button>
-          <Button variant="primary" onClick={async () => { await invoke('ask:screen', { previewId: preview.previewId, question }); onClose(); }}>Send to model</Button>
-        </div>
-      </div>
-    </div>
-  );
+/** Source markers ("[S1]", "[S2, S3]") a model may still write; the owner doesn't want them shown (2026-11-27). */
+function withoutMarkers(text: string): string {
+  return text.replace(/\s*\[S\d+(?:\s*[,;]\s*S?\d+)*\]/g, '');
 }
 
 export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }) {
   const [copied, setCopied] = useState(false);
+  const text = withoutMarkers(a.text);
   const busy = a.status === 'queued' || a.status === 'retrieving' || a.status === 'waiting' || a.status === 'streaming';
   const statusLabel: Record<string, string> = { queued: 'Queued', retrieving: 'Searching your materials…', waiting: 'Waiting for model…', streaming: 'Streaming', done: 'Done', error: 'Error', cancelled: 'Cancelled' };
   return (
@@ -130,21 +118,12 @@ export function AnswerView({ a, compact }: { a: AnswerRecord; compact: boolean }
         {a.firstTokenMs !== null ? <span className="ov-muted" title="Time from request to first token">{(a.firstTokenMs / 1000).toFixed(2)} s</span> : null}
       </div>
       {!compact ? <div className="ov-q" title={a.question}>Q · {a.question.length > 220 ? `${a.question.slice(0, 220)}…` : a.question}</div> : null}
-      {a.text ? <Markdown text={a.text} /> : busy ? <div className="ov-skeleton" aria-hidden="true"><span /><span /><span /></div> : null}
+      {text ? <Markdown text={text} /> : busy ? <div className="ov-skeleton" aria-hidden="true"><span /><span /><span /></div> : null}
       {a.status === 'error' && a.error ? <div className="ov-error">{a.error}{a.errorCode && !a.error.includes(PROVIDER_ERROR_HINTS[a.errorCode]) ? ` ${PROVIDER_ERROR_HINTS[a.errorCode]}` : ''}</div> : null}
-      {!compact && a.sources.length > 0 ? (
-        <div className="ov-sources" aria-label="Sources">
-          {a.sources.map((s) => (
-            <span key={s.label} className={cx('ov-source', `is-${s.evidence}`)} title={s.snippet}>
-              {s.label} · {s.documentTitle}{s.page ? ` p.${s.page}` : ''} · {s.evidence === 'my_facts' ? 'your facts' : s.evidence === 'company_job' ? 'company/job' : 'background'}
-            </span>
-          ))}
-        </div>
-      ) : null}
       <div className="ov-actions">
         {busy ? <Button size="sm" variant="ghost" icon={<Square size={12} />} onClick={() => void invoke('answer:cancel')}>Stop</Button> : null}
-        {a.text ? (
-          <Button size="sm" variant="ghost" icon={copied ? <Check size={12} /> : <Copy size={12} />} onClick={() => { void navigator.clipboard.writeText(a.text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }); }}>
+        {text ? (
+          <Button size="sm" variant="ghost" icon={copied ? <Check size={12} /> : <Copy size={12} />} onClick={() => { void navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }); }}>
             {copied ? 'Copied' : 'Copy'}
           </Button>
         ) : null}
@@ -196,16 +175,15 @@ export function Overlay() {
   const [probe, setProbe] = useState(false);
   const [question, setQuestion] = useState('');
   const [clip, setClip] = useState<ClipboardContext | null>(null);
-  const [shot, setShot] = useState<ScreenPreview | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const compact = settings?.overlay.compact ?? false;
   const answer = currentId ? answers[currentId] : undefined;
 
-  const captureScreen = async () => {
-    const r = await invoke('context:captureScreen', {});
-    if ('error' in r) toast('error', r.error);
-    else setShot(r);
+  // Looks at the screen now and answers the question or task on it (Ctrl+Shift+O does the same).
+  const answerFromScreen = async () => {
+    const r = await invoke('ask:screenNow');
+    if (r.error) toast('error', r.error);
   };
 
   useEffect(() => {
@@ -213,10 +191,8 @@ export function Overlay() {
       if (c.command === 'focusAsk') setTimeout(() => inputRef.current?.focus(), 30);
       if (c.command === 'requestStart') setConsent(true);
       if (c.command === 'captureProbe') setProbe(c.arg === true);
-      if (c.command === 'screenContext') void captureScreen();
       consume(c.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commands, consume]);
 
   useEffect(() => {
@@ -360,7 +336,7 @@ export function Overlay() {
           <button type="button" className="ov-icon-btn" aria-label="Use clipboard text (preview first)" title="Use clipboard text (preview first)" onClick={async () => setClip(await invoke('context:readClipboard'))}>
             <ClipboardPaste size={14} />
           </button>
-          <button type="button" className="ov-icon-btn" aria-label="Screenshot (preview first)" title="Screenshot (preview first)" onClick={() => void captureScreen()}>
+          <button type="button" className="ov-icon-btn" aria-label="Answer from the screen (Ctrl+Shift+O)" title="Answer from the screen (Ctrl+Shift+O)" onClick={() => void answerFromScreen()}>
             <Camera size={14} />
           </button>
           <button type="button" className="ov-icon-btn is-send" aria-label="Send" onClick={() => void submit()}>
@@ -371,7 +347,6 @@ export function Overlay() {
 
       {consent ? <ConsentModal onCancel={() => setConsent(false)} /> : null}
       {clip ? <ClipboardModal ctx={clip} onClose={() => setClip(null)} /> : null}
-      {shot ? <ScreenModal preview={shot} onClose={() => setShot(null)} /> : null}
       <Toasts />
     </div>
   );

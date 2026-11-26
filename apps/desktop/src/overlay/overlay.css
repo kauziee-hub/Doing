@@ -76,10 +76,6 @@ html.is-overlay, html.is-overlay body, html.is-overlay #root { background: trans
 .ov-warn { color: var(--peach-ink); font-size: .9em; padding: 10px 12px; background: var(--peach); border-radius: 14px; margin-bottom: 10px; }
 .ov-muted { color: var(--text-3); }
 .ov-small { font-size: .86em; }
-.ov-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.ov-source { font-size: .74em; padding: 3px 9px; border-radius: 999px; background: var(--sand); color: var(--text-2); cursor: help; }
-.ov-source.is-my_facts { background: var(--mint); color: var(--mint-ink); }
-.ov-source.is-company_job { background: var(--lilac); color: var(--lilac-ink); }
 .ov-actions { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 10px; }
 .ov-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
 .ov-skeleton span { height: 10px; border-radius: 6px; background: var(--sunken); width: 90%; }

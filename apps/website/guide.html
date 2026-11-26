@@ -74,7 +74,7 @@
                   <tr><td>Cancel the answer</td><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>X</kbd></td></tr>
                   <tr><td>Compact / expanded overlay</td><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>E</kbd></td></tr>
                   <tr><td>Move overlay to next monitor</td><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>M</kbd></td></tr>
-                  <tr><td>Screenshot as context (preview first)</td><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd></td></tr>
+                  <tr><td>Answer the question on your screen</td><td><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd></td></tr>
                 </tbody>
               </table>
             </div>
@@ -91,7 +91,8 @@
 
             <h3 id="screen">When someone shares their screen</h3>
             <p>Questions that point at something shown, like “can you establish an RBAC protocol in this?” or “which of these routes should be admin-only?”, make Hirora take one picture of the monitor you're using and answer about what's on it. The overlay marks those answers with <em>screen</em>. Keep the shared screen visible on that monitor when the question is asked.</p>
-            <p>The picture is kept in memory only and sent to the answer model on your PC. Change when it's used in Settings → Answers → Your screen. To send a specific screenshot yourself, press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> and preview it first.</p>
+            <p>For a coding problem that is shared with you, or that you open from a link, press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> (or the camera button on the overlay): Hirora reads the question on your screen and answers it, with nothing to type or paste. Phrases like “can you solve this?”, “here's the problem” or “open the link I sent” do the same when someone says them. Read the code before you use it: a small model on a laptop gets tricky problems wrong sometimes.</p>
+            <p>The picture is kept in memory only and sent to the answer model on your PC. Change when it's used in Settings → Answers → Your screen.</p>
 
             <h2 id="documents">Adding documents</h2>
             <p>Open <strong>Knowledge</strong> and drop in PDF, Word, text, Markdown, CSV, JSON or code files, and set each one's type (résumé, project notes, job description, notes…). They're parsed and indexed on your PC. Use <strong>Test retrieval</strong> to see which passages a question would use. Deleting a document removes its text and index.</p>
@@ -128,7 +129,7 @@
             <h3>“The engine did not start”</h3>
             <p>Restart Hirora; Settings → Engine shows what's missing and <strong>Set up</strong> reinstalls it. An old NVIDIA driver can stop the graphics-card setup: update the driver or choose <em>Processor only</em> in Settings → Engine.</p>
             <h3>The answer ignored what was shared</h3>
-            <p>Check Settings → Answers → Your screen isn't set to <em>Never</em>, and that the shared window is on the monitor where your mouse is. Mention it in the question (“this code”, “on the screen”) or choose <em>With every question</em>. The processor-only setup can't read the screen.</p>
+            <p>Check Settings → Answers → Your screen isn't set to <em>Never</em>, and that the shared window is on the monitor where your mouse is. Mention it in the question (“this code”, “on the screen”), press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd>, or choose <em>With every question</em>. The processor-only setup can't read the screen.</p>
             <h3>Where are the logs?</h3>
             <p><code>%APPDATA%\Hirora\logs\hirora.log</code> (no transcripts or answers) and <code>%LOCALAPPDATA%\Hirora\ollama\server.log</code> for the answer engine.</p>
 

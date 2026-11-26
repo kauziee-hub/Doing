@@ -142,8 +142,13 @@ async function main(): Promise<void> {
         return;
       }
       case 'screenContext':
-        windows.showOverlay(true);
-        services.emit({ type: 'command', command: 'screenContext', arg: token });
+        // Answer from the screen at once; the overlay shows without taking focus from the
+        // browser or call the question is in.
+        windows.showOverlay();
+        paintTokens.delete(token);
+        void services.askFromScreen().then((r) => {
+          if (r.error) services.emit({ type: 'toast', level: 'error', message: r.error });
+        });
         return;
     }
   };
