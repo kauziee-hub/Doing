@@ -14,6 +14,8 @@ export interface StreamRequest {
   messages: ChatMessage[];
   maxOutputTokens: number;
   temperature?: number;
+  /** Local Ollama grammar for browser decisions; ordinary answers remain free text. */
+  jsonSchema?: Record<string, unknown>;
   /** 'fast' asks the provider for minimal reasoning where the API supports it. */
   effort: 'fast' | 'deep';
   signal: AbortSignal;

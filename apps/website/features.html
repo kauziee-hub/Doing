@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="What Doing does: meetings written down, answers from your own documents, your screen read on request, all with a private AI engine on your PC." />
+    <meta name="description" content="A free, local assistant for file tasks, browser workflows and meeting transcription." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
@@ -18,75 +18,17 @@
   <body>
     <!--@header-->
     <main id="main">
-      <header class="page-head">
-        <div class="wrap">
-          <p class="eyebrow">Features</p>
-          <h1>What Doing does.</h1>
-          <p class="lede">Speech recognition, a fast language model and your own documents, all on your computer.</p>
-        </div>
-      </header>
-
-      <div class="page-body">
-        <div class="wrap doc">
-          <nav class="toc" aria-label="On this page">
-            <strong>Features</strong>
-            <a href="#meetings">Meetings</a>
-            <a href="#answers">Answers</a>
-            <a href="#screen">Your screen</a>
-            <a href="#prep">Prep and history</a>
-            <a href="#overlay">Overlay and shortcuts</a>
-            <a href="#engine">The engine</a>
-            <a href="#privacy">Privacy</a>
-          </nav>
-          <article class="prose">
-            <h2 id="meetings">Meetings, written down</h2>
-            <p>Doing transcribes your microphone and what plays through your speakers as two separate streams, so you always know who said what: Meet in a browser tab, the Teams or Zoom app, a video, or a Bluetooth headset.</p>
-            <ul>
-              <li>Text appears while people speak and is finalised when they pause.</li>
-              <li>In a room? One microphone can stand for everyone.</li>
-              <li>Ask “What did we decide?” for decisions, action items and open questions.</li>
-              <li>Audio is processed in memory and never saved.</li>
-            </ul>
-
-            <h2 id="answers">Answers when you need them</h2>
-            <p>Questions are answered as they come up, often before the speaker has finished. Ask out loud or type; there are no modes to pick.</p>
-            <div class="table-wrap">
-              <table class="table">
-                <thead><tr><th>You ask</th><th>You get</th></tr></thead>
-                <tbody>
-                  <tr><td>About you or your work</td><td>A first-person answer from your notes and résumé. If they don't cover it, Doing says so.</td></tr>
-                  <tr><td>A coding or design task</td><td>The approach, working code and its complexity.</td></tr>
-                  <tr><td>“What is…”, “How does…”</td><td>A plain explanation.</td></tr>
-                  <tr><td>“Summarise”, “What did we decide?”</td><td>Decisions and action items from the transcript.</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <p>One click makes an answer longer, simpler or shorter. Settings only set length, language and tone.</p>
-
-            <h2 id="screen">Your screen</h2>
-            <p>Press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> and Doing answers whatever question or task is on your screen, with nothing to copy or paste. It also looks when a question points at something shown, like “add role-based access to this”.</p>
-            <ul>
-              <li>The picture stays in memory, goes only to the model on your PC and is discarded after the answer.</li>
-              <li>If what you ask about isn't on the screen, it says so instead of guessing.</li>
-              <li>Measured on an RTX 4060 laptop: first words 1.5–3.3 s after the question, capture included. Needs an NVIDIA graphics card.</li>
-              <li>A small model gets tricky code wrong sometimes: read it before you use it.</li>
-            </ul>
-
-            <h2 id="prep">Prep and history</h2>
-            <p>Add PDFs, Word files, notes or a résumé under <strong>Prep</strong>, with a short profile of yourself. Doing indexes them on your PC and answers from them. <strong>History</strong> keeps past transcripts and answers if you turn it on; it's off by default.</p>
-
-            <h2 id="overlay">Overlay and shortcuts</h2>
-            <p>A small translucent window floats above your apps and never takes focus. Drag it anywhere, make it compact or move it to another monitor. Every action has a shortcut; the full list is in the <a href="/guide#shortcuts">guide</a>.</p>
-            <p>By default Windows is asked to leave Doing's windows out of screen shares and screenshots. Cameras and some remote-desktop tools ignore this, so treat it as a privacy convenience, not invisibility.</p>
-
-            <h2 id="engine">The engine</h2>
-            <p>On first launch Doing checks your hardware and installs its own engine: whisper.cpp for speech and an Ollama runtime for answers, both on <code>127.0.0.1</code> only. With an NVIDIA graphics card (6 GB or more) it uses Whisper large-v3-turbo and Qwen 3.5 4B; otherwise Whisper small and Qwen 3 1.7B on the processor. See the <a href="/download#requirements">requirements</a>.</p>
-
-            <h2 id="privacy">Privacy</h2>
-            <p>No account, keys or analytics. Nothing you say, type or add is sent anywhere. The only internet use is the one-time engine download and an optional daily update check. Details on the <a href="/privacy">privacy page</a>.</p>
-          </article>
-        </div>
-      </div>
+      <header class="page-head"><div class="wrap"><p class="eyebrow">Features</p><h1>A request. A little less to do.</h1><p class="lede">One private assistant for your PC, browser and meetings.</p></div></header>
+      <div class="page-body"><div class="wrap doc">
+        <nav class="toc" aria-label="On this page"><strong>Doing</strong><a href="#assistant">On your PC</a><a href="#browser">In your browser</a><a href="#meetings">In meetings</a><a href="#library">Your context</a><a href="#privacy">Privacy &amp; setup</a></nav>
+        <article class="prose">
+          <h2 id="assistant">On your PC</h2><p>Talk to Doing in <strong>Assistant</strong>. Ask a question, draft a plan or tell it what to do with your files. Allow a folder when you want it to create, read, edit, rename or organize files there.</p><ul><li>Text, Markdown, JSON, CSV and common code files.</li><li>A clear list of file changes, with Undo during the session.</li><li>Only the folder you choose. No model-generated shell commands run.</li></ul><p>This release focuses on files. It does not control every Windows application.</p>
+          <h2 id="browser">In your browser</h2><p>Open the Doing extension in Chrome or Edge. Allow a tab, then chat beside the page. Ask questions, fill forms, select choices, type code and continue through a workflow.</p><ul><li>Questions and actions share one conversation.</li><li>Add up to eight allowed tabs and work across them.</li><li>Say when to submit or go next in your message. Otherwise Doing asks before advancing.</li><li>Completion replies and follow-up instructions stay in the side panel.</li></ul><p>Standard page controls and common code editors are supported. Login, CAPTCHA, hidden content and some embedded editors need your help. Browser actions require the website to be reachable.</p>
+          <h2 id="meetings">In meetings</h2><p>Choose <strong>Meetings</strong> to transcribe a call after everyone has agreed. Your microphone and call audio are labelled separately. Ask for explanations, a summary, decisions or action items while the conversation continues.</p><p>A compact overlay and global shortcuts keep answers nearby. Press <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> to answer a question shown on your screen. Screen reading needs the NVIDIA setup. Audio and screenshots stay in memory.</p>
+          <h2 id="library">Your context, when you need it</h2><p>Add notes, PDFs, Word files, code or a personal profile in <strong>Library</strong>. Meeting answers can draw on that context. Browser chat uses the tabs and facts you supply; file chat uses the folder you allow.</p><p><strong>History</strong> keeps meeting transcripts and answers only if you enable saving. Assistant and browser conversations stay in memory for the current app session.</p>
+          <h2 id="privacy">Privacy &amp; setup</h2><p>No account, subscription, API keys, ads or analytics. Doing downloads and verifies its local speech and language models once, choosing the right size for your PC. Updates are optional.</p><p>Local processing keeps prompts away from cloud models. It does not make every action risk-free: files you create remain on disk, and browser submissions send information to the website. Review important results. See <a href="/privacy">Privacy</a> and the <a href="/guide">setup guide</a>.</p>
+        </article>
+      </div></div>
     </main>
     <!--@footer-->
     <script type="module" src="/src/main.ts"></script>

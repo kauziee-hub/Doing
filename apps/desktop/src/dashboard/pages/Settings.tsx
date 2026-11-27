@@ -9,9 +9,11 @@ import { useLive } from '../../shared/store';
 import { EngineSetup } from '../EngineSetup';
 import { Markdown } from '../../shared/Markdown';
 import { Performance } from './Performance';
+import { About } from './About';
 
-const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates', 'Performance'] as const;
-type Tab = (typeof TABS)[number];
+const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates', 'Performance', 'About'] as const;
+export type SettingsTab = (typeof TABS)[number];
+type Tab = SettingsTab;
 
 export function usePatch() {
   const setSettings = useLive((s) => s.setSettings);
@@ -103,7 +105,7 @@ function AudioTab() {
           </Field>
         </div>
         <div className="vc-row"><Button size="sm" icon={<Volume2 size={12} />} onClick={() => void test('mic')}>Test microphone</Button><div style={{ width: 160 }}><LevelMeter db={levels.mic ?? -100} label="mic level" /></div></div>
-        <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '14px 0' }} />
+        <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '14px 0' }} />
         <Toggle checked={s.audio.systemEnabled} label="Capture system audio (WASAPI loopback)" description="What plays through your speakers/headphones, e.g. the other meeting participants (labelled “System”)." onChange={(v) => void patch({ audio: { systemEnabled: v } })} />
         <div className="vc-grid2">
           <Field label="Output device to capture" hint="“All” hears the call on any output, including Bluetooth hands-free.">
@@ -423,9 +425,9 @@ function ThemeSwitch() {
   );
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onGuide, initial = 'Engine' }: { onGuide?: () => void; initial?: SettingsTab }) {
   const settings = useLive((s) => s.settings);
-  const [tab, setTab] = useState<Tab>('Engine');
+  const [tab, setTab] = useState<Tab>(initial);
   if (!settings) return null;
   return (
     <>
@@ -443,6 +445,7 @@ export function SettingsPage() {
       {tab === 'Privacy & data' && <PrivacyTab />}
       {tab === 'Updates' && <UpdatesTab />}
       {tab === 'Performance' && <Performance bare />}
+      {tab === 'About' && <About onGuide={onGuide} />}
     </>
   );
 }

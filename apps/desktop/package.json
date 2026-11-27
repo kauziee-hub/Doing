@@ -1,9 +1,9 @@
 {
   "name": "@hirora/desktop",
   "productName": "Doing",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
-  "description": "Doing — a private assistant for calls and meetings that runs on your PC",
+  "description": "Doing — a free, private assistant for your PC, browser and meetings",
   "author": "Doing contributors",
   "main": "./out/main/index.js",
   "scripts": {

@@ -21,8 +21,8 @@
       <header class="page-head">
         <div class="wrap">
           <p class="eyebrow">Privacy</p>
-          <h1>Your calls stay on your PC.</h1>
-          <p class="lede">Doing has no account system, no server and no analytics. Speech recognition and answers run on your computer, so nothing you say, type or add is sent anywhere.</p>
+          <h1>Your AI works on your PC.</h1>
+          <p class="lede">Doing has no account system, no server and no analytics. Speech recognition and answers run on your computer, and your prompts are not sent to a cloud model.</p>
         </div>
       </header>
 
@@ -32,6 +32,7 @@
             <strong>Privacy</strong>
             <a href="#collect">What we collect</a>
             <a href="#stored">Stored on your PC</a>
+            <a href="#tasks">Files and browser tasks</a>
             <a href="#network">Network use</a>
             <a href="#capture">Audio and screen</a>
             <a href="#delete">Deleting data</a>
@@ -49,6 +50,8 @@
                 <tbody>
                   <tr><td>Settings</td><td><code>%APPDATA%\Hirora\settings.json</code></td><td>Always</td></tr>
                   <tr><td>Documents you add</td><td><code>hirora.db</code>: extracted text and a search index, never a copy of the file</td><td>Only what you add</td></tr>
+                  <tr><td>Assistant files</td><td>The folder you allow</td><td>Only when you ask to create or change a file</td></tr>
+                  <tr><td>Remembered browser connection</td><td><code>browser-connection.bin</code>, encrypted by Windows; companion credential in local extension storage</td><td>After you approve; Forget browser removes the app credential</td></tr>
                   <tr><td>Profiles</td><td><code>hirora.db</code></td><td>Only what you enter</td></tr>
                   <tr><td>Transcripts and answers</td><td><code>hirora.db</code></td><td>Off by default; kept for the period you choose</td></tr>
                   <tr><td>Timings</td><td><code>hirora.db</code>, no content</td><td>Always; clearable in Settings → Performance</td></tr>
@@ -69,18 +72,18 @@
             <p>These are ordinary file downloads: no account, key or personal data is involved, and each file is checked against its published SHA-256. Doing's speech and answer engines then run on <code>127.0.0.1</code> and accept no connections from other computers.</p>
             <p>From version 0.4.0, Doing also asks GitHub once a day which version is the latest (<code>api.github.com</code>), so it can tell you about updates. The request carries only Doing's version number; nothing about you, your calls or your documents. Turn it off in Settings → Updates. An update downloads only when you press <em>Download and install</em>, from Doing's GitHub releases, and is checked against its SHA-256 before it runs.</p>
 
-            <h2 id="capture">Audio and screen</h2>
+            <h2 id="tasks">Files and browser tasks</h2><p>Assistant reads and changes files only in a folder you choose. File edits are real changes on disk; Undo is available during the session. Browser chat reads only tabs you allow. Its model runs on your PC, but clicking Submit or Send transmits information to that website. Browser site permissions are controlled by Chrome or Edge and can be revoked there.</p><p>Assistant and browser conversations and page observations stay in memory. Saved meeting history is separately opt-in. Local processing does not guarantee correct answers or safe website behavior; review important results.</p><h2 id="capture">Audio and screen</h2>
             <ul>
-              <li>Nothing is captured until you press Start and confirm the consent prompt. A “Listening” badge shows while capture is on.</li>
+              <li>Audio capture starts after you press Start and confirm the consent prompt. A “Listening” badge shows while capture is on.</li>
               <li>Your microphone and the call's audio are captured as separate streams and transcribed in memory.</li>
               <li>When a question refers to something on screen (“this code”, “which of these”), Doing takes one picture of the monitor you're using, with its own windows left out. That happens only for a question you typed or one spoken during a session you started. The picture goes to the answer model on <code>127.0.0.1</code> and is dropped when the answer is done. Turn it off, or use it with every question, in Settings → Answers → Your screen.</li>
-              <li>Clipboard text and screenshots you take yourself are used only after you preview them and press Send. Likely passwords and keys are flagged so you can redact them.</li>
+              <li>Clipboard text and previewed screenshots are sent to the local model after you press Send. Ctrl+Shift+O answers directly from a screenshot without a preview. Likely passwords and keys in clipboard text are flagged so you can redact them.</li>
             </ul>
             <p>A shared screen can show other people's information. Only ask about it where everyone on the call is fine with that.</p>
 
             <h2 id="delete">Deleting data</h2>
             <ul>
-              <li>A document: Prep → Documents → delete. Its text and index are removed.</li>
+              <li>A document: Library → Documents → delete. Its text and index are removed.</li>
               <li>History: the History page, per session or all at once.</li>
               <li>Everything: Settings → Privacy &amp; data → Delete all data.</li>
               <li>The app and its models: uninstall, then delete <code>%APPDATA%\Hirora</code> and <code>%LOCALAPPDATA%\Hirora</code>.</li>
@@ -90,7 +93,7 @@
             <p>This site is a set of static pages hosted on Vercel, with no cookies, analytics or third-party scripts. The installer is downloaded from the project’s GitHub Releases page. Like any web host, Vercel and GitHub process standard request data (such as IP addresses) to deliver pages and files.</p>
 
             <h2 id="consent">Consent and acceptable use</h2>
-            <p>Transcribing other people requires their consent in many places. Many interviews and assessments forbid AI assistance. Doing's option to stay out of screen shares is a privacy convenience that some capture methods ignore; it is not a way to hide the use of AI from anyone entitled to know.</p>
+            <p>Transcribing other people requires their consent in many places. Some calls and assessments have rules about AI assistance. Doing's option to stay out of screen shares is a privacy convenience that some capture methods ignore; it is not a way to hide the use of AI from anyone entitled to know.</p>
           </article>
         </div>
       </div>

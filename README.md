@@ -4,7 +4,7 @@
 
 *Formerly Hirora (and VeyraCue).*
 
-**A free assistant for your calls, running on your PC.** Doing for Windows 11 transcribes the call you approve, answers questions as they come up (about you from your résumé, code with tests, explanations, summaries of the call) and, when someone asks about what they are sharing, reads the screen too. Answers stream into a quiet translucent overlay. Useful for meetings, lectures, technical discussions and interview practice. **Everything runs on your PC**: speech recognition (whisper.cpp) and the answer model (Qwen, in a Doing-managed Ollama runtime). No account, no keys, no server, no telemetry. On first launch the app checks the hardware and installs its engine with one click.
+**A free, private assistant for your PC, browser and meetings.** Ask questions, draft text and work with files in a folder you allow. Chat beside Chrome or Edge tabs to read pages, fill forms, choose options, type code and complete workflows. Meetings provides live transcripts, answers and an optional overlay; Library and History keep your context organized. AI runs on your PC through whisper.cpp and Qwen in a Doing-managed Ollama runtime. No account, API keys, subscription or telemetry. Setup downloads the right models for your hardware once. Browser submissions still go to the website, and file changes are real changes on disk.
 
 **Download:** https://hirora-one.vercel.app
 
@@ -49,9 +49,13 @@ Release and deploy steps are in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLI
 
 ## Using it
 
-1. **Install** from the website and open Doing. Press **Set up Doing**: it shows your hardware, what it will download (about 6.2 GB with an NVIDIA GPU of 6 GB or more, 3.2 GB otherwise) and installs it. You can keep working; setup resumes if interrupted.
-2. **Knowledge**: add your résumé and project notes (and a job description under **Profiles**).
-3. **Home**: press **Start listening** and confirm consent. There are no modes: ask anything, and questions about something on screen ("fix this", "which of these…") include a picture of the monitor you're using. The overlay (`Ctrl+Shift+Space`) shows the labelled transcript and streams answers. `Ctrl+Shift+Enter` answers the latest question; `Ctrl+Shift+K` lets you type; `Ctrl+Shift+X` cancels. Keep a laptop plugged in: on battery the GPU slows down a lot.
+1. **Set up once:** install from the website and press **Set up Doing**. The verified engine download is about 6.2 GB with a supported NVIDIA GPU, 3.2 GB on the processor tier. Existing models and settings are reused.
+2. **Assistant:** chat normally. For file tasks, choose **Allow a folder** and describe the task. Read, create, edit, rename or organize text/code files; review the change list and use Undo during the session. See [file scope and limits](docs/LOCAL_ASSISTANT.md).
+3. **Browser assistant:** load or reload the bundled extension, approve the browser connection once, then allow individual tabs. Ask questions or give instructions in the side panel. Say when to submit or go next in your message. Follow-ups stay in chat; up to eight explicitly allowed tabs can work together. See [browser setup and limits](docs/BROWSER_ASSISTANT.md).
+4. **Meetings:** start after everyone agrees to transcription. The microphone and call transcript are labelled separately. Ask about the conversation, get action items, or read the current screen with Ctrl+Shift+O (GPU tier). The overlay opens with Ctrl+Shift+Space. Ctrl+Shift+X stops a current answer or task.
+5. **Library and History:** add documents and optional personal context for meeting answers. Enable history only if you want meeting transcripts and answers saved. Assistant/browser conversations and Undo are kept in memory for the current app session.
+
+The file assistant does not control arbitrary Windows apps or run generated shell commands. Model answers can be wrong; check important results.
 
 ## Architecture
 

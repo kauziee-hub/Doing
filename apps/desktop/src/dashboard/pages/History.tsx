@@ -19,7 +19,7 @@ export function HistoryPage() {
 
   return (
     <>
-      <PageHeader light="Session" bold="history" sub="Past transcripts and answers. Saving is off unless you turn it on in Settings → Privacy & data." />
+      <PageHeader bold="History" sub="Saved meeting transcripts and answers. You choose what stays." />
       <Card>
         {settings ? (
           <Toggle

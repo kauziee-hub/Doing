@@ -21,6 +21,8 @@ import type { WindowManager } from './windows';
 import type { HotkeyManager, TrayController } from './shell';
 import { runCaptureCheck } from './capture';
 import type { UpdateManager } from './updates';
+import type { BrowserAgent } from './browser/agent';
+import type { LocalAgent } from './local/agent';
 
 const EXTERNAL_HOSTS = new Set([
   'aistudio.google.com',
@@ -45,6 +47,8 @@ export interface IpcContext {
   tray: TrayController;
   paintTokens: Map<string, { at: number; stage: 'hotkey_to_paint' }>;
   updates: UpdateManager;
+  browser: BrowserAgent;
+  local: LocalAgent;
 }
 
 function isTrustedSender(e: IpcMainInvokeEvent): boolean {
@@ -60,6 +64,31 @@ export function registerIpc(ctx: IpcContext): void {
   const { services: svc, windows } = ctx;
 
   const handlers: { [C in IpcChannel]: Handler<C> } = {
+    'local:status': () => ctx.local.status(),
+    'local:chooseFolder': async () => {
+      const choice = await dialog.showOpenDialog({title:'Allow Doing to work in a folder',properties:['openDirectory']});
+      return choice.canceled || !choice.filePaths[0] ? ctx.local.status() : ctx.local.allow(choice.filePaths[0]);
+    },
+    'local:revoke': () => ctx.local.revoke(),
+    'local:send': (p) => ctx.local.send(IpcRequestSchemas['local:send'].parse(p).text),
+    'local:stop': () => ctx.local.stop(),
+    'local:clear': () => ctx.local.clear(),
+    'local:undo': () => ctx.local.undo(),
+    'browser:status': () => ctx.browser.status(),
+    'browser:enable': () => ctx.browser.enable(),
+    'browser:disable': () => ctx.browser.disable(),
+    'browser:openExtension': async () => {
+      const path = app.isPackaged ? join(process.resourcesPath, 'browser-extension') : join(app.getAppPath(), 'resources', 'browser-extension');
+      const error = await shell.openPath(path);
+      if (error) throw new Error(error);
+      return { ok: true };
+    },
+    'browser:start': (p) => ctx.browser.start(IpcRequestSchemas['browser:start'].parse(p)),
+    'browser:ask': (p) => ctx.browser.ask(IpcRequestSchemas['browser:ask'].parse(p).question),
+    'browser:stop': () => ctx.browser.stop(),
+    'browser:approve': () => ctx.browser.approve(),
+    'browser:allowConnection': (p) => ctx.browser.allowConnection(IpcRequestSchemas['browser:allowConnection'].parse(p).requestId),
+    'browser:denyConnection': (p) => ctx.browser.denyConnection(IpcRequestSchemas['browser:denyConnection'].parse(p).requestId),
     'app:info': () => ({
       version: app.getVersion(),
       electron: process.versions.electron ?? '',
@@ -424,6 +453,8 @@ export function registerIpc(ctx: IpcContext): void {
     },
     'data:deleteAll': async (p) => {
       IpcRequestSchemas['data:deleteAll'].parse(p);
+      ctx.browser.disable();
+      ctx.local.revoke();
       await svc.session.stop();
       svc.history.deleteAll();
       for (const d of svc.knowledge.listDocuments(true)) svc.knowledge.deleteDocument(d.id);

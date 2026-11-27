@@ -222,3 +222,317 @@ input[type='range'] { accent-color: var(--ink); width: 100%; }
 .vc-toast--warn::before { background: #f2b84b; }
 .vc-toast--error::before { background: var(--cue); }
 .vc-toast button { margin-left: auto; background: none; border: 0; color: inherit; opacity: .6; cursor: pointer; }
+/* Doing workspace */
+.vc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+.doing-workspace {
+  max-width: 960px;
+  margin: auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.doing-scope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.doing-scope > span {
+  font-size: 12px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doing-conversation {
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
+  padding: 24px 8px;
+  overscroll-behavior: contain;
+}
+.doing-welcome {
+  padding: 30px 12px 15px;
+  max-width: 680px;
+  margin: auto;
+}
+.doing-welcome h2 {
+  font-size: 32px;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+.doing-welcome > p {
+  color: var(--text-2);
+  line-height: 1.7;
+}
+.doing-suggestions {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+.doing-suggestions button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 13px;
+  padding: 14px 16px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.doing-suggestions button:hover {
+  border-color: var(--text);
+}
+.doing-other-work {
+  display: flex;
+  gap: 22px;
+  margin-top: 20px;
+}
+.doing-other-work button {
+  background: transparent;
+  border: 0;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.doing-message {
+  margin: 0 10px 25px;
+  max-width: 850px;
+}
+.doing-message__name {
+  display: block;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 7px;
+}
+.doing-message.user {
+  background: var(--surface-2);
+  padding: 13px 18px;
+  border-radius: 18px 18px 3px 18px;
+  margin-left: 12%;
+  width: fit-content;
+  max-width: 88%;
+}
+.doing-message.user .doing-message__name {
+  display: none;
+}
+.doing-message .vc-md > :first-child {
+  margin-top: 0;
+}
+.doing-message .vc-md > :last-child {
+  margin-bottom: 0;
+}
+.doing-composer {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+  margin-top: 10px;
+  box-shadow: 0 5px 22px #00000004;
+}
+.doing-composer textarea {
+  width: 100%;
+  min-height: 55px;
+  max-height: 160px;
+  resize: vertical;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+.doing-composer:focus-within {
+  border-color: var(--text-2);
+}
+.doing-composer > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.doing-composer span,
+.doing-caption {
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.doing-caption {
+  margin: 12px 3px;
+}
+.doing-changes {
+  border-top: 1px solid var(--line);
+  padding: 14px;
+  font-size: 12px;
+}
+.doing-changes summary {
+  cursor: pointer;
+}
+.doing-changes ul {
+  line-height: 1.8;
+}
+.doing-meeting-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.doing-levels {
+  display: flex;
+  gap: 25px;
+  margin-top: 20px;
+  max-width: 550px;
+}
+.doing-levels > div {
+  flex: 1;
+}
+.doing-levels span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.doing-meeting-content {
+  align-items: stretch;
+}
+.doing-transcript {
+  min-height: 300px;
+  max-height: 55vh;
+  overflow: auto;
+}
+.doing-meeting-answer {
+  min-height: 260px;
+  max-height: 55vh;
+  overflow: auto;
+  margin-top: 20px;
+}
+.doing-empty {
+  display: flex;
+  min-height: 230px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--text-2);
+  text-align: center;
+  padding: 24px;
+}
+.doing-empty p {
+  margin: 16px 0 6px;
+}
+.doing-empty span {
+  font-size: 12px;
+}
+.doing-connection-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 20px;
+  padding: 7px 12px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.doing-connection-state:before {
+  content: "";
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: #39966c;
+}
+.doing-connect-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.doing-connect-steps > div {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.doing-connect-steps strong {
+  display: block;
+  margin-bottom: 9px;
+}
+.doing-connect-steps p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+@media (max-width: 800px) {
+  .doing-connect-steps {
+    grid-template-columns: 1fr;
+  }
+  .doing-scope {
+    flex-wrap: wrap;
+  }
+  .doing-scope > span {
+    max-width: 70%;
+  }
+  .doing-welcome h2 {
+    font-size: 26px;
+  }
+}
+
+.doing-setup {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 960px;
+  margin: 0 auto 20px;
+}
+.doing-setup h2 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.doing-setup p {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+.doing-welcome {
+  padding-top: 15px;
+}
+.doing-welcome h2 {
+  margin-top: 8px;
+}
+
+.dash-main:has(.doing-workspace) {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 20px;
+}
+.dash-main:has(.doing-workspace) > .dash-top,
+.doing-setup {
+  flex: none;
+}
+.doing-scope,
+.doing-composer,
+.doing-caption,
+.doing-changes {
+  flex: none;
+}
+.doing-changes[open] {
+  max-height: 120px;
+  overflow: auto;
+}

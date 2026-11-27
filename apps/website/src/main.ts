@@ -24,7 +24,7 @@ for (const el of document.querySelectorAll<HTMLElement>('[data-release-detail]')
     ? [`Version ${r.version}`, mb, 'Windows 11 · 64-bit', r.builtAt ? `built ${new Date(r.builtAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}` : null]
         .filter(Boolean)
         .join(' · ')
-    : 'The installer has not been built yet. Run pnpm package:win, then rebuild this site.';
+    : 'The next download is being prepared. Please check back soon.';
 }
 for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download-link]')) {
   if (href) {

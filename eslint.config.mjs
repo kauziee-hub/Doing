@@ -8,6 +8,10 @@ export default tseslint.config(
     ignores: ['**/node_modules/**', '**/out/**', '**/dist/**', '**/release/**', 'apps/hosting/public/**', 'apps/hosting/.vercel/**', 'native/**/target/**', 'test-results/**', 'docs/**', '**/*.d.ts'],
   },
   js.configs.recommended,
+  {
+    files: ['apps/desktop/resources/browser-extension/*.js'],
+    languageOptions: { globals: { ...globals.browser, chrome: 'readonly' }, sourceType: 'module' },
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx,mjs}'],

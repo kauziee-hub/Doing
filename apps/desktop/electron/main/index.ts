@@ -1,4 +1,4 @@
-import { app, dialog, net, powerMonitor, screen, session } from 'electron';
+import { app, dialog, net, powerMonitor, safeStorage, screen, session } from 'electron';
 import { dirname, join } from 'node:path';
 import type { HotkeyAction } from '@hirora/contracts';
 import { Logger } from './logger';
@@ -8,6 +8,12 @@ import { HotkeyManager, TrayController } from './shell';
 import { registerIpc } from './ipc';
 import { LEGACY_PROFILE_DIR_NAME, migrateLegacyProfile } from './migrate';
 import { UpdateManager } from './updates';
+import { BrowserAgent } from './browser/agent';
+import { createBrowserPlanner, createBrowserReader } from './browser/planner';
+import { browserTrustStore } from './browser/trust';
+import { createBrowserChatter } from './browser/chat';
+import { LocalAgent } from './local/agent';
+import { createLocalPlanner } from './local/planner';
 
 const processStart = performance.timeOrigin;
 
@@ -127,6 +133,8 @@ async function main(): Promise<void> {
         services.emit({ type: 'command', command: 'paintProbe', arg: token });
         return;
       case 'cancelAnswer':
+        browser.stop();
+        local.stop();
         services.answer.cancel('user');
         services.emit({ type: 'command', command: 'paintProbe', arg: token });
         return;
@@ -169,7 +177,16 @@ async function main(): Promise<void> {
     notify: (message) => services.emit({ type: 'toast', level: 'info', message }),
     quit: () => app.quit(),
   });
-  registerIpc({ services, windows, hotkeys, tray, paintTokens, updates });
+  const browserTrust = browserTrustStore(join(app.getPath('userData'), 'browser-connection.bin'), {
+    available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (data) => safeStorage.decryptString(data),
+  });
+  const browser = new BrowserAgent(createBrowserPlanner(services), Number(process.env.HIRORA_BROWSER_PORT ?? 19389), browserTrust, () => {
+    windows.showDashboard();
+    services.emit({ type: 'command', command: 'navigate', arg: 'browser' });
+  }, createBrowserReader(services), createBrowserChatter(services));
+  void browser.enable().catch(() => services.emit({ type: 'toast', level: 'warn', message: 'Browser connection could not start. Open Browser assistant to reconnect.' }));
+  const local = new LocalAgent(createLocalPlanner(services));
+  registerIpc({ services, windows, hotkeys, tray, paintTokens, updates, browser, local });
   updates.startAutoCheck();
 
   const dash = windows.createDashboard();
@@ -186,6 +203,8 @@ async function main(): Promise<void> {
   screen.on('display-removed', () => windows.revalidateOverlay());
   screen.on('display-metrics-changed', () => windows.revalidateOverlay());
   powerMonitor.on('suspend', () => {
+    local.stop();
+    browser.stop();
     log.info('system suspend');
     if (services.session.sessionState === 'listening') void services.session.pause().then(() => {
       services.emit({ type: 'toast', level: 'info', message: 'Listening paused because the computer went to sleep. Resume when ready.' });
@@ -199,6 +218,8 @@ async function main(): Promise<void> {
 
   app.on('second-instance', () => windows.showDashboard());
   app.on('before-quit', () => {
+    local.revoke();
+    browser.shutdown();
     windows.quitting = true;
   });
   app.on('will-quit', (e) => {

@@ -100,6 +100,7 @@ export class OpenAICompatibleProvider implements TextModelProvider {
         max_tokens: req.maxOutputTokens,
       };
       if (this.flavor.sendsTemperature && req.temperature !== undefined) body.temperature = req.temperature;
+      if (req.jsonSchema) body.response_format = { type: 'json_schema', json_schema: { name: 'browser_response', strict: true, schema: req.jsonSchema } };
       if (withUsage) body.stream_options = { include_usage: true };
       if (withExtras && req.effort === 'fast' && this.flavor.fastExtras) Object.assign(body, this.flavor.fastExtras(req.model));
       return body;

@@ -26,12 +26,12 @@ export function About({ onGuide }: { onGuide?: () => void } = {}) {
         </div>
       </Card>
       <Card title="Privacy">
-        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-          <li>Speech and answers run on this PC (127.0.0.1). Internet is used only for the one-time engine download and, if on, a daily update check; every file is checked against its SHA-256.</li>
-          <li>Audio is captured only after Start and your consent, transcribed here and never saved.</li>
-          <li>Your screen is looked at only when a question points at it or you press Ctrl+Shift+O. The picture stays in memory.</li>
-          <li>Documents and history stay in a local database. History is off unless you turn it on.</li>
-          <li>Hiding Doing from screen shares is a best-effort Windows setting, not a way to evade monitoring or proctoring.</li>
+        <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
+          <li>AI answers and speech recognition run on this PC, with no cloud model requests.</li>
+          <li>Only folders and browser tabs you allow can be used for tasks. Website submissions send information to that website.</li>
+          <li>Audio and screenshots stay in memory. Saved meeting history is opt-in.</li>
+          <li>Assistant and browser chats stay in memory for the app session. File changes remain in the folder you choose.</li>
+          <li>Engine downloads and optional update checks use the internet. No accounts, analytics or telemetry.</li>
         </ul>
       </Card>
     </>

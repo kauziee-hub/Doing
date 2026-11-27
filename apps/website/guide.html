@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="How to set up and use Doing: first run, starting a call, shortcuts, asking about the shared screen, documents, tips and troubleshooting." />
+    <meta name="description" content="Set up Doing for local file tasks, browser chat, meeting transcripts and questions. Shortcuts, privacy controls and troubleshooting." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Doing guide" />
-    <meta property="og:description" content="Set up Doing and use it on your calls: shortcuts, asking anything, the shared screen, documents and troubleshooting." />
+    <meta property="og:description" content="Use Doing on your PC, beside a browser tab and in meetings. Setup, shortcuts and troubleshooting." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -22,7 +22,7 @@
         <div class="wrap">
           <p class="eyebrow">Guide</p>
           <h1>Using Doing</h1>
-          <p class="lede">From the first launch to your first call, plus the shortcuts and fixes worth knowing.</p>
+          <p class="lede">Set up once, then ask for help on your PC, in your browser or in a meeting.</p>
         </div>
       </header>
 
@@ -31,6 +31,8 @@
           <nav class="toc" aria-label="On this page">
             <strong>Guide</strong>
             <a href="#first-run">First run</a>
+            <a href="#assistant">PC tasks</a>
+            <a href="#browser">Browser chat</a>
             <a href="#call">On a call</a>
             <a href="#shortcuts">Shortcuts</a>
             <a href="#asking">Asking anything</a>
@@ -46,9 +48,10 @@
             <ol class="numbered">
               <li><div><h3>Welcome</h3><p>What Doing does and what stays on your PC.</p></div></li>
               <li><div><h3>Set up</h3><p>Doing shows your hardware and the four parts it needs: answer engine, speech recognition, speech model and answer model. Press <strong>Set up Doing</strong>. You can keep working while it downloads; if it stops, press <strong>Resume setup</strong> and it continues where it left off.</p></div></li>
-              <li><div><h3>Your documents</h3><p>Optionally add notes or a résumé so answers can use them.</p></div></li>
-              <li><div><h3>Ready</h3><p>The main shortcuts are listed. Start listening from Meetings or the overlay.</p></div></li>
+              <li><div><h3>Ready</h3><p>Choose Assistant, Browser or Meetings. Add documents in Library whenever you need them.</p></div></li>
             </ol>
+
+            <h2 id="assistant">Assistant: work on your PC</h2><p>Ask in your own words. For file tasks, choose <strong>Allow a folder</strong>, select a folder and describe the change. Doing can create, edit and organize text, Markdown, CSV, JSON and code files. It lists completed changes; use <strong>Undo last change</strong> during the session if needed. Add PDFs and Word documents in Library for questions about them.</p><h2 id="browser">Browser: chat beside the page</h2><p>In Doing, open <strong>Browser assistant → Open extension folder</strong>. In Chrome, open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>), turn on Developer mode and choose <strong>Load unpacked</strong>. Select that folder. Click Doing in the browser toolbar to open its side panel.</p><p>Choose <strong>Allow this tab</strong>, approve the site permission and approve the first browser connection in Doing. No pairing code is entered. Add more tabs individually to build a working group. Type a question or an instruction such as “Fill the answers, submit each page and continue until results.” Replies appear in chat when it finishes. Without a submit/next instruction, it asks before advancing. Stop a task in chat or revoke access with <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Y</kbd>.</p>
 
             <h2 id="call">On a call</h2>
             <ol>
@@ -80,7 +83,7 @@
             </div>
 
             <h2 id="asking">Asking anything</h2>
-            <p>There's one assistant and nothing to switch. Ask out loud, or type with <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, in your own words:</p>
+            <p>For questions during a meeting, ask out loud or type with <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>K</kbd>, in your own words:</p>
             <ul>
               <li><strong>About you</strong> (“tell me about your last project”): answered in the first person from your résumé and notes.</li>
               <li><strong>Code and design</strong> (“write a function that…”, “how would you scale this?”): answer, approach, code, complexity and tests.</li>
@@ -95,8 +98,8 @@
             <p>The picture is kept in memory only and sent to the answer model on your PC. Change when it's used in Settings → Answers → Your screen.</p>
 
             <h2 id="documents">Adding documents</h2>
-            <p>Open <strong>Prep → Documents</strong> and drop in PDF, Word, text, Markdown, CSV, JSON or code files, and set each one's type (résumé, project notes, job description, notes…). They're parsed and indexed on your PC. Use <strong>Test retrieval</strong> to see which passages a question would use. Deleting a document removes its text and index.</p>
-            <p>Under <strong>Prep → Profile</strong> describe yourself, and save a profile for a specific company or meeting so answers use the right context.</p>
+            <p>Open <strong>Library → Documents</strong> and drop in PDF, Word, text, Markdown, CSV, JSON or code files, and set each one's type (résumé, project notes, job description, notes…). They're parsed and indexed on your PC. Use <strong>Test retrieval</strong> to see which passages a question would use. Deleting a document removes its text and index.</p>
+            <p>Under <strong>Library → Profile</strong> describe yourself, and save a profile for a specific company or meeting so answers use the right context.</p>
 
             <h2 id="settings">Settings</h2>
             <ul>
@@ -135,7 +138,7 @@
             <p><code>%APPDATA%\Hirora\logs\hirora.log</code> (no transcripts or answers) and <code>%LOCALAPPDATA%\Hirora\ollama\server.log</code> for the answer engine.</p>
 
             <h2 id="responsible-use">Responsible use</h2>
-            <p>Transcribing other people requires their consent in many places: Doing asks you to confirm it every time you start. Many interviews, exams and assessments don't allow AI assistance; check the rules and respect them. Hiding the overlay from screen shares is a privacy convenience, not a way to conceal AI use from anyone entitled to know.</p>
+            <p>Transcribing other people requires their consent in many places: Doing asks you to confirm it every time you start. Check the rules of your call or assessment and respect them. Hiding the overlay from screen shares is a privacy convenience, not a way to conceal AI use from anyone entitled to know.</p>
           </article>
         </div>
       </div>

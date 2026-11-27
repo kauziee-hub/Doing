@@ -83,6 +83,14 @@ const sse = (res: ServerResponse, events: string[]) => {
 };
 
 describe('Answer engine stream (fixture)', () => {
+  it('preserves the browser JSON grammar and fast reasoning setting in the local request', async () => {
+    routes.clear();
+    routes.set('/v1/chat/completions', (_r, _b, res) => sse(res, [JSON.stringify({ choices: [{ delta: { content: '{"kind":"done"}' }, finish_reason: 'stop' }] }), '[DONE]']));
+    const schema = { type: 'object', properties: { kind: { const: 'done' } }, required: ['kind'], additionalProperties: false };
+    const p = new OllamaProvider(`${base}/v1`, fetch);
+    await collect(p.stream({ model: 'qwen3.5:4b', messages: [{ role: 'user', content: 'JSON please' }], maxOutputTokens: 100, jsonSchema: schema, effort: 'fast', signal: new AbortController().signal }));
+    expect(JSON.parse(seen.at(-1)!.body)).toMatchObject({ reasoning_effort: 'none', response_format: { type: 'json_schema', json_schema: { strict: true, schema } } });
+  });
   it('streams deltas, ignores reasoning_content text, stops at [DONE] and asks for no reasoning on fast cues', async () => {
     routes.clear();
     routes.set('/v1/chat/completions', (_r, _b, res) =>

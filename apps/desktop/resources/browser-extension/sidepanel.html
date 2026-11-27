@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doing chat</title><link rel="stylesheet" href="sidepanel.css"></head>
+<body>
+<header><div class="brand"><img class="logo" src="icon.png" width="37" height="37" alt=""><div><h1>Doing</h1><span class="local">On your PC</span></div></div><button id="new-chat" class="icon" title="New chat" aria-label="New chat">ï¼‹</button></header>
+<section class="context" aria-label="Allowed tabs">
+  <div class="context-head"><span>Working tabs <span id="tab-count">0</span></span><button id="allow">ï¼‹ Allow this tab</button></div>
+  <div id="tabs" class="tabs"></div>
+  <button id="group" class="text-button" hidden>Group these tabs in Chrome</button>
+  <p id="connection" role="status" aria-live="polite">Connecting to Doingâ€¦</p>
+  <button id="reload" class="text-button" hidden>Reload companion update</button>
+</section>
+<main id="conversation" aria-label="Conversation" aria-live="polite" aria-relevant="additions text">
+  <section id="welcome"><span class="hello">A little less to do.</span><h2>What shall we do?</h2><p>Allow the page you want to work on, then ask me anything or tell me what to do.</p><div class="examples"><button data-prompt="Explain the question and which option is correct.">Explain this question <span>â†—</span></button><button data-prompt="Fill the correct options on this page. Do not submit yet.">Fill the answers <span>â†—</span></button><button data-prompt="Solve the coding question and type the complete solution into the editor. Do not run or submit it.">Type a coding solution <span>â†—</span></button></div></section>
+  <div id="messages"></div>
+</main>
+<footer>
+  <div id="progress" role="status" aria-live="polite"></div>
+  <form id="composer"><label for="prompt" class="sr-only">Message Doing</label><textarea id="prompt" rows="2" maxlength="6000" placeholder="Ask anything about your tabsâ€¦"></textarea><div class="compose-bottom"><span id="hint">Tell me when to submit or go next.</span><button id="send" type="submit" aria-label="Send message">â†‘</button><button id="stop-task" type="button" hidden>Stop</button></div></form>
+  <div class="footnote"><span>Local AI Â· Check important answers</span><button id="revoke" class="text-button">Revoke tabs</button></div>
+  <details><summary>Connection settings</summary><button id="forget" class="text-button">Forget browser connection</button><p>Keep Doing open. Approve the browser connection once in the desktop app. Add each tab you want me to use; only allowed tabs are read. Stop anytime: Ctrl+Shift+Y.</p></details>
+</footer>
+<script type="module" src="sidepanel.js"></script></body></html>

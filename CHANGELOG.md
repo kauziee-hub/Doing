@@ -1,11 +1,38 @@
 # Changelog
 
+## 0.4.1 — 2026-11-27 (unsigned)
+- **A complete Doing workspace:** Assistant for local questions and file tasks; Meetings for live transcripts and answers; Browser assistant for connection; Library for optional documents/context; History for opt-in saved meetings. About is inside Settings. Setup has three steps and no required profile.
+- **Local file tasks:** choose a folder with the native picker, then ask to create, read, edit, rename or organize text/code files. Completed changes appear with session Undo. Paths stay under the chosen folder; linked paths, alternate streams, protected names and overwriting move destinations are rejected. Stop and revoke remain available. No model shell or arbitrary Windows-app control.
+- **Browser side-panel chat:** combines the earlier local browser work with Doing branding. Questions, actions, completion replies and follow-ups share one conversation; type code, fill forms and say when to submit or go next. Add up to eight allowed tabs; closing/removing one stops the task and preserves remaining tab access. Markdown replies include safe code blocks and Copy.
+- Explicit “submit all pages without asking again” now grants continuation; “do not submit” still blocks it. No task/submit checkboxes or pairing code. Browser trust is remembered with Windows encryption; tab access is separately granted each session.
+- The website follows the same PC → Browser → Meetings order, with shorter feature/guide pages and mobile layout repairs. Privacy explains real file changes and website submissions accurately.
+- Verified on the installed app with Qwen 3.5 4B: ten different local MCQs submitted through results, 10/10 correct; a typed Monaco Two Sum solution passed five independent cases; folder create/edit/Undo/revoke passed. Full checks: 204 TypeScript tests, 15 Rust tests and 10 app/browser e2e tests. Local practice fixtures do not establish universal website or answer compatibility.
+- Build and release use only the primary Projects/Hirora folder. Existing settings, documents and model paths stay compatible.
+
 ## 0.4.0 — 2026-11-27 (unsigned)
 **Hirora is now Doing.** It has grown from interview help into a private assistant for calls and meetings, so it has a name and a logo of its own.
 - **New name and logo.** The wordmark "Doıng" is drawn in heavy geometric strokes (dotless ı, single-storey g); the mark is its D on the ink squircle with the blush dot the ı gave up (`brand/*.svg`; `tools/make-icons.mjs` and the new `tools/make-og.mjs` render the icons and the social card from the same geometry). The window, tray, installer (`Doing-Setup-<v>-x64-unsigned.exe`), shortcuts and website say Doing. Settings, documents and history stay in `%APPDATA%\Hirora` (pinned with `app.setPath('userData', …)`) and the engine in `%LOCALAPPDATA%\Hirora`, so nothing moves or downloads again; the app id is unchanged, so the installer replaces Hirora.
 - **Clearer sections.** The rail is Meetings (listen, transcript, answers), Prep (your profile and documents, as two tabs), History, then Settings and About. Performance moved into Settings. Old page links (Knowledge, Profiles, Performance) still land in the right place.
 - **Less text.** Page headers and settings descriptions were cut to one short line each; the static list of abilities on the Meetings page is gone. The privacy facts and the consent reminder stay.
 - **Updates from inside the app** (built for 0.3.8, first released here). Settings → Updates checks the latest GitHub release and, on a click, downloads its installer, checks its size and SHA-256 (GitHub's own digest, or the one in the notes), installs it over this copy (`--updated /S --force-run /D=<folder>`) and closes. A daily check (on by default, can be turned off) asks api.github.com for the latest version, sending only the version number, and says when a newer one is out. Releases named Hirora-Setup are still recognised. Verified on a packaged build: it found the latest release, downloaded 142.9 MB, checked the SHA-256 and replaced the test install's files. Not verified: the installer's restart of the app afterwards (it didn't happen in the test, where the test harness may have ended the installer early); reopen Doing yourself if it doesn't.
+
+## 0.3.11 — 2026-11-27 (unsigned, local build)
+- **Chat in Chrome’s side panel:** ask about the page or tell Hirora to click, fill, type code and complete workflows. Completion and follow-up replies appear in the same conversation. The desktop Browser assistant section is now for connection setup/status only.
+- No task or submission checkboxes: say when to submit or continue in chat. Add up to eight allowed tabs to a working group; chat can read their context and tasks can switch among those tabs. Optionally group them in Chrome.
+- Fixed the misleading revoked message during connection attempts. Connection errors persist in the popup, and the local bridge is available when Hirora opens, including first use.
+- Page context stays in memory and clears on revocation, lost connection, site change or restart. Questions cannot dispatch browser actions, and answers are discarded if access is revoked or the page changes during generation.
+- Local browser decisions now use an enforced JSON schema. A slow in-flight model request keeps the connection alive instead of appearing disconnected. Installed-build chat explained and then typed a Two Sum solution into real Monaco; all five checked cases passed. This was a local test, not live LeetCode acceptance.
+
+## 0.3.10 — 2026-11-27 (unsigned, local build)
+- **No pairing codes:** approve the companion once in Hirora and it remembers that browser across restarts. The companion then only asks you to allow the tab; task consent and submission controls remain explicit.
+- Connection credentials are encrypted with Windows DPAPI in Hirora and kept in restricted extension local storage. Browser/tab/task permissions remain separate; Forget browser revokes the saved connection.
+- An older companion popup offers a one-time **Reload companion update** button to load the new flow.
+
+## 0.3.9 — 2026-11-27 (unsigned, local build)
+- **Browser assistant:** explicitly allow one Chrome/Edge tab, give Hirora a task, and let the local model read page controls, select choices, fill text, type code and continue through pages. Submit/Next actions wait for review unless automatic submission is enabled for that task.
+- Browser access is revocable, stays on one site, and stops on disconnection, stale page state or an action limit. The companion extension is bundled with the app and initially loaded unpacked.
+- Typing-only tasks finish after the solution is visible, without running or submitting it. See `docs/BROWSER_ASSISTANT.md` for setup and verification limits.
+- Real Monaco verification fixed focus on its native EditContext surface, composition during code input, and checks that the editor retained the requested code before recording a successful action. Installed 0.3.9 typed a Two Sum solution using the real local model in a local Monaco 0.58.0 test; the resulting code passed five test cases. The live LeetCode page showed security verification, so live-site compatibility remains unverified.
 
 ## 0.3.7 — 2026-11-27 (unsigned)
 From the owner: Hirora couldn't see the screen when a coding problem was on it, shared by the interviewer or opened from a link, and the problem shouldn't have to be pasted.

@@ -5,7 +5,7 @@
 3. On AC power: `node tools/interview-check.mjs --system keep` (GPU tier, a copy of your profile) and, with a CPU engine installed by step 4, the same with `--tier cpu` and `HIRORA_ENGINE_FORCE_CPU=1`. Update `docs/PERF_RESULTS.md` and the website numbers with what was measured.
 4. If the engine catalog changed (`apps/desktop/electron/main/engine/catalog.ts`): run `node tools/engine-setup-check.mjs <empty dir> --tier cpu` (and `--tier gpu` on an NVIDIA PC) to download, verify and run every pinned file for real.
 5. Bump `apps/desktop/package.json` version, update `CHANGELOG.md`.
-6. `pnpm package:win`; run `HIRORA_E2E_EXE=apps/desktop/release/win-unpacked/Hirora.exe` app + capture suites against the packaged app. Don't silent-install over a Hirora that is running.
+6. `pnpm package:win`; run `HIRORA_E2E_EXE=apps/desktop/release/win-unpacked/Doing.exe` app + capture suites against the packaged app. Don't silent-install over a Hirora that is running.
 7. Sign the installer once a certificate is available.
 8. Publish the installer as a GitHub release of `kauziee-hub/hirora`: tag `v<version>` on the commit it was built from, the user-facing changelog lines and the SHA-256 in the notes, the `.exe` attached. Never replace a published asset; a new build gets a new version. Without the `gh` CLI, use the REST API with the token from the git credential manager (`printf 'protocol=https
 host=github.com

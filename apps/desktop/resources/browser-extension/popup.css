@@ -1,0 +1,7 @@
+body { width: 330px; margin: 0; padding: 22px; background: #f3f2ef; color: #1d1c35; font: 14px/1.5 system-ui, sans-serif; }
+h1 { font-size: 25px; margin: 0; } h1 span { display: block; font-size: 12px; font-weight: 500; }
+p { color: #555365; } label { display: block; margin: 12px 0 5px; font-size: 12px; font-weight: 600; }
+input { box-sizing: border-box; width: 100%; padding: 10px; border: 1px solid #d4d2d9; border-radius: 9px; background: white; font: inherit; }
+button { width: 100%; border: none; border-radius: 24px; padding: 11px; margin-top: 16px; background: #1d1c35; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; } .stop { background: #f5dcdd; color: #702b38; }
+small { display: block; font-size: 11px; color: #686575; } #status { font-size: 13px; }

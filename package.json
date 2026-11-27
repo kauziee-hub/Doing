@@ -2,7 +2,7 @@
   "name": "hirora",
   "private": true,
   "version": "0.2.0",
-  "description": "Hirora \u2014 Windows-first, local-first real-time AI desktop copilot (BYOK).",
+  "description": "Doing \u2014 a free private assistant for PC files, browser tasks and meetings.",
   "license": "UNLICENSED",
   "packageManager": "pnpm@9.1.0",
   "engines": {

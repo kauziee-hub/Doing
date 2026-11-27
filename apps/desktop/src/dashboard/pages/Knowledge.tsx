@@ -25,7 +25,7 @@ function fmtBytes(n: number) {
 export function Knowledge({ bare = false }: { bare?: boolean } = {}) {
   const toast = useLive((s) => s.toast);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
-  const [kind, setKind] = useState<DocKind>('resume');
+  const [kind, setKind] = useState<DocKind>('notes');
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<IngestResult[]>([]);
   const [over, setOver] = useState(false);
@@ -85,7 +85,7 @@ export function Knowledge({ bare = false }: { bare?: boolean } = {}) {
 
       <Card title={`Documents (${docs.length})`}>
         {docs.length === 0 ? (
-          <EmptyState icon={<FileText size={28} />} title="No documents yet">Add your resume first: Doing then refuses to invent personal facts that are not in it.</EmptyState>
+          <EmptyState icon={<FileText size={28} />} title="No documents yet">Add notes, documents or code when you want meeting answers to use them.</EmptyState>
         ) : (
           <table className="dash-table">
             <thead><tr><th>Document</th><th>Type</th><th className="dash-num">Pages</th><th className="dash-num">Chunks</th><th className="dash-num">Size</th><th>Index</th><th /></tr></thead>

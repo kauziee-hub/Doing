@@ -69,7 +69,7 @@ export function Profiles({ bare = false }: { bare?: boolean } = {}) {
           </Card>
 
           <Card title={`Project cards (${cards.length})`} actions={<Button size="sm" icon={<Plus size={13} />} onClick={() => setCard(emptyCard())}>New card</Button>}>
-            {cards.length === 0 && !card ? <EmptyState title="No project cards">Reusable STAR stories with measurable outcomes and evidence. Private cards are never put into prompts.</EmptyState> : null}
+            {cards.length === 0 && !card ? <EmptyState title="No project cards">Reusable project notes. Private cards stay out of answers.</EmptyState> : null}
             {cards.map((c) => (
               <div key={c.id} className="dash-check">
                 <div className="dash-check__body">
@@ -81,7 +81,7 @@ export function Profiles({ bare = false }: { bare?: boolean } = {}) {
               </div>
             ))}
             {card ? (
-              <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              <div style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
                 <div className="vc-grid2">
                   <Field label="Project title"><input className="vc-input" value={card.title} onChange={(e) => setCard({ ...card, title: e.target.value })} /></Field>
                   <Field label="Your role"><input className="vc-input" value={card.role} onChange={(e) => setCard({ ...card, role: e.target.value })} /></Field>
@@ -110,7 +110,7 @@ export function Profiles({ bare = false }: { bare?: boolean } = {}) {
         </div>
 
         <div>
-          <Card title="Company / job profiles" actions={<Button size="sm" icon={<Plus size={13} />} onClick={() => setSession(emptySession())}>New</Button>}>
+          <Card title="Work contexts" actions={<Button size="sm" icon={<Plus size={13} />} onClick={() => setSession(emptySession())}>New</Button>}>
             <div className="dash-check">
               <div className="dash-check__body"><div className="dash-check__title">No profile</div><div className="dash-check__desc">Generic answers.</div></div>
               {sessions.activeId === null ? <Badge tone="ok"><CheckCircle2 size={11} /> active</Badge> : <Button size="sm" onClick={async () => { setSessions(await invoke('sessionProfiles:setActive', { id: null })); await refreshSettings(); }}>Use</Button>}
@@ -133,7 +133,7 @@ export function Profiles({ bare = false }: { bare?: boolean } = {}) {
               <div className="vc-grid2">
                 <Field label="Company"><input className="vc-input" value={session.company} onChange={(e) => setSession({ ...session, company: e.target.value })} /></Field>
                 <Field label="Role"><input className="vc-input" value={session.role} onChange={(e) => setSession({ ...session, role: e.target.value })} /></Field>
-                <Field label="Interview / meeting type"><input className="vc-input" value={session.interviewType} placeholder="system design, behavioural, standup…" onChange={(e) => setSession({ ...session, interviewType: e.target.value })} /></Field>
+                <Field label="Conversation type"><input className="vc-input" value={session.interviewType} placeholder="Planning, technical discussion, standup…" onChange={(e) => setSession({ ...session, interviewType: e.target.value })} /></Field>
                 <Field label="Desired tone"><input className="vc-input" value={session.tone} onChange={(e) => setSession({ ...session, tone: e.target.value })} /></Field>
                 <Field label="Allowed resources / rules"><input className="vc-input" value={session.allowedResources} placeholder="e.g. practice only; notes allowed" onChange={(e) => setSession({ ...session, allowedResources: e.target.value })} /></Field>
               </div>

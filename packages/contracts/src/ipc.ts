@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { BrowserStartSchema } from './browser';
+import type { BrowserStatus } from './browser';
+import type { LocalStatus } from './local';
 import {
   ModeSchema,
   PersonalProfileSchema,
@@ -27,6 +30,23 @@ import type { AppSettings } from './settings';
  * in both preload and main.
  */
 export const IpcRequestSchemas = {
+  'local:status': z.void(),
+  'local:chooseFolder': z.void(),
+  'local:revoke': z.void(),
+  'local:send': z.object({ text: z.string().trim().min(1).max(6000) }),
+  'local:stop': z.void(),
+  'local:clear': z.void(),
+  'local:undo': z.void(),
+  'browser:status': z.void(),
+  'browser:enable': z.void(),
+  'browser:disable': z.void(),
+  'browser:openExtension': z.void(),
+  'browser:start': BrowserStartSchema,
+  'browser:ask': z.object({ question: z.string().trim().min(1).max(6000) }),
+  'browser:stop': z.void(),
+  'browser:approve': z.void(),
+  'browser:allowConnection': z.object({ requestId: z.string().uuid() }),
+  'browser:denyConnection': z.object({ requestId: z.string().uuid() }),
   'app:info': z.void(),
   'app:openExternal': z.object({ url: z.string().url().max(2048) }),
   'app:openDataFolder': z.void(),
@@ -229,6 +249,23 @@ export interface LocalBenchResult {
 
 /** Response types for each channel (compile-time only). */
 export interface IpcResponses {
+  'local:status': LocalStatus;
+  'local:chooseFolder': LocalStatus;
+  'local:revoke': LocalStatus;
+  'local:send': LocalStatus;
+  'local:stop': LocalStatus;
+  'local:clear': LocalStatus;
+  'local:undo': LocalStatus;
+  'browser:status': BrowserStatus;
+  'browser:enable': BrowserStatus;
+  'browser:disable': BrowserStatus;
+  'browser:openExtension': { ok: boolean };
+  'browser:start': BrowserStatus;
+  'browser:ask': { text: string; url: string };
+  'browser:stop': BrowserStatus;
+  'browser:approve': BrowserStatus;
+  'browser:allowConnection': BrowserStatus;
+  'browser:denyConnection': BrowserStatus;
   'app:info': AppInfo;
   'app:openExternal': { ok: boolean };
   'app:openDataFolder': { ok: boolean };

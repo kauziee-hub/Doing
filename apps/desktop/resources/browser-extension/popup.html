@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doing tab permission</title><link rel="stylesheet" href="popup.css"></head>
+<body><h1>Doing <span>Browser companion</span></h1>
+<p>Allow Doing to read and operate this tab. Page text stays with the model on your PC. Start the task and choose submission permission in Doing.</p>
+<p>Doing remembers your browser after you approve the connection once. No pairing codes.</p>
+<button type="button" id="allow">Allow this tab</button>
+<button type="button" id="reload" hidden>Reload companion update</button>
+<button id="stop" class="stop" type="button">Stop &amp; revoke tab access</button>
+<button id="forget" class="stop" type="button">Forget connection</button>
+<p id="status" role="status" aria-live="polite"></p>
+<small>Only the selected tab on this site. Chrome may show a debugging notice while Doing types. Stop anytime: Ctrl+Shift+Y. An action already dispatched may finish.</small>
+<script type="module" src="popup.js"></script></body></html>

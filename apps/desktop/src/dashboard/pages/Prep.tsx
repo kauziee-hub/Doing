@@ -4,16 +4,16 @@ import { PageHeader } from '../App';
 import { Knowledge } from './Knowledge';
 import { Profiles } from './Profiles';
 
-const TABS = ['Profile', 'Documents'] as const;
+const TABS = ['Documents', 'Profile'] as const;
 type Tab = (typeof TABS)[number];
 
 /** Interview and meeting prep in one place: who you are, and the documents answers draw on. */
-export function Prep({ initial = 'Profile' }: { initial?: Tab }) {
+export function Prep({ initial = 'Documents' }: { initial?: Tab }) {
   const [tab, setTab] = useState<Tab>(initial);
   return (
     <>
-      <PageHeader light="Your" bold="prep" sub="Who you are and the documents answers draw on. Stored on this PC." />
-      <div className="dash-tabs" role="tablist" aria-label="Prep sections">
+      <PageHeader bold="Library" sub="Documents and context for better answers. Kept on this PC." />
+      <div className="dash-tabs" role="tablist" aria-label="Library sections">
         {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={cx('dash-tab', tab === t && 'is-active')} onClick={() => setTab(t)}>{t}</button>
         ))}

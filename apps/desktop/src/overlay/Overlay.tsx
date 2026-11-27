@@ -32,7 +32,7 @@ export function ConsentModal({ onCancel }: { onCancel: () => void }) {
       <div className="ov-modal__box">
         <h2 id="consent-title"><ShieldAlert size={16} /> Start listening?</h2>
         <p>Doing will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>{settings.answer.screen !== 'off' ? <>; when a question refers to something shown, it also looks at <strong>your screen</strong></> : null}. Nothing is sent anywhere, and audio and screen captures are never saved.</p>
-        <p className="ov-muted">Only continue if everyone in the conversation has agreed to be recorded/transcribed and AI assistance is allowed in this setting (many interviews and assessments forbid it).</p>
+        <p className="ov-muted">Continue only when everyone has agreed to transcription and AI assistance is allowed in this conversation.</p>
         {err ? <p className="ov-error">{err}</p> : null}
         <div className="vc-row" style={{ justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>

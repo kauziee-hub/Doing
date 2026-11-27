@@ -1,3 +1,4 @@
+import { fixturePort } from '../../../../../tests/fixtures/ports';
 /**
  * FIXTURE tests for the engine installer: a local HTTP server serves a file (with Range
  * support) so resuming and checksum checks can be exercised offline. The real downloads
@@ -34,7 +35,8 @@ beforeAll(async () => {
     res.writeHead(200, { 'content-length': payload.length });
     res.end(payload);
   });
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = await fixturePort();
+  await new Promise<void>((r) => server.listen(port, '127.0.0.1', () => r()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 afterAll(() => server.close());

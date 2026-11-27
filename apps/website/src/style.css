@@ -176,7 +176,7 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
 .toc a:hover { background: var(--panel); color: var(--ink); }
 .toc strong { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); padding: 0 10px 8px; font-weight: 600; }
 
-.prose { max-width: 760px; }
+.prose { max-width: 760px; min-width: 0; overflow-wrap: anywhere; }
 .prose > * + * { margin-top: 16px; }
 .prose h2 { font-size: 28px; margin-top: 56px; padding-top: 8px; }
 .prose h2:first-child { margin-top: 0; }
@@ -205,7 +205,8 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
 .sha code { word-break: break-all; font-size: 12.5px; background: #fff; }
 .sha button { font: inherit; font-size: 13px; border: 1px solid var(--line-2); background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 
-.numbered, .prose .numbered { list-style: none; padding: 0; margin: 0; counter-reset: n; display: grid; gap: 0; }
+.numbered, .prose .numbered { list-style: none; padding: 0; margin: 0; counter-reset: n; display: grid; gap: 0; min-width: 0; }
+.numbered > li > div { min-width: 0; }
 .numbered > li { counter-increment: n; display: grid; grid-template-columns: 44px 1fr; gap: 16px; padding: 22px 0; border-top: 1px solid var(--line); }
 .numbered > li::before { content: counter(n); width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; font-weight: 600; font-size: 14px; }
 .numbered h3 { font-size: 18px; margin-bottom: 6px; }
@@ -258,7 +259,7 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
   .grid--3, .steps, .figures { grid-template-columns: 1fr 1fr; }
   .showcase { grid-template-columns: 1fr; }
   .showcase .figure:last-child { max-width: 380px; }
-  .doc { grid-template-columns: 1fr; }
+  .doc { grid-template-columns: minmax(0, 1fr); }
   .toc { position: static; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .dl { grid-template-columns: 1fr; }
   .footer__inner { grid-template-columns: 1fr; }

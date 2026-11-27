@@ -52,7 +52,7 @@ test.beforeAll(async () => {
     args: LAUNCH_ARGS,
     env: {
       ...process.env,
-      HIRORA_USER_DATA: userData,
+      HIRORA_USER_DATA: userData, HIRORA_BROWSER_PORT: '0',
       NODE_ENV: 'production',
       HIRORA_ENGINE_DIR: engineDir,
       HIRORA_ENGINE_MODELS: join(engineDir, 'models'),
@@ -75,7 +75,7 @@ test('fresh install opens on a one-click setup with no keys anywhere', async () 
   const dash = await windowByTitle('Doing');
   await expect(dash.getByRole('dialog')).toBeVisible();
   await expect(dash.getByRole('heading', { name: 'Welcome' })).toBeVisible();
-  await expect(dash.getByText(/Everything runs on this PC/)).toBeVisible();
+  await expect(dash.getByText(/Your private assistant, working on your PC/)).toBeVisible();
   await snap(dash, '01-onboarding-welcome.png');
   await dash.getByRole('button', { name: 'Next' }).click();
   await expect(dash.getByRole('heading', { name: 'Set up', exact: true })).toBeVisible();
@@ -84,18 +84,19 @@ test('fresh install opens on a one-click setup with no keys anywhere', async () 
   for (const label of ['Answer engine', 'Speech recognition', 'Speech model', 'Answer model']) await expect(dlg.getByText(label, { exact: true })).toBeVisible();
   await expect(dlg.getByText(/One-time download of \d/)).toBeVisible();
   await expect(dlg.getByRole('button', { name: 'Set up Doing' })).toBeEnabled();
-  await expect(dash.getByText(/api key|access code/i)).toHaveCount(0);
+  await expect(dlg.getByText(/access code/i)).toHaveCount(0);
   await snap(dash, '02-onboarding-setup.png');
   await dash.getByRole('button', { name: 'Skip' }).click();
-  await expect(dash.getByRole('heading', { name: /Your meetings/ })).toBeVisible();
+  await expect(dash.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
   await expect(dash.getByRole('heading', { name: 'Set up Doing' })).toBeVisible();
-  await expect(dash.getByRole('button', { name: 'Finish setup to start' })).toBeDisabled();
+  await expect(dash.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  await expect(dash.getByRole('button', { name: 'Send message' })).toBeInViewport();
   await snap(dash, '03-home-setup.png');
 });
 
 test('every page is navigable without keys', async () => {
   const dash = await windowByTitle('Doing');
-  const titles: Record<string, RegExp> = { 'Prep: profile and documents': /prep/i, History: /history/i, Settings: /settings/i, 'About & privacy': /privacy/i, Meetings: /meetings/i };
+  const titles: Record<string, RegExp> = { 'Browser assistant': /browser/i, Library: /library/i, History: /history/i, Settings: /settings/i, Meetings: /meetings/i, Assistant: /assistant/i };
   for (const [page, title] of Object.entries(titles)) {
     const btn = dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: page, exact: true });
     await btn.click();
@@ -115,6 +116,40 @@ test('every page is navigable without keys', async () => {
   // Real device enumeration through the native helper.
   await expect(dash.locator('select').first()).toBeVisible();
   await snap(dash, '04-settings-audio.png');
+  await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Meetings', exact: true }).click();
+  await dash.getByRole('button', { name: 'Audio settings', exact: true }).click();
+  await expect(dash.getByRole('tab', { name: 'Audio', exact: true })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('browser connection is available on launch and tab permission can be fully revoked without an engine', async () => {
+  const dash = await windowByTitle('Doing');
+  const skip = dash.getByRole('dialog').getByRole('button', { name: 'Skip', exact: true });
+  if (await skip.isVisible()) await skip.click();
+  await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Browser assistant', exact: true }).click();
+  await expect(dash.locator('#browser-task')).toHaveCount(0);
+  await expect(dash.getByRole('checkbox')).toHaveCount(0);
+  await expect(dash.getByText('Ready to connect', { exact: true })).toBeVisible();
+  await expect(dash.getByLabel('Pairing code')).toHaveCount(0);
+  await expect(dash.getByText('No pairing code needed.', { exact: false })).toBeVisible();
+  const token = 'ab'.repeat(24);
+  const port = await dash.evaluate(async () => (await window.hirora.invoke('browser:status') as { port: number }).port);
+  const pending = await fetch(`http://127.0.0.1:${port}/pair/request`, { method: 'POST', headers: { 'content-type': 'application/json', origin: `chrome-extension://${'a'.repeat(32)}`, authorization: `Bearer ${token}` }, body: JSON.stringify({ label: 'Hirora companion FIXTURE' }) });
+  expect(pending.ok).toBe(true);
+  await dash.getByRole('button', { name: 'Allow connection & remember' }).click();
+  await expect(dash.getByText('Browser remembered', { exact: true })).toBeVisible();
+  expect(readFileSync(join(userData, 'browser-connection.bin')).includes(token)).toBe(false);
+  await app.close();
+  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, HIRORA_BROWSER_PORT: '0', NODE_ENV: 'production', HIRORA_ENGINE_DIR: engineDir, HIRORA_ENGINE_MODELS: join(engineDir, 'models'), HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
+  const restartedDash = await windowByTitle('Doing');
+  const saved = await restartedDash.evaluate(() => window.hirora.invoke('browser:status')) as { enabled: boolean; trustedBrowser: boolean; tab: unknown };
+  expect(saved).toMatchObject({ enabled: true, trustedBrowser: true, tab: null });
+  await restartedDash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Browser assistant', exact: true }).click();
+  await restartedDash.getByText('Access & connection', { exact: true }).click();
+  await restartedDash.getByRole('button', { name: 'Forget browser & revoke access' }).click();
+  expect(existsSync(join(userData, 'browser-connection.bin'))).toBe(false);
+  await expect(restartedDash.getByLabel('Pairing code')).toHaveCount(0);
+  await expect(restartedDash.getByRole('button', { name: 'Enable browser connection' })).toBeVisible();
+  await snap(restartedDash, 'browser-permission-off.png');
 });
 
 test('light and dark themes render', async () => {
@@ -125,7 +160,7 @@ test('light and dark themes render', async () => {
     await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:get')).then(() => undefined);
     await dash.reload();
     await expect(dash.locator('html')).toHaveAttribute('data-theme', theme);
-    await expect(dash.getByRole('heading', { name: /Your meetings/ })).toBeVisible();
+    await expect(dash.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
     await snap(dash, `08-home-${theme}.png`);
   }
   await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:update', { appearance: { theme: 'system' } }));
@@ -193,7 +228,7 @@ test('consent is required before capture starts', async () => {
   const overlay = await windowByTitle('Doing Overlay');
   await overlay.getByRole('button', { name: 'Start listening' }).click();
   await expect(overlay.getByRole('dialog')).toBeVisible();
-  await expect(overlay.getByText(/everyone in the conversation has agreed/)).toBeVisible();
+  await expect(overlay.getByText(/everyone has agreed to transcription/)).toBeVisible();
   await snap(overlay, '07-consent.png');
   await overlay.getByRole('button', { name: 'Cancel' }).click();
   const state = await overlay.evaluate(async () => (await (window as unknown as { hirora: { invoke: (c: string) => Promise<{ snapshot: { session: string } }> } }).hirora.invoke('session:snapshot')).snapshot.session);
