@@ -17,6 +17,7 @@ import { browserTrustStore } from './browser/trust';
 import { createBrowserChatter } from './browser/chat';
 import { LocalAgent } from './local/agent';
 import { createLocalPlanner } from './local/planner';
+import { createPcHost } from './local/pc';
 
 const processStart = performance.timeOrigin;
 
@@ -192,7 +193,11 @@ async function main(): Promise<void> {
     services.emit({ type: 'command', command: 'navigate', arg: 'browser' });
   }, createBrowserReader(services), createBrowserChatter(services));
   void browser.enable().catch(() => services.emit({ type: 'toast', level: 'warn', message: 'Browser connection could not start. Open Browser assistant to reconnect.' }));
-  const local = new LocalAgent(createLocalPlanner(services), (path) => shell.trashItem(path));
+  const local = new LocalAgent(
+    createLocalPlanner(services),
+    (path) => shell.trashItem(path),
+    createPcHost({ openPath: (p) => shell.openPath(p), showItemInFolder: (p) => shell.showItemInFolder(p), openExternal: (uri) => shell.openExternal(uri) }),
+  );
   registerIpc({ services, windows, hotkeys, tray, paintTokens, updates, browser, local });
   updates.startAutoCheck();
 

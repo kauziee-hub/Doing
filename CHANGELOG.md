@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2 — 2026-11-27 (unsigned, not released)
+**The Assistant works across the PC, not only in an allowed folder.** Ask in plain words:
+- **Find files anywhere:** Windows Search first, then your usual folders; app data and developer folders are left out. "Find my resume" lists the résumés, not `node_modules`.
+- **Open what it found** or show it in File Explorer. Programs and scripts are only shown, never run, and only paths found in the chat can be opened.
+- **Open installed apps** by name ("open Spotify", "open calculator"). Shells and admin tools are refused.
+- **Music:** Spotify search for a song (you press play), media keys for play/pause, next and mute.
+- **Settings:** volume, brightness and dark mode are set and read back; Bluetooth, Wi-Fi, notifications and other pages are opened for you to change.
+- **WhatsApp drafts:** the message opens in WhatsApp for the number you give; you press Enter. Doing never sends messages, installs software, runs commands or changes security settings.
+- Plain "find …" and "open <app>" requests skip the model's first step: the 4B model kept answering "I can't access your files" or "Would you like me to open it?" instead of acting. Other requests get a one-line hint. Measured with the real local model (`tools/pc-actions-check.mjs`): every request in the check did what's described above, 0.0–7.2 s each. Details in `docs/LOCAL_ASSISTANT.md`.
+
 ## 0.5.1 — 2026-11-27
 
 - Browser tasks read long pages by screen, scroll the page or nested regions, and focus one MCQ at a time.

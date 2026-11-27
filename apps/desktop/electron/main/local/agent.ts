@@ -3,6 +3,8 @@ import { lstat, realpath, readdir, readFile, writeFile, mkdir, rename, unlink, r
 import { resolve, relative, isAbsolute, dirname, extname } from 'node:path';
 import { z } from 'zod';
 import type { LocalStatus, LocalMessage } from '@doing/contracts';
+import { SETTINGS_PAGES, directFind, directOpen, isAdminApp, isExecutable, matchApps, whatsappUri } from './pc';
+import type { PcHost, SettingsPage } from './pc';
 
 export const FileActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('answer'), text: z.string().min(1).max(16000) }),
@@ -21,7 +23,22 @@ export const FileActionSchema = z.discriminatedUnion('kind', [
     path: z.string().min(1).max(500),
     destination: z.string().min(1).max(500),
   }),
+  // PC-wide actions (0.5.2): fixed host code, no folder permission needed.
+  z.object({ kind: z.literal('find_files'), query: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal('open_found'), path: z.string().min(1).max(500), reveal: z.boolean() }),
+  z.object({ kind: z.literal('open_app'), name: z.string().min(1).max(80) }),
+  z.object({ kind: z.literal('media'), command: z.enum(['play_pause', 'next', 'previous', 'volume_up', 'volume_down', 'mute']) }),
+  z.object({ kind: z.literal('play_music'), query: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal('volume'), level: z.number().int().min(0).max(100) }),
+  z.object({ kind: z.literal('brightness'), level: z.number().int().min(0).max(100) }),
+  z.object({ kind: z.literal('dark_mode'), on: z.boolean() }),
+  z.object({ kind: z.literal('open_settings'), page: z.enum(Object.keys(SETTINGS_PAGES) as [SettingsPage, ...SettingsPage[]]) }),
+  z.object({ kind: z.literal('whatsapp'), phone: z.string().max(20), text: z.string().min(1).max(2000) }),
 ]);
+const PC_KINDS = new Set(['find_files', 'open_found', 'open_app', 'media', 'play_music', 'volume', 'brightness', 'dark_mode', 'open_settings', 'whatsapp']);
+type PcAction = Extract<z.infer<typeof FileActionSchema>, { kind: 'find_files' | 'open_found' | 'open_app' | 'media' | 'play_music' | 'volume' | 'brightness' | 'dark_mode' | 'open_settings' | 'whatsapp' }>;
+const isPcAction = (a: z.infer<typeof FileActionSchema>): a is PcAction => PC_KINDS.has(a.kind);
+const MEDIA_DONE: Record<string, string> = { play_pause: 'Pressed play/pause.', next: 'Skipped to the next track.', previous: 'Went back to the previous track.', volume_up: 'Turned the volume up.', volume_down: 'Turned the volume down.', mute: 'Toggled mute.' };
 export type FileAction = z.infer<typeof FileActionSchema>;
 export type LocalPlanner = (
   text: string,
@@ -68,6 +85,8 @@ export class LocalAgent {
   private controller: AbortController | null = null;
   private undoStack: Undo[] = [];
   private pendingDelete: { path: string; identity: string } | null = null;
+  /** Paths found by find_files in this conversation: the only places outside the folder Doing may open. */
+  private found = new Set<string>();
   private state: LocalStatus = {
     folder: null,
     busy: false,
@@ -76,7 +95,11 @@ export class LocalAgent {
     changes: [],
     canUndo: false,
   };
-  constructor(private readonly plan: LocalPlanner, private readonly trash?: (path: string) => Promise<void>) {}
+  constructor(
+    private readonly plan: LocalPlanner,
+    private readonly trash?: (path: string) => Promise<void>,
+    private readonly pc?: PcHost,
+  ) {}
   status(): LocalStatus {
     return structuredClone({
       ...this.state,
@@ -117,6 +140,7 @@ export class LocalAgent {
   }
   clear(): LocalStatus {
     this.stop();
+    this.found.clear();
     this.state.messages = [];
     this.state.message = '';
     return this.status();
@@ -212,6 +236,82 @@ export class LocalAgent {
     this.reply('Undid the last file change.');
     return this.status();
   }
+  /** Runs one PC-wide action and returns what actually happened (the reply is built from this, not from the model). */
+  private async runPc(action: PcAction, signal: AbortSignal): Promise<string> {
+    const pc = this.pc;
+    if (!pc) throw new Error('PC actions are unavailable in this build.');
+    signal.throwIfAborted();
+    switch (action.kind) {
+      case 'find_files': {
+        const files = await pc.findFiles(action.query);
+        for (const f of files) this.found.add(f.path.toLowerCase());
+        if (!files.length) return `I couldn't find a file matching “${action.query}”. I searched Windows Search and your Desktop, Documents, Downloads, Pictures, Music, Videos and OneDrive folders.`;
+        const shown = files.slice(0, 10).map((f) => `- \`${f.path}\``).join('\n');
+        return `Found ${files.length === 1 ? 'this file' : `${files.length} files`} matching “${action.query}”:\n${shown}${files.length > 10 ? `\n…and ${files.length - 10} more.` : ''}`;
+      }
+      case 'open_found': {
+        const target = resolve(action.path);
+        const rel = this.root ? relative(this.root, target) : '..';
+        const inFolder = isAbsolute(action.path) && !rel.startsWith('..') && !isAbsolute(rel);
+        if (!this.found.has(action.path.toLowerCase()) && !inFolder) throw new Error('I can only open files I found for you in this chat. Ask me to find it first.');
+        await lstat(target).catch(() => {
+          throw new Error('That file is no longer there.');
+        });
+        if (action.reveal || isExecutable(target)) {
+          pc.revealPath(target);
+          return action.reveal ? `Showed \`${target}\` in File Explorer.` : `\`${target}\` is a program or shortcut, so I showed it in File Explorer instead of running it.`;
+        }
+        await pc.openPath(target);
+        return `Opened \`${target}\`.`;
+      }
+      case 'open_app': {
+        if (isAdminApp(action.name)) throw new Error(`I don't open system tools like “${action.name}”. Open it from the Start menu if you need it.`);
+        const matches = matchApps(action.name, await pc.listApps()).filter((a) => !isAdminApp(a.name));
+        if (!matches.length) return `I couldn't find an installed app called “${action.name}”.`;
+        if (matches.length > 1) return `Which one? ${matches.map((a) => `“${a.name}”`).join(', ')}.`;
+        await pc.launchApp(matches[0]!);
+        return `Opened ${matches[0]!.name}.`;
+      }
+      case 'media':
+        await pc.media(action.command);
+        return MEDIA_DONE[action.command]!;
+      case 'play_music': {
+        const spotify = matchApps('Spotify', await pc.listApps())[0];
+        const q = encodeURIComponent(action.query);
+        if (spotify) {
+          await pc.openUri(`spotify:search:${q}`);
+          return `Opened Spotify and searched for “${action.query}”. Press play on the song you want; Doing can't start a specific track.`;
+        }
+        await pc.openUri(`https://open.spotify.com/search/${q}`);
+        return `Spotify isn't installed, so I opened its web search for “${action.query}” in your browser.`;
+      }
+      case 'volume': {
+        const now = await pc.setVolume(action.level);
+        return `Volume set to ${now}%.`;
+      }
+      case 'brightness': {
+        const now = await pc.setBrightness(action.level).catch(() => {
+          throw new Error("Windows can't change this screen's brightness (external monitors usually can't).");
+        });
+        return `Brightness set to ${now}%.`;
+      }
+      case 'dark_mode': {
+        const on = await pc.setDarkMode(action.on);
+        if (on !== action.on) throw new Error('Windows did not apply the theme change.');
+        return `Dark mode is ${on ? 'on' : 'off'}.`;
+      }
+      case 'open_settings':
+        await pc.openUri(SETTINGS_PAGES[action.page]);
+        return `Opened Settings → ${action.page.replace(/_/g, ' ')}. Change it there.`;
+      case 'whatsapp': {
+        if (!matchApps('WhatsApp', await pc.listApps()).length) return "WhatsApp isn't installed on this PC.";
+        const uri = whatsappUri(action.phone, action.text);
+        if (!uri) return "Tell me their WhatsApp number with the country code (for example +91 98765 43210). WhatsApp doesn't let other apps find contacts by name.";
+        await pc.openUri(uri);
+        return `Opened WhatsApp with your message to +${action.phone.replace(/\D/g, '')} ready. Check it and press Enter to send; Doing never sends messages itself.`;
+      }
+    }
+  }
   send(text: string): LocalStatus {
     if (this.controller) throw new Error('Stop the current request first.');
     const controller = new AbortController();
@@ -226,6 +326,8 @@ export class LocalAgent {
     const recent: string[] = [];
     const observedFiles = new Map<string, string>();
     const confirmed: LocalStatus['changes'] = [];
+    const receipts: string[] = [];
+    let pcSteps = 0;
     const requestedChange = /\b(?:delete|remove|trash|recycle|move|rename|create|write|edit|append|save|organize|update)\b/i.test(text) || /^(?:yes|yep|ok|okay|do it)\b/i.test(text);
     let completionRetries = 0;
     const approval = this.pendingDelete && /^(?:yes|yep|ok|okay|do it|delete it)(?:[.! ]|$)/i.test(text.trim()) ? this.pendingDelete : null;
@@ -237,8 +339,12 @@ export class LocalAgent {
       for (let step = 0; step < 30; step++) {
         signal.throwIfAborted();
         this.state.message = step ? 'Working with your files…' : 'Thinking…';
+        // Clear "find …" and "open <installed app>" requests skip the model's first step (it kept asking instead of acting).
+        const found = !approval && step === 0 && this.pc ? directFind(text) : null;
+        const appName = !approval && step === 0 && this.pc && !found ? directOpen(text) : null;
+        const openApp = appName && (isAdminApp(appName) || matchApps(appName, await this.pc!.listApps()).length) ? appName : null;
         const action = FileActionSchema.parse(
-          approval && !recent.length ? {kind:'delete',path:approval.path} : await this.plan(
+          found ? { kind: 'find_files', query: found } : openApp ? { kind: 'open_app', name: openApp } : approval && !recent.length ? {kind:'delete',path:approval.path} : await this.plan(
             text,
             {
               folder: !!this.root,
@@ -251,13 +357,27 @@ export class LocalAgent {
         );
         signal.throwIfAborted();
         if (action.kind === 'answer' || action.kind === 'done') {
-          if (confirmed.length) {
+          if (receipts.length) {
+            const files = confirmed.map((change) => `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`);
+            this.reply([...receipts, ...files].join('\n\n'));
+          } else if (confirmed.length) {
             this.reply(confirmed.map((change) => `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`).join('\n'));
           } else if (requestedChange && !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) && (/\b(?:delete|remove|trash|recycle|rename|move)\b/i.test(text) || action.kind === 'done' || /\b(?:deleted|removed|created|saved|renamed|updated|moved|completed|done)\b/i.test(action.text))) {
             if (completionRetries++ === 0) { observation = 'No filesystem changes have happened. Do not claim completion. Execute an available tool, or ask a factual clarification. ' + observation; continue; }
             this.reply('No files were changed. I could not complete that request. Tell me the exact file or folder to use.');
-          } else this.reply(action.text);
+          } else this.reply(action.text.replace(/\{\s*"kind"\s*:[^{}]*\}/g, '').trim() || 'Done.');
           return;
+        }
+        if (isPcAction(action)) {
+          const done = await this.runPc(action, signal);
+          receipts.push(done);
+          if (++pcSteps >= 3 || receipts.filter((r) => r === done).length > 1) {
+            this.reply(receipts.join('\n\n'));
+            return;
+          }
+          observation = `RESULT: ${done}\nIf the request needs one more step (for example opening a file you just found), take it. Otherwise reply done.`;
+          recent.push(`${action.kind}: ${done.slice(0, 120)}`);
+          continue;
         }
         if (action.kind === 'list') observation = await this.list(action.path);
         else if (action.kind === 'read') {

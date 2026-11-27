@@ -105,12 +105,13 @@ export function Assistant({ go }: { go: (page: string) => void }) {
           {!status?.messages.length && (
             <div className="doing-welcome">
               <h2>What can I take off your list?</h2>
-              <p>Ask a question, draft something, or work with files in a folder you allow.</p>
+              <p>Find files, open apps, play music, change a setting, draft a WhatsApp message, or work with files in a folder you allow.</p>
               <div className="doing-suggestions">
                 {[
+                  'Where is my resume?',
+                  'Play Blinding Lights on Spotify.',
+                  'Turn on dark mode.',
                   'Create a weekly plan in a Markdown file.',
-                  'Organize the text files in this folder.',
-                  'Explain this code in simple words.',
                 ].map((prompt) => (
                   <button key={prompt} type="button" onClick={() => setText(prompt)}>
                     {prompt}
