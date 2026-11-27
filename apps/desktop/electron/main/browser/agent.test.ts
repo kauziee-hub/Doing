@@ -54,6 +54,12 @@ async function setup(
 }
 
 describe('browser task permissions and lifecycle', () => {
+  it('requires a full editor replacement to preserve the requested JavaScript function', () => {
+    const codePage = page({ elements: [{ id: 'code', kind: 'code', label: 'JavaScript', value: 'var twoSum = function(nums, target) { };', advances: false }] });
+    expect(checkAction({ kind: 'type', target: 'code', text: 'return [];', reason: 'Incomplete' }, codePage, 'Solve and preserve the signature')).toContain('omits');
+    expect(checkAction({ kind: 'type', target: 'code', text: 'function twoSum(nums, target) { return []; }', reason: 'Complete' }, codePage, 'Solve and preserve the signature')).toBeNull();
+    expect(checkAction({ kind: 'type', target: 'code', text: 'hello', reason: 'Explicit replacement' }, codePage, 'Replace the editor with hello')).toBeNull();
+  });
   it('advances a confirmed single-group MCQ only with explicit batch submission permission', async () => {
     const { agent, start, tick, planner } = await setup({ kind: 'click', target: 'a', reason: 'Choose the answer' });
     const current = page({

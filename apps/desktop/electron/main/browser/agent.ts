@@ -20,11 +20,20 @@ const LEASE_MS = 30 * 60_000;
 const LOST_MS = 30_000;
 
 /** Validate every action against the current observed controls, never against model-supplied selectors. */
-export function checkAction(action: BrowserAction, page: BrowserSnapshot): string | null {
+export function checkAction(action: BrowserAction, page: BrowserSnapshot, task = ''): string | null {
   if (!('target' in action)) return null;
   const el = page.elements.find((e) => e.id === action.target);
   if (!el) return 'The requested control is no longer on this page.';
   if (action.kind === 'type' && !['text', 'code'].includes(el.kind)) return 'This control does not accept text.';
+  if (action.kind === 'type' && el.kind === 'code' && /\b(?:preserv\w*|signature|solve|coding|solution)\b/i.test(task)) {
+    const signature = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(|\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\s*\(/.exec(el.value);
+    const name = signature?.[1] ?? signature?.[2];
+    if (name) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const declaration = new RegExp(`\\bfunction\\s+${escaped}\\s*\\(|\\b(?:var|let|const)\\s+${escaped}\\s*=`);
+      if (!declaration.test(action.text)) return `The replacement omits the existing function ${name}. Typing replaces the ENTIRE editor. Include its full function declaration and complete body, preserving the requested signature.`;
+    }
+  }
   if (action.kind === 'select' && (el.kind !== 'select' || !el.options?.some((o) => o.value === action.value)))
     return 'The requested option is not available.';
   if (action.kind === 'click' && !['button', 'link', 'radio', 'checkbox'].includes(el.kind))
@@ -548,7 +557,14 @@ export class BrowserAgent {
       if (signal.aborted || run !== this.runId || this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
       this.checkLease();
       if (this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
-      const issue = checkAction(action, page);
+      let issue = checkAction(action, page, this.state.task);
+      if (issue?.startsWith('The replacement omits')) {
+        const editor = 'target' in action ? action.target : null;
+        action = BrowserActionSchema.parse(await this.plan(this.state.task, page, [issue], signal));
+        if (signal.aborted || run !== this.runId || this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
+        if (action.kind !== 'ask' && (action.kind !== 'type' || action.target !== editor)) throw new Error('The editor still needs a complete function. Doing stopped before entering an incomplete replacement.');
+        issue = checkAction(action, page, this.state.task);
+      }
       if (issue) throw new Error(issue);
       if (action.kind === 'done' || action.kind === 'ask') {
         this.state.phase = action.kind === 'done' ? 'done' : 'stopped';

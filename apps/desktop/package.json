@@ -1,7 +1,7 @@
 {
   "name": "@hirora/desktop",
   "productName": "Doing",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Doing — a free, private assistant for your PC, browser and meetings",
   "author": "Doing contributors",

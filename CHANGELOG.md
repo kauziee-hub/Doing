@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 — 2026-11-27 (unsigned)
+- Coding tasks that must preserve an existing JavaScript function now reject a body-only editor replacement and request the complete declaration before typing. A failed correction stops instead of claiming completion.
+- Corrects garbled symbols in the browser side panel: New chat, Allow this tab, Send, prompt arrows and ellipses. Uses HTML entities so the extension renders them consistently. Includes the complete 0.4.1 workspace and browser features.
+
 ## 0.4.1 — 2026-11-27 (unsigned)
 - **A complete Doing workspace:** Assistant for local questions and file tasks; Meetings for live transcripts and answers; Browser assistant for connection; Library for optional documents/context; History for opt-in saved meetings. About is inside Settings. Setup has three steps and no required profile.
 - **Local file tasks:** choose a folder with the native picker, then ask to create, read, edit, rename or organize text/code files. Completed changes appear with session Undo. Paths stay under the chosen folder; linked paths, alternate streams, protected names and overwriting move destinations are rejected. Stop and revoke remain available. No model shell or arbitrary Windows-app control.
