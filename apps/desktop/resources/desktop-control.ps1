@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-trap { [Console]::Error.WriteLine($_.Exception.GetBaseException().Message); exit 1 }
+trap { $failure=$_.Exception.GetBaseException(); $message=$failure.Message; if (-not $message) { $message='Windows accessibility failed ('+$failure.GetType().Name+', '+$failure.HResult+').' }; [Console]::Error.WriteLine($message); exit 1 }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, WindowsBase
 Add-Type -ReferencedAssemblies UIAutomationClient, UIAutomationTypes, WindowsBase -TypeDefinition @'
@@ -9,11 +9,31 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 public static class DoingDesktop {
+  public static bool MusicMode;
+  static Dictionary<string,string> contexts = new Dictionary<string,string>();
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int n);
   [DllImport("user32.dll")] static extern void keybd_event(byte k, byte s, uint f, UIntPtr e);
   public static string Runtime(AutomationElement e) { return String.Join(".", e.GetRuntimeId()); }
+  public static void Prepare(AutomationElement w) { var h = new IntPtr(w.Current.NativeWindowHandle); ShowWindow(h, 9); SetForegroundWindow(h); }
+  public static string Context(AutomationElement e) {
+    if (!MusicMode) return "";
+    AutomationElement row = null; var current = e; bool search = false;
+    for (int i=0; i<16 && current != null; i++) {
+      if (current.Current.ControlType == ControlType.DataItem) row = current;
+      if (current.Current.ControlType == ControlType.DataGrid && current.Current.Name == "Search results") { search = true; break; }
+      current = TreeWalker.ControlViewWalker.GetParent(current);
+    }
+    if (!search || row == null) return "";
+    string key = Runtime(row), value;
+    if (contexts.TryGetValue(key, out value)) return value;
+    var parts = new List<string>(); parts.Add("Search results"); parts.Add(row.Current.Name);
+    var children = row.FindAll(TreeScope.Descendants, Condition.TrueCondition);
+    for (int i=0; i<children.Count && i<25; i++) { var name = children[i].Current.Name; if (!String.IsNullOrEmpty(name) && !parts.Contains(name)) parts.Add(name); }
+    value = String.Join(" | ", parts); if (value.Length>800) value=value.Substring(0,800);
+    contexts[key] = value; return value;
+  }
   public static AutomationElement Window(string name, string handle, int pid) {
     if (!String.IsNullOrEmpty(handle)) {
       var w = AutomationElement.FromHandle(new IntPtr(Int64.Parse(handle)));
@@ -30,11 +50,12 @@ public static class DoingDesktop {
     return matches[0];
   }
   public static List<AutomationElement> Elements(AutomationElement w) {
+    contexts.Clear();
     var result = new List<AutomationElement>();
     var queue = new Queue<AutomationElement>(); queue.Enqueue(w);
     var walker = TreeWalker.ControlViewWalker;
     int count = 0;
-    while (queue.Count > 0 && count++ < 1500 && result.Count < 180) {
+    while (queue.Count > 0 && count++ < (MusicMode ? 4000 : 1500) && result.Count < (MusicMode ? 1400 : 180)) {
       var e = queue.Dequeue();
       try {
         if (e.Current.ControlType == ControlType.TitleBar || e.Current.Name == "System Menu Bar") continue;
@@ -42,6 +63,18 @@ public static class DoingDesktop {
         var child = walker.GetFirstChild(e);
         while (child != null && queue.Count < 1500) { queue.Enqueue(child); child = walker.GetNextSibling(child); }
       } catch (ElementNotAvailableException) { }
+    }
+    if (MusicMode) {
+      var focused = new List<AutomationElement>();
+      foreach (var e in result) {
+        var name=e.Current.Name; var type=e.Current.ControlType;
+        bool search = (type == ControlType.Edit || type == ControlType.ComboBox) && name.IndexOf("Address",StringComparison.OrdinalIgnoreCase)<0 && (name.IndexOf("search",StringComparison.OrdinalIgnoreCase)>=0 || name.IndexOf("want to play",StringComparison.OrdinalIgnoreCase)>=0);
+        bool playing = name.StartsWith("Now playing:",StringComparison.OrdinalIgnoreCase) || name == "Pause";
+        bool play = type==ControlType.Button && (name == "Play" || name.StartsWith("Play ",StringComparison.OrdinalIgnoreCase)) && Context(e).StartsWith("Search results |",StringComparison.OrdinalIgnoreCase);
+        if (search || playing || play) focused.Add(e);
+        if (focused.Count >= 80) break;
+      }
+      return focused;
     }
     return result;
   }
@@ -96,6 +129,8 @@ $w = [DoingDesktop]::Window([string]$a.name, [string]$a.handle, [int]$a.processI
 $proc = (Get-Process -Id $w.Current.ProcessId).ProcessName
 # Apply before any mutation too, not only to the returned observation.
 if ($proc -match '^(Doing|electron|chrome|msedge|firefox|brave|opera|ApplicationFrameHost|powershell|pwsh|cmd|WindowsTerminal|regedit|mmc|Taskmgr|SecHealthUI|consent)$' -or $w.Current.Name -match '(?i)Windows Security|Registry Editor|PowerShell|Command Prompt') { throw 'This window is outside app control.' }
+[DoingDesktop]::MusicMode = $proc -eq 'Spotify'
+if ([DoingDesktop]::MusicMode) { [DoingDesktop]::Prepare($w); Start-Sleep -Milliseconds 200 }
 function Read-DoingControls {
 @([DoingDesktop]::Elements($w) | ForEach-Object {
   $e = $_
@@ -106,7 +141,7 @@ function Read-DoingControls {
       if ($name.Length -gt 240) { $name = $name.Substring(0, 240) }
       $value = [DoingDesktop]::Value($e)
       if ($value.Length -gt 700) { $value = $value.Substring(0, 700) }
-      [pscustomobject]@{ runtime = [DoingDesktop]::Runtime($e); name = $name; type = $e.Current.ControlType.ProgrammaticName; value = $value; actions = @($actions) }
+      [pscustomobject]@{ runtime = [DoingDesktop]::Runtime($e); name = $name; type = $e.Current.ControlType.ProgrammaticName; value = $value; context = [DoingDesktop]::Context($e); actions = @($actions) }
     }
   } catch { }
 })
@@ -114,12 +149,16 @@ function Read-DoingControls {
 function Get-DoingRevision($controls) {
   $sha = [System.Security.Cryptography.SHA256]::Create()
   # Runtime IDs are checked on the actual target. Other providers may recreate nodes without changing the app state.
-  $semantic = @($controls | Select-Object name, type, value, actions)
+  $semantic = @($controls | Where-Object { -not [DoingDesktop]::MusicMode -or $_.actions -contains 'type' } | Select-Object name, type, value, context, actions)
   try { [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $semantic -Depth 6 -Compress)))).Replace('-', '') } finally { $sha.Dispose() }
 }
 $controls = @(Read-DoingControls)
 if ($a.action) {
   if (-not $a.revision -or (Get-DoingRevision $controls) -ne $a.revision) { throw 'The app changed while I was thinking. Read the app again before acting.' }
+  if ([DoingDesktop]::MusicMode -and $a.context) {
+    $target = @($controls | Where-Object { $_.runtime -eq $a.runtime })
+    if ($target.Count -ne 1 -or $target[0].context -ne $a.context) { throw 'The app control changed. Read the app again.' }
+  }
   [DoingDesktop]::Act($w, [string]$a.runtime, [string]$a.name, [string]$a.type, [string]$a.action, [string]$a.text)
   Start-Sleep -Milliseconds 250
   $controls = @(Read-DoingControls)

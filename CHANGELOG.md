@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4 — 2026-11-29
+
+- Browser tasks continue through numbered questions, including multi-select questions and Next buttons with arrows. Completion requires reaching the last observed question, rather than the bottom of one panel.
+- MCQ answers are planned as a complete selection set; correct checked options are kept, and only necessary changes are applied. The answer set is reused while the question is unchanged.
+- Changed pages detected before execution are reread and replanned up to four times. After Next, wait for the next question instead of repeating a click. Unknown action outcomes still stop without replay.
+- Going Next does not grant final assessment submission. Follow-up continuation requests retain the earlier question workflow. Companion 0.7.2 requires one reload after updating.
+- Spotify requests find close song-title matches among observed search results, invoke the matching Play control and check playback before claiming success. Ambiguous matches ask for a choice; search alone is never reported as playback.
+
 ## 0.5.3 — 2026-11-28
 
 - Session permission for Windows app control using native UI Automation. Read accessible controls, type with value read-back, invoke buttons, toggle settings and scroll nested app panels. Refresh control identities after every action; stop on stale windows, unsupported controls or revocation.

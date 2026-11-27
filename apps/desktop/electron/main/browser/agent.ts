@@ -9,14 +9,26 @@ import type { BrowserTrustStore } from './trust';
 import type { BrowserChatter } from './chat';
 import { approvesPending, requestsSubmission } from './chat';
 import { PageScan, readsWholePage } from './pageScan';
+import { advanceAllowed, batchQuestions, nextControl, questionIdentity, questionProgress } from './workflow';
 
 export type BrowserPlanner = (task: string, page: BrowserSnapshot, recent: string[], signal: AbortSignal) => Promise<BrowserAction>;
 export type BrowserReader = (question: string, page: BrowserSnapshot, signal: AbortSignal) => Promise<string>;
-const ConnectSchema = z.object({ url: z.string().url().max(2048), title: z.string().max(300), id: z.string().max(80).optional() });
+const ConnectSchema = z.object({
+  url: z.string().url().max(2048),
+  title: z.string().max(300),
+  id: z.string().max(80).optional(),
+});
 const TickSchema = z.object({
   clientId: z.string().uuid(),
   snapshot: BrowserSnapshotSchema.optional(),
-  receipt: z.object({ id: z.string().uuid(), ok: z.boolean(), message: z.string().max(500) }).optional(),
+  receipt: z
+    .object({
+      id: z.string().uuid(),
+      ok: z.boolean(),
+      message: z.string().max(500),
+      stale: z.boolean().optional(),
+    })
+    .optional(),
 });
 const LEASE_MS = 30 * 60_000;
 const LOST_MS = 30_000;
@@ -24,7 +36,8 @@ const LOST_MS = 30_000;
 /** Validate every action against the current observed controls, never against model-supplied selectors. */
 export function checkAction(action: BrowserAction, page: BrowserSnapshot, task = ''): string | null {
   if (action.kind === 'scroll') {
-    const region = action.target === 'page' ? page.scroll : page.elements.find((el) => el.id === action.target && el.kind === 'scroll')?.scroll;
+    const region =
+      action.target === 'page' ? page.scroll : page.elements.find((el) => el.id === action.target && el.kind === 'scroll')?.scroll;
     if (!region) return 'The requested scroll region is unavailable.';
     if (action.direction === 'down' ? region.top >= region.max - 2 : region.top <= 0) return 'This scroll region has reached its boundary.';
     return null;
@@ -32,17 +45,25 @@ export function checkAction(action: BrowserAction, page: BrowserSnapshot, task =
   if (!('target' in action)) return null;
   const el = page.elements.find((e) => e.id === action.target);
   if (!el) return 'The requested control is no longer on this page.';
-  if (action.kind === 'click' && /\b(?:do not submit|don't submit|dont submit|never submit|without submitting)\b/i.test(task) &&
-      el.kind === 'button' && (el.advances || /check.?answer|verify|grade|submit/i.test(el.label)))
+  if (
+    action.kind === 'click' &&
+    /\b(?:do not submit|don't submit|dont submit|never submit|without submitting)\b/i.test(task) &&
+    el.kind === 'button' &&
+    (el.advances || /check.?answer|verify|grade|submit/i.test(el.label)) &&
+    !(nextControl(el.label) && /\b(?:next|continue|advance)\b/i.test(task.split('\nRelevant conversation context')[0]!))
+  )
     return 'Your request says not to submit or check answers. Only answer selection is allowed.';
   if (action.kind === 'type' && !['text', 'code'].includes(el.kind)) return 'This control does not accept text.';
   if (action.kind === 'type' && el.kind === 'code' && /\b(?:preserv\w*|signature|solve|coding|solution)\b/i.test(task)) {
-    const signature = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(|\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\s*\(/.exec(el.value);
+    const signature = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(|\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\s*\(/.exec(
+      el.value,
+    );
     const name = signature?.[1] ?? signature?.[2];
     if (name) {
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const declaration = new RegExp(`\\bfunction\\s+${escaped}\\s*\\(|\\b(?:var|let|const)\\s+${escaped}\\s*=`);
-      if (!declaration.test(action.text)) return `The replacement omits the existing function ${name}. Typing replaces the ENTIRE editor. Include its full function declaration and complete body, preserving the requested signature.`;
+      if (!declaration.test(action.text))
+        return `The replacement omits the existing function ${name}. Typing replaces the ENTIRE editor. Include its full function declaration and complete body, preserving the requested signature.`;
     }
   }
   if (action.kind === 'select' && (el.kind !== 'select' || !el.options?.some((o) => o.value === action.value)))
@@ -85,6 +106,8 @@ export class BrowserAgent {
   private repeats = 0;
   private waits = 0;
   private reviewedQuestions = new Set<string>();
+  private staleRetries = 0;
+  private awaitingNavigation: { identity: string; polls: number } | null = null;
   private watchdog: ReturnType<typeof setInterval> | null = null;
   private state: BrowserStatus;
   private trustedExtensionId: string | null = null;
@@ -261,6 +284,8 @@ export class BrowserAgent {
     this.repeats = 0;
     this.waits = 0;
     this.reviewedQuestions.clear();
+    this.staleRetries = 0;
+    this.awaitingNavigation = null;
     this.note('Permission granted for this task on the connected site. Reading the tab…');
     return this.status();
   }
@@ -274,6 +299,7 @@ export class BrowserAgent {
     this.abort = null;
     this.runId = '';
     this.inFlight = null;
+    this.awaitingNavigation = null;
     this.review = null;
     this.approved = null;
     this.state.pending = null;
@@ -285,7 +311,15 @@ export class BrowserAgent {
   }
 
   private reply(text: string): void {
-    this.state.messages = [...this.state.messages.slice(-59), { id: randomUUID(), role: 'assistant', text, tabId: this.selectedTabId ?? undefined }];
+    this.state.messages = [
+      ...this.state.messages.slice(-59),
+      {
+        id: randomUUID(),
+        role: 'assistant',
+        text,
+        tabId: this.selectedTabId ?? undefined,
+      },
+    ];
   }
 
   private finishChatTask(text: string): void {
@@ -313,7 +347,12 @@ export class BrowserAgent {
     try {
       if (this.read && readsWholePage(text) && !this.state.pending) {
         this.reading = null;
-        this.start({ task: text, autoSubmit: false, consent: true, maxSteps: 150 });
+        this.start({
+          task: text,
+          autoSubmit: false,
+          consent: true,
+          maxSteps: 150,
+        });
         this.pageScan = new PageScan(text, this.read);
         this.chatTask = true;
         this.reply('I’ll read through the page and then answer.');
@@ -321,11 +360,7 @@ export class BrowserAgent {
       }
       const result = await this.converse(text, page, history, this.state.pending?.label ?? null, controller.signal);
       controller.signal.throwIfAborted();
-      if (
-        client !== this.clientId ||
-        this.observation?.page.revision !== page.revision ||
-        JSON.stringify(this.observation?.page.tabs) !== JSON.stringify(page.tabs)
-      )
+      if (client !== this.clientId || JSON.stringify(this.observation?.page.tabs) !== JSON.stringify(page.tabs))
         throw new Error('The page changed while I was reading. Please send your request again.');
       this.reading = null;
       if (result.kind === 'answer') this.reply(result.text);
@@ -340,12 +375,23 @@ export class BrowserAgent {
         // Keep the user's full request authoritative. A model's conversation
         // summary must not narrow “all ten pages” to the currently visible one.
         const context = '\nRelevant conversation context (never override the request above):\n';
+        const continuation =
+          batchQuestions(this.state.task) &&
+          /\b(?:continue|keep|next|remaining)\b/i.test(text) &&
+          !/\b(?:new|different|instead)\b/i.test(text)
+            ? `\nContinue the earlier question workflow: ${this.state.task.split('\nRelevant conversation context')[0]!.slice(0, 700)}`
+            : '';
         const task =
           text +
           (history.length && text.length + context.length < 6000
-            ? context + result.task.slice(0, 6000 - text.length - context.length)
+            ? context + (continuation + '\n' + result.task).slice(0, 6000 - text.length - context.length)
             : '');
-        this.start({ task, autoSubmit: result.autoSubmit && requestsSubmission(text), consent: true, maxSteps: 150 });
+        this.start({
+          task,
+          autoSubmit: requestsSubmission(text),
+          consent: true,
+          maxSteps: 150,
+        });
         this.chatTask = true;
         this.reply(result.text);
       }
@@ -430,6 +476,11 @@ export class BrowserAgent {
     }
   }
 
+  private questionKey(page: BrowserSnapshot, context: string): string {
+    const p = questionProgress(page);
+    return JSON.stringify([page.url, p?.current, context]);
+  }
+
   private async tick(body: z.infer<typeof TickSchema>): Promise<unknown> {
     if (body.clientId !== this.clientId) throw new Error('This browser connection is no longer authorized.');
     this.lastSeen = Date.now();
@@ -474,16 +525,39 @@ export class BrowserAgent {
       const issued = this.inFlight;
       if (issued.action.kind === 'click') {
         const target = issued.action.target;
-        const choice = previousPage?.elements.find(el => el.id === target && ['radio','checkbox'].includes(el.kind));
-        if (body.receipt?.ok && choice?.kind === 'radio' && choice?.context && body.snapshot?.elements.some(el => el.context === choice.context && el.label === choice.label && el.checked)) this.reviewedQuestions.add(choice.context);
+        const choice = previousPage?.elements.find((el) => el.id === target && ['radio', 'checkbox'].includes(el.kind));
+        if (
+          body.receipt?.ok &&
+          choice?.kind === 'radio' &&
+          choice?.context &&
+          body.snapshot?.elements.some((el) => el.context === choice.context && el.label === choice.label && el.checked)
+        )
+          this.reviewedQuestions.add(this.questionKey(previousPage!, choice.context));
       }
       this.inFlight = null;
+      if (!body.receipt.ok && body.receipt.stale && ++this.staleRetries <= 4) {
+        this.approved = null;
+        this.review = null;
+        this.lastSignature = '';
+        this.repeats = 0;
+        this.note('The page changed before execution. Reading it again and replanning the remaining task…');
+        return { phase: 'running', observe: true, runId: run };
+      }
       if (!body.receipt.ok) {
         this.state.phase = 'error';
         this.note(`Browser action failed: ${body.receipt.message}`);
         this.finishChatTask(this.state.message);
         return { phase: 'error', observe: false };
       }
+      this.staleRetries = 0;
+      if (
+        issued.action.kind === 'click' &&
+        previousPage?.elements.some((el) => el.id === ('target' in issued.action ? issued.action.target : '') && nextControl(el.label))
+      )
+        this.awaitingNavigation = {
+          identity: questionIdentity(previousPage!),
+          polls: 0,
+        };
       if (issued.action.kind === 'click') {
         const target = issued.action.target;
         confirmedChoice = previousPage?.elements.find((el) => el.id === target && el.kind === 'radio');
@@ -499,22 +573,48 @@ export class BrowserAgent {
     }
     const page = body.snapshot;
     if (!page) return { phase: 'running', observe: true, runId: run };
-    const questionContexts = [...new Set(page.elements.filter(el => ['radio','checkbox'].includes(el.kind) && el.context).map(el => el.context!))];
-    const question = !this.pageScan && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)
-      ? questionContexts.find(context => !this.reviewedQuestions.has(context)) : undefined;
-    const planningPage = question ? {...page,text:question,elements:page.elements.filter(el => el.context === question || el.kind === 'scroll')} : page;
+    if (this.awaitingNavigation) {
+      if (questionIdentity(page) === this.awaitingNavigation.identity) {
+        if (++this.awaitingNavigation.polls <= 12) return { phase: 'running', observe: true, runId: run };
+        this.state.phase = 'error';
+        this.note('Next was clicked, but the next question did not appear. Progress is incomplete; no duplicate click was sent.');
+        this.finishChatTask(this.state.message);
+        return { phase: 'error', observe: false };
+      }
+      this.awaitingNavigation = null;
+    }
+    const progress = questionProgress(page);
+    const batch = batchQuestions(this.state.task);
+    const questionContexts = [
+      ...new Set(page.elements.filter((el) => ['radio', 'checkbox'].includes(el.kind) && el.context).map((el) => el.context!)),
+    ];
+    const question =
+      !this.pageScan && batch
+        ? questionContexts.find((context) => !this.reviewedQuestions.has(this.questionKey(page, context)))
+        : undefined;
+    const planningPage = question
+      ? {
+          ...page,
+          text: question,
+          elements: page.elements.filter((el) => el.context === question || el.kind === 'scroll'),
+        }
+      : page;
     this.planning = true;
     try {
       let action: BrowserAction;
-      const region = page.scroll && page.scroll.max > 2 ? {id:'page',scroll:page.scroll} : page.elements.filter(el=>el.kind==='scroll' && el.scroll).sort((a,b)=>b.scroll!.height-a.scroll!.height)[0];
-      const reviewedScreen = questionContexts.length > 0 && !question && !page.elements.some(el => ['code','text','select'].includes(el.kind)) && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task);
+      const region =
+        page.scroll && page.scroll.max > 2
+          ? { id: 'page', scroll: page.scroll }
+          : page.elements.filter((el) => el.kind === 'scroll' && el.scroll).sort((a, b) => b.scroll!.height - a.scroll!.height)[0];
+      const reviewedScreen =
+        questionContexts.length > 0 && !question && !page.elements.some((el) => ['code', 'text', 'select'].includes(el.kind)) && batch;
 
       // A single numbered MCQ has a verifiable two-step flow. After the
       // selected option is acknowledged, advance only with the user's batch
       // submission grant and a unique observed Submit/Next control.
       const inputs = page.elements.filter((el) => ['radio', 'checkbox', 'text', 'code', 'select'].includes(el.kind));
       const advances = page.elements.filter(
-        (el) => el.kind === 'button' && el.advances && /^(?:submit(?: and next)?|next|continue)$/i.test(el.label),
+        (el) => el.kind === 'button' && el.advances && (nextControl(el.label) || /^submit(?: and next)?$/i.test(el.label)),
       );
       const verified =
         confirmedChoice?.group &&
@@ -523,10 +623,43 @@ export class BrowserAgent {
         inputs.some((el) => el.id === confirmedChoice.id && el.label === confirmedChoice.label && el.checked);
       if (this.pageScan) {
         action = await this.pageScan.step(page, signal);
+      } else if (
+        reviewedScreen &&
+        progress &&
+        advances.length === 1 &&
+        (progress.current < progress.total || !nextControl(advances[0]!.label))
+      ) {
+        action = {
+          kind: 'click',
+          target: advances[0]!.id,
+          reason: `Question ${progress.current} of ${progress.total} is reviewed. Continue the requested workflow.`,
+        };
+      } else if (
+        reviewedScreen &&
+        progress &&
+        progress.current === progress.total &&
+        !advanceAllowed('Submit Assessment', this.state.task, this.state.autoSubmit)
+      ) {
+        action = {
+          kind: 'done',
+          reason: `Reviewed and filled through question ${progress.current} of ${progress.total}. Final submission was not requested.`,
+        };
+      } else if (reviewedScreen && progress && progress.current < progress.total && !advances.length && !region?.scroll?.max) {
+        throw new Error(
+          `Question ${progress.current} of ${progress.total} is answered, but the next control is unavailable. The task is incomplete.`,
+        );
       } else if (reviewedScreen && region?.scroll && region.scroll.top < region.scroll.max - 2) {
-        action = {kind:'scroll',target:region.id,direction:'down',reason:'Continue to the next unanswered question.'};
-      } else if (reviewedScreen && region?.scroll && region.scroll.top >= region.scroll.max - 2) {
-        action = {kind:'done',reason:'Reached the end after reviewing and selecting answers for the encountered questions.'};
+        action = {
+          kind: 'scroll',
+          target: region.id,
+          direction: 'down',
+          reason: 'Continue to the next unanswered question.',
+        };
+      } else if (reviewedScreen && !progress && (!region?.scroll || region.scroll.top >= region.scroll.max - 2)) {
+        action = {
+          kind: 'done',
+          reason: 'Reached the end after reviewing and selecting answers for the encountered questions.',
+        };
       } else if (
         verified &&
         advances.length === 1 &&
@@ -534,7 +667,11 @@ export class BrowserAgent {
         /\b(?:all|each|every|until)\b/i.test(this.state.task) &&
         /\bquestion\s*\d+\s*(?:of|\/)\s*\d+/i.test(page.text)
       ) {
-        action = { kind: 'click', target: advances[0]!.id, reason: 'The chosen option is visibly selected; continue the requested batch.' };
+        action = {
+          kind: 'click',
+          target: advances[0]!.id,
+          reason: 'The chosen option is visibly selected; continue the requested batch.',
+        };
       } else if (this.approved && this.review && this.review.page.revision === page.revision) {
         action = this.approved;
       } else {
@@ -574,6 +711,7 @@ export class BrowserAgent {
           page.elements.some((el) => el.advances);
         if (
           action.kind === 'done' &&
+          !question &&
           this.state.autoSubmit &&
           numberedQuestion &&
           unfinishedControls &&
@@ -597,17 +735,25 @@ export class BrowserAgent {
       }
       if (signal.aborted || run !== this.runId || this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
       if (action.kind === 'done' && question) {
-        const choices = planningPage.elements.filter(el => ['radio','checkbox'].includes(el.kind));
-        if (!choices.some(el => el.checked)) throw new Error('A question still has no selected answer. The task is incomplete.');
-        this.reviewedQuestions.add(question);
-        return {phase:'running',observe:true,runId:run};
+        const choices = planningPage.elements.filter((el) => ['radio', 'checkbox'].includes(el.kind));
+        if (!choices.some((el) => el.checked)) throw new Error('A question still has no selected answer. The task is incomplete.');
+        this.reviewedQuestions.add(this.questionKey(page, question));
+        this.note(progress ? `Reviewed question ${progress.current} of ${progress.total}. Continuing…` : 'Question reviewed. Continuing…');
+        return { phase: 'running', observe: true, runId: run };
       }
       // A model must not finish an all-questions request after only the first screen.
-      if (action.kind === 'done' && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)) {
-        const nested = page.elements.filter((el) => el.kind === 'scroll' && el.scroll).sort((a, b) => b.scroll!.height - a.scroll!.height)[0];
+      if (action.kind === 'done' && batch && !(progress && progress.current === progress.total)) {
+        const nested = page.elements
+          .filter((el) => el.kind === 'scroll' && el.scroll)
+          .sort((a, b) => b.scroll!.height - a.scroll!.height)[0];
         const primary = page.scroll && page.scroll.max > 2 ? { id: 'page', scroll: page.scroll } : nested;
         if (primary?.scroll && primary.scroll.top < primary.scroll.max - 2)
-          action = { kind: 'scroll', target: primary.id, direction: 'down', reason: 'Continue inspecting all requested questions below this section.' };
+          action = {
+            kind: 'scroll',
+            target: primary.id,
+            direction: 'down',
+            reason: 'Continue inspecting all requested questions below this section.',
+          };
       }
       this.checkLease();
       if (this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
@@ -616,7 +762,8 @@ export class BrowserAgent {
         const editor = 'target' in action ? action.target : null;
         action = BrowserActionSchema.parse(await this.plan(this.state.task, page, [issue], signal));
         if (signal.aborted || run !== this.runId || this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
-        if (action.kind !== 'ask' && (action.kind !== 'type' || action.target !== editor)) throw new Error('The editor still needs a complete function. Doing stopped before entering an incomplete replacement.');
+        if (action.kind !== 'ask' && (action.kind !== 'type' || action.target !== editor))
+          throw new Error('The editor still needs a complete function. Doing stopped before entering an incomplete replacement.');
         issue = checkAction(action, page, this.state.task);
       }
       if (issue) throw new Error(issue);
@@ -635,21 +782,48 @@ export class BrowserAgent {
       if (action.kind === 'switch') {
         const tab = this.state.tabs.find((t) => t.id === action.tab);
         if (!tab || tab.id === this.selectedTabId) throw new Error('The requested tab is not an available different allowed tab.');
-        this.inFlight = { id: randomUUID(), runId: run, revision: page.revision, origin: this.origin, action };
+        this.inFlight = {
+          id: randomUUID(),
+          runId: run,
+          revision: page.revision,
+          origin: this.origin,
+          action,
+        };
         this.selectedTabId = tab.id;
         this.origin = new URL(tab.url).origin;
         this.state.tab = { title: tab.title, url: tab.url };
         this.observation = null;
         this.note(`Switching to allowed tab: ${tab.title.slice(0, 100)}.`);
-        return { phase: 'running', observe: true, command: this.inFlight, runId: run };
+        return {
+          phase: 'running',
+          observe: true,
+          command: this.inFlight,
+          runId: run,
+        };
       }
       if (action.kind === 'scroll') {
         this.note(`Scrolling ${action.direction} to inspect the next section.`);
-        this.inFlight = { id: randomUUID(), runId: run, revision: page.revision, origin: this.origin, action };
-        return { phase: 'running', observe: true, command: this.inFlight, runId: run };
+        this.inFlight = {
+          id: randomUUID(),
+          runId: run,
+          revision: page.revision,
+          origin: this.origin,
+          action,
+        };
+        return {
+          phase: 'running',
+          observe: true,
+          command: this.inFlight,
+          runId: run,
+        };
       }
       const el = page.elements.find((e) => 'target' in action && e.id === action.target)!;
-      if (action.kind === 'click' && el.advances && !this.state.autoSubmit && this.approved !== action) {
+      if (
+        action.kind === 'click' &&
+        el.advances &&
+        !advanceAllowed(el.label, this.state.task, this.state.autoSubmit) &&
+        this.approved !== action
+      ) {
         this.review = { action, page };
         this.state.phase = 'review';
         this.state.pending = { reason: action.reason, label: el.label };
@@ -660,15 +834,30 @@ export class BrowserAgent {
       this.approved = null;
       this.review = null;
       const { reason: _reason, ...operation } = action;
-      const signature = JSON.stringify({ operation, text: page.text, elements: page.elements.map(({ id: _id, ...rest }) => rest) });
+      const signature = JSON.stringify({
+        operation,
+        text: page.text,
+        elements: page.elements.map(({ id: _id, ...rest }) => rest),
+      });
       this.repeats = signature === this.lastSignature ? this.repeats + 1 : 0;
       this.lastSignature = signature;
       if (this.repeats >= 2) throw new Error('The same action produced no visible progress. Check the tab before continuing.');
       this.note(
         `${action.kind === 'type' ? 'Typing into' : action.kind === 'select' ? 'Selecting in' : 'Clicking'} ${el.label.slice(0, 100) || el.kind}.`,
       );
-      this.inFlight = { id: randomUUID(), runId: run, revision: page.revision, origin: this.origin, action };
-      return { phase: 'running', observe: true, command: this.inFlight, runId: run };
+      this.inFlight = {
+        id: randomUUID(),
+        runId: run,
+        revision: page.revision,
+        origin: this.origin,
+        action,
+      };
+      return {
+        phase: 'running',
+        observe: true,
+        command: this.inFlight,
+        runId: run,
+      };
     } catch (e) {
       if (!signal.aborted && run === this.runId) {
         this.state.phase = 'error';
@@ -748,7 +937,14 @@ export class BrowserAgent {
           if (old?.state === 'waiting' && old.expires > Date.now() && (old.extensionId !== extensionId || old.token !== token))
             throw new Error('A browser approval is already pending.');
           if (!old || old.state !== 'waiting' || old.expires < Date.now()) {
-            this.connectionRequest = { id: randomUUID(), extensionId, token, label, expires: Date.now() + 120_000, state: 'waiting' };
+            this.connectionRequest = {
+              id: randomUUID(),
+              extensionId,
+              token,
+              label,
+              expires: Date.now() + 120_000,
+              state: 'waiting',
+            };
             this.requestAttention?.();
           }
           res.end(JSON.stringify({ requestId: this.connectionRequest!.id }));
@@ -785,7 +981,12 @@ export class BrowserAgent {
       } else if (req.url === '/tick') {
         res.end(JSON.stringify(await this.tick(TickSchema.parse(data))));
       } else if (req.url === '/tabs/remove') {
-        const body = z.object({ clientId: z.string().uuid(), id: z.string().min(1).max(80) }).parse(data);
+        const body = z
+          .object({
+            clientId: z.string().uuid(),
+            id: z.string().min(1).max(80),
+          })
+          .parse(data);
         if (body.clientId !== this.clientId) throw new Error('Not connected.');
         this.stop();
         this.retiredTabs.add(body.id);
@@ -802,7 +1003,12 @@ export class BrowserAgent {
         }
         res.end('{}');
       } else if (req.url === '/tabs/allow' || req.url === '/tabs/select') {
-        const body = z.object({ clientId: z.string().uuid(), tab: ConnectSchema.extend({ id: z.string().min(1).max(80) }) }).parse(data);
+        const body = z
+          .object({
+            clientId: z.string().uuid(),
+            tab: ConnectSchema.extend({ id: z.string().min(1).max(80) }),
+          })
+          .parse(data);
         if (body.clientId !== this.clientId || !/^https?:$/.test(new URL(body.tab.url).protocol)) throw new Error('Not allowed.');
         if (this.reading || this.state.phase === 'running' || this.state.phase === 'review')
           throw new Error('Stop the current task before changing the tab group.');
@@ -822,7 +1028,12 @@ export class BrowserAgent {
         const body = z.object({ clientId: z.string().uuid() }).passthrough().parse(data);
         if (body.clientId !== this.clientId) throw new Error('Not connected.');
         if (req.url === '/chat/send') {
-          const message = z.object({ id: z.string().uuid(), text: z.string().trim().min(1).max(6000) }).parse(body);
+          const message = z
+            .object({
+              id: z.string().uuid(),
+              text: z.string().trim().min(1).max(6000),
+            })
+            .parse(body);
           // Respond immediately; a local model call must not block status polling or Stop.
           void this.chat(message.id, message.text).catch((e: Error) => this.reply(e.message));
         } else if (req.url === '/chat/stop') this.stop();
@@ -838,7 +1049,11 @@ export class BrowserAgent {
         res.end('{}');
       } else if (req.url === '/permit') {
         const { clientId, runId, commandId } = z
-          .object({ clientId: z.string().uuid(), runId: z.string().uuid(), commandId: z.string().uuid() })
+          .object({
+            clientId: z.string().uuid(),
+            runId: z.string().uuid(),
+            commandId: z.string().uuid(),
+          })
           .parse(data);
         this.checkLease();
         res.end(
@@ -852,7 +1067,11 @@ export class BrowserAgent {
       }
     } catch {
       if (!res.headersSent) res.writeHead(400);
-      res.end(JSON.stringify({ error: 'Browser request rejected. Reconnect the tab and check approval in Doing.' }));
+      res.end(
+        JSON.stringify({
+          error: 'Browser request rejected. Reconnect the tab and check approval in Doing.',
+        }),
+      );
     }
   }
 }

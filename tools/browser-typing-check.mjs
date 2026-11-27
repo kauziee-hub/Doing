@@ -17,7 +17,8 @@ if (exeIndex < 0) throw new Error('Pass the installed Doing.exe with --exe');
 const exe = resolve(process.argv[exeIndex + 1]);
 const full = process.argv.includes('--full');
 const long = process.argv.includes('--long');
-const count = long ? 50 : 10;
+const eleven = process.argv.includes('--eleven');
+const count = long ? 50 : eleven ? 11 : 10;
 const browserOnly = process.argv.includes('--browser-only');
 const dev = process.argv.includes('--dev');
 const monaco = resolve('test-results/monaco-0.58.0/package/min');
@@ -49,6 +50,7 @@ const questions = [
  ['What is 100 divided by 4?', ['20','25','40'], '25'],
  ['Which type represents true or false?', ['String','Boolean','Number'], 'Boolean']
 ];let index=0;window.submissions=[];const root=document.getElementById('question');function render(){if(index===questions.length){root.innerHTML='<h2>Results: all 10 completed</h2><p>Score '+window.submissions.filter(s=>s.correct).length+'/10</p>';return;}const q=questions[index];root.innerHTML='<h2>Question '+(index+1)+' of 10</h2><p>'+q[0]+'</p>'+q[1].map(v=>'<label><input type="radio" name="answer" value="'+v+'">'+v+'</label>').join('')+'<button id="submit">Submit and next</button>';document.getElementById('submit').onclick=()=>{const value=root.querySelector('input:checked')?.value;if(!value)return;window.submissions.push({question:q[0],value,correct:value===q[2]});index++;render();};}render();</script></body></html>`;
+const elevenPractice = `<!doctype html><title>Eleven local practice questions</title><style>body{font:18px system-ui;max-width:800px;margin:30px auto}label{display:block;padding:12px}button{padding:14px;margin:20px}</style><h1>Local browser workflow check</h1><button onclick="window.finalSubmits++">Submit Assessment</button><div id="question"></div><script>let index=1;window.finalSubmits=0;window.submissions=[];function render(){const multi=index%2===1;document.getElementById('question').innerHTML='<h2>Question '+index+' / 11</h2><article><p>'+(multi?'Select all numbers smaller than 3.':'What is 2 minus 1?')+'</p></article><section><strong>Options</strong>'+[1,2,3].map(v=>'<label><input type="'+(multi?'checkbox':'radio')+'" name="answer" value="'+v+'" onchange="record()">'+v+'</label>').join('')+'</section>'+(index<11?'<button id="next" aria-label="Next">Next →</button>':'');const next=document.getElementById('next');if(next)next.onclick=()=>{next.disabled=true;setTimeout(()=>{index++;render()},1200)};}function record(){const values=[...document.querySelectorAll('input:checked')].map(e=>e.value);window.submissions[index-1]={index,values,correct:JSON.stringify(values)===JSON.stringify(index%2?['1','2']:['1'])};}render();</script>`;
 const longPractice = `<!doctype html><title>Fifty questions local test</title><style>body{font:17px system-ui;margin:20px auto;max-width:800px}section{height:350px;padding:25px}section:nth-of-type(5n){height:1100px}label{display:block;padding:7px}</style><h1>50 practice questions</h1>${Array.from({length:50},(_,i)=>`<section><h2>Question ${i+1}</h2><p>What is ${i+3} plus 7?</p>${[i+9,i+10,i+11].map(v=>`<label><input type="radio" name="q${i}" value="${v}" onchange="window.answers[${i}]={question:${i+1},value:${v},correct:${v===i+10}};window.submissions=Object.values(window.answers)">${v}</label>`).join('')}<button onclick="window.checkedAnswers++">Check Answer</button></section>`).join('')}<h2>End of all 50 questions</h2><script>window.answers={};window.submissions=[];window.checkedAnswers=0;</script>`;
 let localReport = null,
   practiceReport = null;
@@ -57,7 +59,7 @@ try {
     try {
       if (req.url === '/practice') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.end(long ? longPractice : practice);
+        res.end(long ? longPractice : eleven ? elevenPractice : practice);
         return;
       }
       if (req.url === '/') {
@@ -294,7 +296,7 @@ try {
     await popup
       .getByLabel('Message Doing')
       .fill(
-        long ? 'Answer all 50 practice questions. Select the correct option for each question, scroll down when needed, and continue until all 50 have answers. Do not submit or click Check Answer.' : 'Answer all ten practice questions correctly. Select the correct option, click Submit and next on each question, and continue until the final results page. Submit all remaining pages without asking again.',
+        eleven ? 'Solve all the 11 questions by filling the options and going next. Do not submit the assessment.' : long ? 'Answer all 50 practice questions. Select the correct option for each question, scroll down when needed, and continue until all 50 have answers. Do not submit or click Check Answer.' : 'Answer all ten practice questions correctly. Select the correct option, click Submit and next on each question, and continue until the final results page. Submit all remaining pages without asking again.',
       );
     await popup.getByRole('button', { name: 'Send message', exact: true }).click();
     const began = performance.now();
@@ -323,6 +325,7 @@ try {
     await popup.screenshot({ path: join(out, 'ten-chat.png') });
     await writeFile(join(out, 'full-workflow.json'), JSON.stringify({ localReport, practiceReport }, null, 2));
     console.log(JSON.stringify({ stage: 'ten-real-model', ...practiceReport }));
+    if (eleven && await site.evaluate(() => window.finalSubmits) !== 0) throw new Error('Final submission was not requested');
     if (long && await site.evaluate(() => window.checkedAnswers) !== 0) throw new Error('Do-not-submit was violated');
     if (current?.phase !== 'done' || submissions.length !== count || (!long && !submissions.every((s) => s.correct)))
       throw new Error('Real-model ten-question task failed');

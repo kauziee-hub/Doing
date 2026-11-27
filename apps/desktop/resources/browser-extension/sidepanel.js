@@ -35,8 +35,8 @@ async function refresh() {
     const reply = await send({ type: 'panelStatus' });
     latest = reply;
     const state = reply.state;
-    byId('reload').hidden = reply.protocol === 6;
-    byId('allow').disabled = !!reply.connecting || !!state?.chatting || state?.phase === 'review' || reply.protocol !== 6;
+    byId('reload').hidden = reply.protocol === 7;
+    byId('allow').disabled = !!reply.connecting || !!state?.chatting || state?.phase === 'review' || reply.protocol !== 7;
     byId('connection').textContent =
       stickyError ||
       (reply.connecting

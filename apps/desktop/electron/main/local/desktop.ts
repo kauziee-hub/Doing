@@ -12,6 +12,7 @@ export type DesktopAction = z.infer<typeof DesktopActionSchema>;
 export interface DesktopControl {
   id: string; name: string; type: string; value: string; actions: string[];
   runtime?: string;
+  context?: string;
 }
 export interface DesktopView {
   handle: string; processId: number; process: string; title: string; controls: DesktopControl[];
@@ -62,7 +63,7 @@ export function createDesktopHost(script: string): DesktopHost {
   });
   return {
     inspect: (name, signal) => run({ name }, signal),
-    act: (view, control, action, signal) => run({ handle: view.handle, processId: view.processId, revision: view.revision, runtime: control.runtime, name: control.name, type: control.type, action: action.action, text: action.text }, signal),
+    act: (view, control, action, signal) => run({ handle: view.handle, processId: view.processId, revision: view.revision, runtime: control.runtime, context: control.context, name: control.name, type: control.type, action: action.action, text: action.text }, signal),
   };
 }
 

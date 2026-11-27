@@ -22,6 +22,11 @@ export type MediaCommand = 'play_pause' | 'next' | 'previous' | 'volume_up' | 'v
 export type SettingsPage = keyof typeof SETTINGS_PAGES;
 
 export interface PcHost {
+  spotifyPlayback?(): Promise<{
+    title: string;
+    artist: string;
+    playing: boolean;
+  } | null>;
   findFiles(query: string): Promise<FoundFile[]>;
   openPath(path: string): Promise<void>;
   revealPath(path: string): void;
@@ -59,13 +64,42 @@ export const SETTINGS_PAGES = {
 } as const;
 
 /** Files Doing will not open (it can still show them in their folder). */
-const EXECUTABLE = new Set(['.exe', '.com', '.bat', '.cmd', '.ps1', '.psm1', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.msi', '.msp', '.scr', '.hta', '.cpl', '.lnk', '.url', '.reg', '.jar', '.appref-ms', '.application', '.gadget', '.pif', '.sys', '.dll']);
+const EXECUTABLE = new Set([
+  '.exe',
+  '.com',
+  '.bat',
+  '.cmd',
+  '.ps1',
+  '.psm1',
+  '.vbs',
+  '.vbe',
+  '.js',
+  '.jse',
+  '.wsf',
+  '.wsh',
+  '.msi',
+  '.msp',
+  '.scr',
+  '.hta',
+  '.cpl',
+  '.lnk',
+  '.url',
+  '.reg',
+  '.jar',
+  '.appref-ms',
+  '.application',
+  '.gadget',
+  '.pif',
+  '.sys',
+  '.dll',
+]);
 export function isExecutable(path: string): boolean {
   return EXECUTABLE.has(extname(path).toLowerCase());
 }
 
 /** Apps Doing won't open: shells and admin tools (a request like that is better done by hand). */
-const ADMIN_APPS = /\b(?:powershell|command prompt|cmd|terminal|registry|regedit|task scheduler|group policy|services|computer management|disk management|windows tools|system configuration|security|defender|firewall|control panel|run)\b/i;
+const ADMIN_APPS =
+  /\b(?:powershell|command prompt|cmd|terminal|registry|regedit|task scheduler|group policy|services|computer management|disk management|windows tools|system configuration|security|defender|firewall|control panel|run)\b/i;
 
 /** Search terms safe to place in a Windows Search query: letters, digits, space, dot, dash, underscore. */
 export function searchTerms(query: string): string[] {
@@ -86,11 +120,16 @@ export function searchTerms(query: string): string[] {
  */
 export function directFind(text: string): string | null {
   const t = text.trim();
-  const m = /^(?:please\s+|can you\s+|could you\s+)?(?:find|locate|search for|look for|where(?:'s| is| are| did i (?:save|put)))\s+(.+?)[?.!]*$/i.exec(t);
+  const m =
+    /^(?:please\s+|can you\s+|could you\s+)?(?:find|locate|search for|look for|where(?:'s| is| are| did i (?:save|put)))\s+(.+?)[?.!]*$/i.exec(
+      t,
+    );
   if (!m) return null;
   const rest = m[1]!;
-  if (/\b(?:and|then)\b/i.test(rest) && /\b(?:open|show|delete|move|send|play)\b/i.test(rest)) return searchTerms(rest.split(/\b(?:and|then)\b/i)[0]!).join(' ') || null;
-  const fileish = /\b(?:files?|documents?|docs?|pdfs?|photos?|pictures?|images?|videos?|songs?|folders?|sheets?|spreadsheets?|presentations?|notes?|resume|résumé|cv|\w+\.\w{2,4})\b/i;
+  if (/\b(?:and|then)\b/i.test(rest) && /\b(?:open|show|delete|move|send|play)\b/i.test(rest))
+    return searchTerms(rest.split(/\b(?:and|then)\b/i)[0]!).join(' ') || null;
+  const fileish =
+    /\b(?:files?|documents?|docs?|pdfs?|photos?|pictures?|images?|videos?|songs?|folders?|sheets?|spreadsheets?|presentations?|notes?|resume|résumé|cv|\w+\.\w{2,4})\b/i;
   if (!fileish.test(rest)) return null;
   const terms = searchTerms(rest.replace(/\b(?:files?|documents?|docs?|folders?)\b/gi, ' '));
   return terms.length ? terms.join(' ') : null;
@@ -103,7 +142,11 @@ export function directOpen(text: string): string | null {
   return m[1]!.trim();
 }
 
-const norm = (s: string) => s.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+const norm = (s: string) =>
+  s
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '');
 
 /** The installed app a name refers to: exact, then starts-with, then contains. Several equally good matches are returned for the user to pick. */
 export function matchApps(name: string, apps: InstalledApp[]): InstalledApp[] {
@@ -129,15 +172,28 @@ export function whatsappUri(phone: string, text: string): string | null {
   return `whatsapp://send?phone=${digits}&text=${encodeURIComponent(text)}`;
 }
 
-const MEDIA_KEYS: Record<MediaCommand, number> = { play_pause: 0xb3, next: 0xb0, previous: 0xb1, volume_up: 0xaf, volume_down: 0xae, mute: 0xad };
+const MEDIA_KEYS: Record<MediaCommand, number> = {
+  play_pause: 0xb3,
+  next: 0xb0,
+  previous: 0xb1,
+  volume_up: 0xaf,
+  volume_down: 0xae,
+  mute: 0xad,
+};
 
 function powershell(script: string, arg: unknown, timeoutMs = 20_000): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-      { env: { ...process.env, DOING_PC_ARG: JSON.stringify(arg ?? null) }, timeout: timeoutMs, windowsHide: true, maxBuffer: 4 << 20 },
-      (err, stdout, stderr) => (err ? reject(new Error((stderr || err.message).toString().trim().split('\n')[0]!.slice(0, 300))) : resolve(stdout.toString())),
+      {
+        env: { ...process.env, DOING_PC_ARG: JSON.stringify(arg ?? null) },
+        timeout: timeoutMs,
+        windowsHide: true,
+        maxBuffer: 4 << 20,
+      },
+      (err, stdout, stderr) =>
+        err ? reject(new Error((stderr || err.message).toString().trim().split('\n')[0]!.slice(0, 300))) : resolve(stdout.toString()),
     );
   });
 }
@@ -154,6 +210,23 @@ while (-not $rs.EOF) { $out += [pscustomobject]@{ path = [string]$rs.Fields.Item
 ConvertTo-Json -InputObject @($out) -Compress`;
 
 const PS_APPS = `Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Compress`;
+
+export const PS_SPOTIFY_STATUS = `$ErrorActionPreference='Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager,Windows.Media.Control,ContentType=WindowsRuntime] | Out-Null
+[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties,Windows.Media.Control,ContentType=WindowsRuntime] | Out-Null
+$bridge = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.IsGenericMethodDefinition -and $_.GetGenericArguments().Count -eq 1 -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\u00601' } | Select-Object -First 1
+function Wait-DoingMedia($operation, [type]$resultType) {
+  $task = $bridge.MakeGenericMethod($resultType).Invoke($null, @($operation))
+  if (-not $task.Wait(3000)) { throw 'Media status timed out.' }
+  $task.GetAwaiter().GetResult()
+}
+$manager = Wait-DoingMedia ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+$session = $manager.GetSessions() | Where-Object { $_.SourceAppUserModelId -match '(?i)spotify' } | Select-Object -First 1
+if (-not $session) { 'null'; exit }
+$properties = Wait-DoingMedia ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+[pscustomobject]@{title=$properties.Title;artist=$properties.Artist;playing=($session.GetPlaybackInfo().PlaybackStatus.ToString() -eq 'Playing')} | ConvertTo-Json -Compress`;
 
 const PS_KEY = `$a = $env:DOING_PC_ARG | ConvertFrom-Json
 Add-Type -Name K -Namespace DoingKeys -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte v, byte s, uint f, System.UIntPtr e);'
@@ -201,7 +274,8 @@ function walkRoots(): string[] {
   return ['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos', 'OneDrive'].map((d) => join(home, d));
 }
 /** App data and developer folders: never what someone means by "my resume". */
-const NOISE = /\\(?:AppData|\$Recycle\.Bin|node_modules|\.git|__pycache__|site-packages|\.venv|venv|\.next|\.nuxt|\.gradle|\.m2|\.cargo|\.rustup|\.cache)(?:\\|$)/i;
+const NOISE =
+  /\\(?:AppData|\$Recycle\.Bin|node_modules|\.git|__pycache__|site-packages|\.venv|venv|\.next|\.nuxt|\.gradle|\.m2|\.cargo|\.rustup|\.cache)(?:\\|$)/i;
 const SKIP_DIRS = /^(?:node_modules|\.git|\.cache|AppData|\$Recycle\.Bin|Windows|Program Files.*|ProgramData)$/i;
 
 async function walkFind(terms: string[], budgetMs = 4000, limit = 40): Promise<FoundFile[]> {
@@ -221,7 +295,11 @@ async function walkFind(terms: string[], budgetMs = 4000, limit = 40): Promise<F
       const lower = e.name.toLocaleLowerCase();
       if (want.every((t) => lower.includes(t))) {
         const s = await stat(full).catch(() => null);
-        out.push({ path: full, size: s?.isFile() ? s.size : null, modified: s ? s.mtime.toISOString() : null });
+        out.push({
+          path: full,
+          size: s?.isFile() ? s.size : null,
+          modified: s ? s.mtime.toISOString() : null,
+        });
         if (out.length >= limit) break;
       }
     }
@@ -229,9 +307,22 @@ async function walkFind(terms: string[], budgetMs = 4000, limit = 40): Promise<F
   return out;
 }
 
-export function createPcHost(deps: { openPath: (p: string) => Promise<string>; showItemInFolder: (p: string) => void; openExternal: (uri: string) => Promise<void> }): PcHost {
+export function createPcHost(deps: {
+  openPath: (p: string) => Promise<string>;
+  showItemInFolder: (p: string) => void;
+  openExternal: (uri: string) => Promise<void>;
+}): PcHost {
   let appsCache: { at: number; apps: InstalledApp[] } | null = null;
   return {
+    async spotifyPlayback() {
+      const raw = JSON.parse((await powershell(PS_SPOTIFY_STATUS, null, 10_000)).trim() || 'null') as {
+        title?: unknown;
+        artist?: unknown;
+        playing?: unknown;
+      } | null;
+      if (!raw || typeof raw.title !== 'string' || typeof raw.artist !== 'string' || typeof raw.playing !== 'boolean') return null;
+      return { title: raw.title, artist: raw.artist, playing: raw.playing };
+    },
     async findFiles(query) {
       const terms = searchTerms(query);
       if (!terms.length) return [];
@@ -254,14 +345,19 @@ export function createPcHost(deps: { openPath: (p: string) => Promise<string>; s
     },
     async listApps() {
       if (appsCache && Date.now() - appsCache.at < 5 * 60_000) return appsCache.apps;
-      const raw = JSON.parse((await powershell(PS_APPS, null)) || '[]') as Array<{ Name: string; AppID: string }> | { Name: string; AppID: string };
+      const raw = JSON.parse((await powershell(PS_APPS, null)) || '[]') as
+        Array<{ Name: string; AppID: string }> | { Name: string; AppID: string };
       const apps = (Array.isArray(raw) ? raw : [raw]).filter((a) => a?.Name && a.AppID).map((a) => ({ name: a.Name, id: a.AppID }));
       appsCache = { at: Date.now(), apps };
       return apps;
     },
     async launchApp(app) {
       await new Promise<void>((resolve, reject) => {
-        const child = spawn('explorer.exe', [`shell:AppsFolder\\${app.id}`], { detached: true, stdio: 'ignore', windowsHide: true });
+        const child = spawn('explorer.exe', [`shell:AppsFolder\\${app.id}`], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        });
         child.once('error', reject);
         child.once('spawn', () => {
           child.unref();
@@ -271,7 +367,10 @@ export function createPcHost(deps: { openPath: (p: string) => Promise<string>; s
     },
     async media(command) {
       const vk = MEDIA_KEYS[command];
-      await powershell(PS_KEY, { vk, times: command === 'volume_up' || command === 'volume_down' ? 5 : 1 });
+      await powershell(PS_KEY, {
+        vk,
+        times: command === 'volume_up' || command === 'volume_down' ? 5 : 1,
+      });
     },
     async setVolume(level) {
       return Number((await powershell(PS_VOLUME, { level: Math.round(level) })).trim());
@@ -283,7 +382,8 @@ export function createPcHost(deps: { openPath: (p: string) => Promise<string>; s
       return (await powershell(PS_DARK, { on })).trim() === '0';
     },
     async openUri(uri) {
-      if (!/^(?:ms-settings:[a-z-]+|whatsapp:\/\/send\?|spotify:search:|https:\/\/open\.spotify\.com\/search\/)/.test(uri)) throw new Error('That link type is not allowed.');
+      if (!/^(?:ms-settings:[a-z-]+|whatsapp:\/\/send\?|spotify:search:|https:\/\/open\.spotify\.com\/search\/)/.test(uri))
+        throw new Error('That link type is not allowed.');
       await deps.openExternal(uri);
     },
   };

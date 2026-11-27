@@ -1,7 +1,7 @@
 import { modelPage } from './context';
 import { checkAction } from './agent';
 import { expect, it } from 'vitest';
-import { browserActionSchema } from './planner';
+import { browserActionSchema, selectionAction, questionSelectionSchema } from './planner';
 import type { BrowserSnapshot } from '@doing/contracts';
 
 it('constrains clicks to available controls and prevents repeating a selected radio', () => {
@@ -55,4 +55,15 @@ it('allows observed scrolling, rejects boundaries and enforces do-not-submit eve
  expect(checkAction({kind:'scroll',target:'page',direction:'down',reason:'More questions'},page)).toBeNull();
  expect(checkAction({kind:'scroll',target:'page',direction:'up',reason:'Back'},page)).toContain('boundary');
  expect(checkAction({kind:'click',target:'check',reason:'Check'},page,'Answer all and do not submit')).toContain('not to submit');
+});
+
+
+it('applies a complete MCQ answer set without toggling correct checked options off',()=>{
+ const page:BrowserSnapshot={revision:'r',url:'https://example.test',title:'Quiz',text:'Choose two',elements:['A','B','C'].map(id=>({id,kind:'checkbox',label:id,value:'',checked:id==='A',advances:false}))};
+ expect(selectionAction({targets:['A','B'],reason:'A and B'},page)).toMatchObject({kind:'click',target:'B'});
+ page.elements[1]!.checked=true;
+ expect(selectionAction({targets:['A','B'],reason:'A and B'},page)).toMatchObject({kind:'done'});
+ page.elements[2]!.checked=true;
+ expect(selectionAction({targets:['A','B'],reason:'A and B'},page)).toMatchObject({kind:'click',target:'C'});
+ expect(()=>questionSelectionSchema(page).parse({kind:'choices',targets:['missing'],reason:'Invalid'})).toThrow();
 });

@@ -15,7 +15,10 @@ async function request(path, body, current = session) {
   try {
     res = await fetch(`http://127.0.0.1:${current.port}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${current.token}` },
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${current.token}`,
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(210000),
     });
@@ -41,7 +44,9 @@ async function rememberedConnection(port, force = false, expectedGeneration = ge
   const token = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, '0')).join('');
   const candidate = { token, port };
   const pending = await request('/pair/request', { label: 'Doing Browser Companion' }, candidate);
-  await chrome.storage.session.set({ message: 'Approve the browser connection in Doing. No pairing code needed.' });
+  await chrome.storage.session.set({
+    message: 'Approve the browser connection in Doing. No pairing code needed.',
+  });
   await badge('ASK');
   for (let i = 0; i < 115; i++) {
     await sleep(1000);
@@ -58,7 +63,9 @@ async function rememberedConnection(port, force = false, expectedGeneration = ge
 
 async function badge(text) {
   await chrome.action.setBadgeText({ text });
-  await chrome.action.setBadgeBackgroundColor({ color: text === 'RUN' ? '#28785b' : '#1d1c35' });
+  await chrome.action.setBadgeBackgroundColor({
+    color: text === 'RUN' ? '#28785b' : '#1d1c35',
+  });
 }
 
 async function detach() {
@@ -82,20 +89,36 @@ async function observe(current) {
   const tab = await chrome.tabs.get(current.tabId);
   if (new URL(tab.url).origin !== current.origin) throw new Error('The tab moved to a different site. Allow it again to continue.');
   if (tab.status !== 'complete') return null;
-  const [result] = await chrome.scripting.executeScript({ target: { tabId: current.tabId }, func: pageSnapshot });
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId: current.tabId },
+    func: pageSnapshot,
+  });
   if (!result?.result) throw new Error('The page could not be read.');
   const tabs = [];
   for (const allowed of current.allowedTabs || []) {
     if (allowed.tabId === current.tabId) {
-      tabs.push({ id: String(allowed.tabId), url: result.result.url, title: result.result.title, text: result.result.text.slice(0, 2500) });
+      tabs.push({
+        id: String(allowed.tabId),
+        url: result.result.url,
+        title: result.result.title,
+        text: result.result.text.slice(0, 2500),
+      });
       continue;
     }
     const other = await chrome.tabs.get(allowed.tabId);
     if (new URL(other.url).origin !== allowed.origin) throw new Error('An allowed tab changed sites. Allow the group again.');
     if (other.status !== 'complete') continue;
-    const [read] = await chrome.scripting.executeScript({ target: { tabId: allowed.tabId }, func: pageSnapshot });
+    const [read] = await chrome.scripting.executeScript({
+      target: { tabId: allowed.tabId },
+      func: pageSnapshot,
+    });
     if (read?.result)
-      tabs.push({ id: String(allowed.tabId), url: read.result.url, title: read.result.title, text: read.result.text.slice(0, 2500) });
+      tabs.push({
+        id: String(allowed.tabId),
+        url: read.result.url,
+        title: read.result.title,
+        text: read.result.text.slice(0, 2500),
+      });
   }
   return { ...result.result, tabId: String(current.tabId), tabs };
 }
@@ -132,7 +155,9 @@ async function execute(current, command, mine) {
   // Re-observe after model latency; IDs from a stale page must never reach a different question.
   const fresh = await observe(current);
   if (!fresh || fresh.revision !== command.revision)
-    throw new Error('The page changed while Doing was thinking. Restart from the current page.');
+    throw Object.assign(new Error('The page changed before execution.'), {
+      stale: true,
+    });
   const permit = await request('/permit', { clientId: current.clientId, runId: command.runId, commandId: command.id }, current);
   if (!valid() || !permit.allowed) throw new Error('Action permission revoked.');
   if (command.action.kind === 'switch') {
@@ -153,12 +178,24 @@ async function execute(current, command, mine) {
   }
   try {
     if (!valid()) throw new Error('Action permission revoked.');
-    const [prepared] = await chrome.scripting.executeScript({ target: { tabId: current.tabId }, func: prepareAction, args: [command] });
+    const [prepared] = await chrome.scripting.executeScript({
+      target: { tabId: current.tabId },
+      func: prepareAction,
+      args: [command],
+    });
     // An injected function can fail without rejecting executeScript in some Chromium builds.
+    if (prepared?.result?.stale)
+      throw Object.assign(new Error('The page changed before execution.'), {
+        stale: true,
+      });
     if (!prepared?.result || typeof prepared.result.typing !== 'boolean')
       throw new Error('The page could not prepare this control for the requested action.');
     if (prepared.result.typing) {
-      const [focus] = await chrome.scripting.executeScript({ target: { tabId: current.tabId }, func: verifyFocus, args: [command] });
+      const [focus] = await chrome.scripting.executeScript({
+        target: { tabId: current.tabId },
+        func: verifyFocus,
+        args: [command],
+      });
       if (!valid() || !focus?.result) throw new Error('The editor lost focus.');
       if (prepared.result.code) {
         // Monaco/CodeMirror/Ace own their document selection; Ctrl+A stays inside the verified editor.
@@ -191,7 +228,11 @@ async function execute(current, command, mine) {
       } finally {
         if (prepared.result.code)
           await chrome.scripting
-            .executeScript({ target: { tabId: current.tabId }, func: setEditorComposition, args: [command, false] })
+            .executeScript({
+              target: { tabId: current.tabId },
+              func: setEditorComposition,
+              args: [command, false],
+            })
             .catch(() => {});
       }
       await sleep(150);
@@ -242,9 +283,18 @@ async function pump() {
       if (reply.command) {
         try {
           await execute(current, reply.command, mine);
-          receipt = { id: reply.command.id, ok: true, message: 'Browser action dispatched.' };
+          receipt = {
+            id: reply.command.id,
+            ok: true,
+            message: 'Browser action dispatched.',
+          };
         } catch (error) {
-          receipt = { id: reply.command.id, ok: false, message: String(error.message).slice(0, 500) };
+          receipt = {
+            id: reply.command.id,
+            ok: false,
+            stale: error.stale === true,
+            message: String(error.message).slice(0, 500),
+          };
         }
         await sleep(700);
       } else await sleep(reply.observe && reply.phase === 'running' ? 400 : 1000);
@@ -266,7 +316,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (restoring) throw new Error('Browser companion is starting. Try again in a moment.');
     if (message.type === 'status' || message.type === 'panelStatus')
       return {
-        protocol: 6,
+        protocol: 7,
         connected: !!session,
         connecting,
         remembered: !!(await chrome.storage.local.get('trustedDoing')).trustedDoing,
@@ -282,7 +332,10 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.type === 'forget') {
       await stop();
       await chrome.storage.local.remove('trustedDoing');
-      return { connected: false, message: 'Connection forgotten. Approval will be requested next time.' };
+      return {
+        connected: false,
+        message: 'Connection forgotten. Approval will be requested next time.',
+      };
     }
     if (message.type === 'remove-tab') {
       await removeTab(message.tabId);
@@ -291,16 +344,20 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.type === 'chat' || message.type === 'chat-stop' || message.type === 'chat-clear') {
       if (message.type === 'chat') {
         const current = session;
-        for (let i=0;i<30;i++) {
+        for (let i = 0; i < 30; i++) {
           if (!current || session !== current) throw new Error('Tab permission revoked.');
-          const ready = await request('/chat/status',{clientId:current.clientId},current);
+          const ready = await request('/chat/status', { clientId: current.clientId }, current);
           if (ready.pageReady) break;
-          if (i===29) throw new Error('The page is still loading. Try again when it is ready.');
+          if (i === 29) throw new Error('The page is still loading. Try again when it is ready.');
           await sleep(200);
         }
       }
       const path = message.type === 'chat' ? '/chat/send' : message.type === 'chat-stop' ? '/chat/stop' : '/chat/clear';
-      const state = await request(path, { clientId: session?.clientId, id: message.id, text: message.text });
+      const state = await request(path, {
+        clientId: session?.clientId,
+        id: message.id,
+        text: message.text,
+      });
       return { state, message: state.message };
     }
     if (message.type === 'select') {
@@ -310,7 +367,11 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       if (new URL(tab.url).origin !== allowed.origin) throw new Error('That tab changed sites.');
       await request('/tabs/select', {
         clientId: session.clientId,
-        tab: { id: String(tab.id), title: tab.title.slice(0, 300), url: tab.url },
+        tab: {
+          id: String(tab.id),
+          title: tab.title.slice(0, 300),
+          url: tab.url,
+        },
       });
       session.tabId = tab.id;
       session.origin = allowed.origin;
@@ -320,8 +381,13 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     }
     if (message.type === 'group') {
       if (!session?.allowedTabs?.length) throw new Error('Allow tabs first.');
-      const groupId = await chrome.tabs.group({ tabIds: session.allowedTabs.map((t) => t.tabId) });
-      await chrome.tabGroups.update(groupId, { title: 'Doing', color: 'purple' });
+      const groupId = await chrome.tabs.group({
+        tabIds: session.allowedTabs.map((t) => t.tabId),
+      });
+      await chrome.tabGroups.update(groupId, {
+        title: 'Doing',
+        color: 'purple',
+      });
       return { message: 'Allowed tabs grouped in Chrome.' };
     }
     if (message.type !== 'connect') throw new Error('Unknown command.');
@@ -331,18 +397,38 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     connecting = true;
     let connectGeneration = generation;
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (!tab?.id || !/^https?:/.test(tab.url || '')) throw new Error('Open the website you want Doing to use first.');
-      const allowed = { tabId: tab.id, origin: new URL(tab.url).origin, title: (tab.title || '').slice(0, 300), url: tab.url };
+      const allowed = {
+        tabId: tab.id,
+        origin: new URL(tab.url).origin,
+        title: (tab.title || '').slice(0, 300),
+        url: tab.url,
+      };
       // Verify Chrome's tab/site permission before approving any page observation.
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => true });
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => true,
+      });
       if (session) {
-        await request('/tabs/allow', { clientId: session.clientId, tab: { id: String(tab.id), title: allowed.title, url: tab.url } });
+        await request('/tabs/allow', {
+          clientId: session.clientId,
+          tab: { id: String(tab.id), title: allowed.title, url: tab.url },
+        });
         session.allowedTabs = [...(session.allowedTabs || []).filter((t) => t.tabId !== tab.id), allowed];
         session.tabId = tab.id;
         session.origin = allowed.origin;
-        await chrome.storage.session.set({ connection: session, message: 'Tab added. Chat with Doing in the side panel.' });
-        return { connected: true, message: 'Tab added. Chat with Doing in the side panel.' };
+        await chrome.storage.session.set({
+          connection: session,
+          message: 'Tab added. Chat with Doing in the side panel.',
+        });
+        return {
+          connected: true,
+          message: 'Tab added. Chat with Doing in the side panel.',
+        };
       }
       await stop('Connecting to Doing…');
       connectGeneration = generation;
@@ -355,24 +441,50 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       if (new URL(latest.url).origin !== new URL(tab.url).origin) throw new Error('The tab changed sites. Allow it again.');
       let paired;
       try {
-        paired = await request('/connect', { id: String(tab.id), url: latest.url, title: (latest.title || '').slice(0, 300) }, credential);
+        paired = await request(
+          '/connect',
+          {
+            id: String(tab.id),
+            url: latest.url,
+            title: (latest.title || '').slice(0, 300),
+          },
+          credential,
+        );
       } catch (error) {
         if (![401, 403].includes(error.status) || message.token) throw error;
         await chrome.storage.local.remove('trustedDoing');
         credential = await rememberedConnection(port, true, connectGeneration);
         if (generation !== connectGeneration) throw new Error('Tab permission canceled.', { cause: error });
-        paired = await request('/connect', { id: String(tab.id), url: latest.url, title: (latest.title || '').slice(0, 300) }, credential);
+        paired = await request(
+          '/connect',
+          {
+            id: String(tab.id),
+            url: latest.url,
+            title: (latest.title || '').slice(0, 300),
+          },
+          credential,
+        );
       }
       if (generation !== connectGeneration) {
         await request('/disconnect', { clientId: paired.clientId }, credential).catch(() => {});
         throw new Error('Tab permission canceled.');
       }
-      const next = { ...credential, tabId: tab.id, origin: new URL(latest.url).origin };
+      const next = {
+        ...credential,
+        tabId: tab.id,
+        origin: new URL(latest.url).origin,
+      };
       session = { ...next, clientId: paired.clientId, allowedTabs: [allowed] };
-      await chrome.storage.session.set({ connection: session, message: 'Tab allowed. Chat with Doing in the side panel.' });
+      await chrome.storage.session.set({
+        connection: session,
+        message: 'Tab allowed. Chat with Doing in the side panel.',
+      });
       await badge('ON');
       void pump();
-      return { connected: true, message: 'Tab allowed. Chat with Doing in the side panel.' };
+      return {
+        connected: true,
+        message: 'Tab allowed. Chat with Doing in the side panel.',
+      };
     } catch (error) {
       if (generation === connectGeneration) {
         await badge('');
@@ -406,7 +518,9 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 // A service-worker restart cannot replay a pending action or silently restore consent.
 void (async () => {
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-  await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+  await chrome.storage.local.setAccessLevel({
+    accessLevel: 'TRUSTED_CONTEXTS',
+  });
   const { connection } = await chrome.storage.session.get('connection');
   if (connection) await request('/disconnect', { clientId: connection.clientId }, connection).catch(() => {});
   await chrome.storage.session.remove('connection');

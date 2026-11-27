@@ -1,5 +1,7 @@
 # Local Assistant
 
+0.5.4 continues Spotify requests beyond search. It matches observed song rows against approximate titles, excludes playlist/album controls, invokes the matching Play button and verifies the requested title plus playing state using Windows media status or Spotify's accessible player. A failed provider receipt is not proof that nothing happened: playback is checked without repeating an uncertain click. Similar song names may require clarification. Desktop app-control permission is still required. Live check: “bum ba diga diga” resolved to “Bum Baa Diga Diga (From \"DC\")” and Windows confirmed playback.
+
 Assistant is the default Doing page. Questions and drafting work without folder access. For file tasks, select **Allow a folder** in the native picker, then give an ordinary instruction. Access lasts for this app session; Change folder or Revoke clears the conversation and Undo records. New chat clears the conversation without revoking the current folder.
 
 The local model chooses one validated action at a time: answer, list, read, write, create a directory, move a file or folder or finish. Observations confirm each change before the next step. No model-generated JavaScript, shell commands or executables run. File contents are untrusted reference data, never new instructions.

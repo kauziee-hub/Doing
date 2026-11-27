@@ -12,8 +12,21 @@ const page = (overrides: Partial<BrowserSnapshot> = {}): BrowserSnapshot => ({
   title: 'Practice',
   text: 'Question 1. Two plus two?',
   elements: [
-    { id: 'a', kind: 'radio', label: '4', value: '', advances: false, checked: false },
-    { id: 'next', kind: 'button', label: 'Submit and next', value: '', advances: true },
+    {
+      id: 'a',
+      kind: 'radio',
+      label: '4',
+      value: '',
+      advances: false,
+      checked: false,
+    },
+    {
+      id: 'next',
+      kind: 'button',
+      label: 'Submit and next',
+      value: '',
+      advances: true,
+    },
   ],
   ...overrides,
 });
@@ -26,7 +39,11 @@ afterEach(() => {
 });
 
 async function setup(
-  action: BrowserAction | ((p: BrowserSnapshot) => BrowserAction) = { kind: 'click', target: 'next', reason: 'Continue' },
+  action: BrowserAction | ((p: BrowserSnapshot) => BrowserAction) = {
+    kind: 'click',
+    target: 'next',
+    reason: 'Continue',
+  },
   read?: BrowserReader,
   converse?: BrowserChatter,
 ) {
@@ -37,10 +54,17 @@ async function setup(
   const post = async (path: string, body: unknown, headers: Record<string, string> = {}) =>
     fetch(`http://127.0.0.1:${status.port}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${status.pairingCode}`, ...headers },
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${status.pairingCode}`,
+        ...headers,
+      },
       body: JSON.stringify(body),
     });
-  const connected = await post('/connect', { title: 'Practice', url: page().url });
+  const connected = await post('/connect', {
+    title: 'Practice',
+    url: page().url,
+  });
   const { clientId } = (await connected.json()) as { clientId: string };
   const tick = async (data: Record<string, unknown> = {}) =>
     (await post('/tick', { clientId, ...data })).json() as Promise<{
@@ -49,39 +73,124 @@ async function setup(
       command?: { id: string; runId: string; action: BrowserAction };
     }>;
   const start = (autoSubmit = false, maxSteps = 150) =>
-    agent.start({ task: 'Complete all ten practice questions.', consent: true, autoSubmit, maxSteps });
+    agent.start({
+      task: 'Complete all ten practice questions.',
+      consent: true,
+      autoSubmit,
+      maxSteps,
+    });
   return { agent, planner, post, clientId, tick, start };
 }
 
 describe('browser task permissions and lifecycle', () => {
   it('reads a whole-page chat through scrolling without consulting the action planner', async () => {
-    const read = vi.fn(async (_q: string, p: BrowserSnapshot) => p.text.includes('Final section') ? 'First and final sections summarized.' : 'First section summary.');
-    const converse = vi.fn(async () => ({kind:'answer' as const,text:'Should not be used'}));
-    const {agent,tick,planner} = await setup({kind:'click',target:'next',reason:'Must never click'},read,converse);
-    const first = page({text:'First section',scroll:{top:0,max:800,height:800}});
-    await tick({snapshot:first});
-    await agent.chat('9451abc7-e876-4a01-b991-b3e50cb4fcc1','Go through this page and tell me what it is about');
-    const scroll = await tick({snapshot:first});
-    expect(scroll.command?.action).toMatchObject({kind:'scroll',direction:'down'});
-    const result = await tick({snapshot:page({revision:'bottom',text:'Final section',scroll:{top:800,max:800,height:800}}),receipt:{id:scroll.command!.id,ok:true,message:'Scrolled'}});
+    const read = vi.fn(async (_q: string, p: BrowserSnapshot) =>
+      p.text.includes('Final section') ? 'First and final sections summarized.' : 'First section summary.',
+    );
+    const converse = vi.fn(async () => ({
+      kind: 'answer' as const,
+      text: 'Should not be used',
+    }));
+    const { agent, tick, planner } = await setup({ kind: 'click', target: 'next', reason: 'Must never click' }, read, converse);
+    const first = page({
+      text: 'First section',
+      scroll: { top: 0, max: 800, height: 800 },
+    });
+    await tick({ snapshot: first });
+    await agent.chat('9451abc7-e876-4a01-b991-b3e50cb4fcc1', 'Go through this page and tell me what it is about');
+    const scroll = await tick({ snapshot: first });
+    expect(scroll.command?.action).toMatchObject({
+      kind: 'scroll',
+      direction: 'down',
+    });
+    const result = await tick({
+      snapshot: page({
+        revision: 'bottom',
+        text: 'Final section',
+        scroll: { top: 800, max: 800, height: 800 },
+      }),
+      receipt: { id: scroll.command!.id, ok: true, message: 'Scrolled' },
+    });
     expect(result.phase).toBe('done');
-    expect(planner).not.toHaveBeenCalled(); expect(converse).not.toHaveBeenCalled();
+    expect(planner).not.toHaveBeenCalled();
+    expect(converse).not.toHaveBeenCalled();
     expect(agent.status().autoSubmit).toBe(false);
     expect(agent.status().messages.at(-1)?.text).toContain('final sections');
   });
   it('requires a full editor replacement to preserve the requested JavaScript function', () => {
-    const codePage = page({ elements: [{ id: 'code', kind: 'code', label: 'JavaScript', value: 'var twoSum = function(nums, target) { };', advances: false }] });
-    expect(checkAction({ kind: 'type', target: 'code', text: 'return [];', reason: 'Incomplete' }, codePage, 'Solve and preserve the signature')).toContain('omits');
-    expect(checkAction({ kind: 'type', target: 'code', text: 'function twoSum(nums, target) { return []; }', reason: 'Complete' }, codePage, 'Solve and preserve the signature')).toBeNull();
-    expect(checkAction({ kind: 'type', target: 'code', text: 'hello', reason: 'Explicit replacement' }, codePage, 'Replace the editor with hello')).toBeNull();
+    const codePage = page({
+      elements: [
+        {
+          id: 'code',
+          kind: 'code',
+          label: 'JavaScript',
+          value: 'var twoSum = function(nums, target) { };',
+          advances: false,
+        },
+      ],
+    });
+    expect(
+      checkAction(
+        {
+          kind: 'type',
+          target: 'code',
+          text: 'return [];',
+          reason: 'Incomplete',
+        },
+        codePage,
+        'Solve and preserve the signature',
+      ),
+    ).toContain('omits');
+    expect(
+      checkAction(
+        {
+          kind: 'type',
+          target: 'code',
+          text: 'function twoSum(nums, target) { return []; }',
+          reason: 'Complete',
+        },
+        codePage,
+        'Solve and preserve the signature',
+      ),
+    ).toBeNull();
+    expect(
+      checkAction(
+        {
+          kind: 'type',
+          target: 'code',
+          text: 'hello',
+          reason: 'Explicit replacement',
+        },
+        codePage,
+        'Replace the editor with hello',
+      ),
+    ).toBeNull();
   });
   it('advances a confirmed single-group MCQ only with explicit batch submission permission', async () => {
-    const { agent, start, tick, planner } = await setup({ kind: 'click', target: 'a', reason: 'Choose the answer' });
+    const { agent, start, tick, planner } = await setup({
+      kind: 'click',
+      target: 'a',
+      reason: 'Choose the answer',
+    });
     const current = page({
       text: 'Question 1 of 10',
       elements: [
-        { id: 'a', kind: 'radio', label: '4', value: '', advances: false, checked: false, group: 'one' },
-        { id: 'next', kind: 'button', label: 'Submit and next', value: '', advances: true },
+        {
+          id: 'a',
+          kind: 'radio',
+          label: '4',
+          value: '',
+          advances: false,
+          checked: false,
+          group: 'one',
+        },
+        {
+          id: 'next',
+          kind: 'button',
+          label: 'Submit and next',
+          value: '',
+          advances: true,
+        },
       ],
     });
     start(true);
@@ -91,8 +200,14 @@ describe('browser task permissions and lifecycle', () => {
       revision: 'selected',
       elements: current.elements.map((el) => (el.id === 'a' ? { ...el, checked: true } : el)),
     };
-    const next = await tick({ snapshot: selected, receipt: { id: first.command!.id, ok: true, message: 'Selected' } });
-    expect(next.command?.action).toMatchObject({ kind: 'click', target: 'next' });
+    const next = await tick({
+      snapshot: selected,
+      receipt: { id: first.command!.id, ok: true, message: 'Selected' },
+    });
+    expect(next.command?.action).toMatchObject({
+      kind: 'click',
+      target: 'next',
+    });
     expect(planner).toHaveBeenCalledTimes(1);
     agent.stop();
     start(false);
@@ -102,16 +217,27 @@ describe('browser task permissions and lifecycle', () => {
     expect(agent.status().autoSubmit).toBe(false);
   });
   it('does not claim a batch is finished while a numbered question remains editable', async () => {
-    const { agent, tick, start, planner } = await setup({ kind: 'done', reason: 'Incorrect model completion' });
+    const { agent, tick, start, planner } = await setup({
+      kind: 'done',
+      reason: 'Incorrect model completion',
+    });
     start(true);
-    expect(await tick({ snapshot: page({ text: 'Question 2 of 10. What is 9 plus 8?' }) })).toMatchObject({ phase: 'error' });
+    expect(
+      await tick({
+        snapshot: page({ text: 'Question 2 of 10. What is 9 plus 8?' }),
+      }),
+    ).toMatchObject({ phase: 'error' });
     expect(planner).toHaveBeenCalledTimes(2);
     expect(agent.status().message).toContain('still visible');
   });
   it('removes one tab and ignores an in-flight observation that still mentions it', async () => {
     const { agent, post, clientId, tick } = await setup();
     const first = { id: 'first', title: 'Practice', url: page().url };
-    const second = { id: 'second', title: 'Reference', url: 'https://reference.example/' };
+    const second = {
+      id: 'second',
+      title: 'Reference',
+      url: 'https://reference.example/',
+    };
     for (const tab of [first, second]) expect((await post('/tabs/allow', { clientId, tab })).status).toBe(200);
     const stale = page({
       tabId: 'second',
@@ -123,9 +249,18 @@ describe('browser task permissions and lifecycle', () => {
     });
     await tick({ snapshot: stale });
     expect((await post('/tabs/remove', { clientId, id: 'second' })).status).toBe(200);
-    expect(await tick({ snapshot: stale })).toMatchObject({ phase: 'ready', observe: true });
-    await tick({ snapshot: page({ tabId: 'first', tabs: [{ ...first, text: '' }] }) });
-    expect(agent.status()).toMatchObject({ phase: 'ready', pageReady: true, tabs: [first] });
+    expect(await tick({ snapshot: stale })).toMatchObject({
+      phase: 'ready',
+      observe: true,
+    });
+    await tick({
+      snapshot: page({ tabId: 'first', tabs: [{ ...first, text: '' }] }),
+    });
+    expect(agent.status()).toMatchObject({
+      phase: 'ready',
+      pageReady: true,
+      tabs: [first],
+    });
   });
   it('runs chat tasks, gates submission from the current message, replies on completion and preserves follow-ups', async () => {
     const histories: number[] = [];
@@ -165,7 +300,11 @@ describe('browser task permissions and lifecycle', () => {
     expect(planner.mock.calls.length).toBe(calls);
   });
   it('rejects a model switch to an unapproved tab', async () => {
-    const { agent, start, tick } = await setup({ kind: 'switch', tab: 'unapproved', reason: 'Bad model request' });
+    const { agent, start, tick } = await setup({
+      kind: 'switch',
+      tab: 'unapproved',
+      reason: 'Bad model request',
+    });
     start(true);
     expect(await tick({ snapshot: page() })).toMatchObject({ phase: 'error' });
     expect(agent.status().message).toContain('not an available');
@@ -181,7 +320,10 @@ describe('browser task permissions and lifecycle', () => {
         saved = null;
       },
     };
-    const planner = vi.fn(async () => ({ kind: 'done' as const, reason: 'Complete' }));
+    const planner = vi.fn(async () => ({
+      kind: 'done' as const,
+      reason: 'Complete',
+    }));
     let agent = new BrowserAgent(planner, await fixturePort(), store);
     agents.push(agent);
     let status = await agent.enable();
@@ -190,7 +332,12 @@ describe('browser task permissions and lifecycle', () => {
     const post = (path: string, body: unknown, requestOrigin = origin) =>
       fetch(`http://127.0.0.1:${status.port}${path}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, origin: requestOrigin, connection: 'close' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+          origin: requestOrigin,
+          connection: 'close',
+        },
         body: JSON.stringify(body),
       });
     expect((await post('/pair/request', { label: 'Companion' }, 'https://malicious.example')).status).toBe(403);
@@ -199,7 +346,9 @@ describe('browser task permissions and lifecycle', () => {
     expect((await post('/connect', { title: 'Practice', url: page().url })).status).toBe(401);
     agent.allowConnection(requestId);
     expect(saved).toEqual({ token, extensionId: 'a'.repeat(32) });
-    expect(await (await post('/pair/status', { requestId })).json()).toEqual({ state: 'approved' });
+    expect(await (await post('/pair/status', { requestId })).json()).toEqual({
+      state: 'approved',
+    });
     expect((await post('/connect', { title: 'Practice', url: page().url }, `chrome-extension://${'b'.repeat(32)}`)).status).toBe(403);
     const { clientId } = (await (await post('/connect', { title: 'Practice', url: page().url })).json()) as { clientId: string };
     expect(await (await post('/tick', { clientId, snapshot: page() })).json()).toMatchObject({ phase: 'ready', observe: true });
@@ -208,7 +357,13 @@ describe('browser task permissions and lifecycle', () => {
     agent = new BrowserAgent(planner, await fixturePort(), store);
     agents.push(agent);
     status = await agent.enable();
-    expect(agent.status()).toMatchObject({ trustedBrowser: true, pairingCode: null, tab: null, task: '', connectionRequest: null });
+    expect(agent.status()).toMatchObject({
+      trustedBrowser: true,
+      pairingCode: null,
+      tab: null,
+      task: '',
+      connectionRequest: null,
+    });
     expect((await post('/tick', { clientId })).status).toBe(400);
     expect((await post('/connect', { title: 'Practice', url: page().url })).status).toBe(200);
     expect(planner).not.toHaveBeenCalled();
@@ -234,9 +389,15 @@ describe('browser task permissions and lifecycle', () => {
     const reader = vi.fn(async (_question, snapshot) => `Answer from ${snapshot.text}`);
     const { tick, planner, agent, post, clientId } = await setup(undefined, reader);
     await expect(agent.ask('Which option?')).rejects.toThrow('Waiting for the allowed tab');
-    expect(await tick({ snapshot: page() })).toMatchObject({ observe: true, phase: 'ready' });
+    expect(await tick({ snapshot: page() })).toMatchObject({
+      observe: true,
+      phase: 'ready',
+    });
     expect(agent.status().pageReady).toBe(true);
-    expect(await agent.ask('Which option?')).toEqual({ text: 'Answer from Question 1. Two plus two?', url: page().url });
+    expect(await agent.ask('Which option?')).toEqual({
+      text: 'Answer from Question 1. Two plus two?',
+      url: page().url,
+    });
     expect(reader.mock.calls[0]?.[1]).toEqual(page());
     expect(planner).not.toHaveBeenCalled();
     expect(() => agent.start({ task: 'x', consent: false, autoSubmit: false } as never)).toThrow();
@@ -252,7 +413,11 @@ describe('browser task permissions and lifecycle', () => {
     const next = await setup();
     await next.tick({ snapshot: page() });
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000);
-    expect(next.agent.status()).toMatchObject({ tab: null, pageReady: false, phase: 'disconnected' });
+    expect(next.agent.status()).toMatchObject({
+      tab: null,
+      pageReady: false,
+      phase: 'disconnected',
+    });
   });
   it('does not return an answer after tab revocation or a changed page', async () => {
     let finish!: (text: string) => void;
@@ -275,24 +440,40 @@ describe('browser task permissions and lifecycle', () => {
     const { post } = await setup();
     expect((await post('/tick', {}, { authorization: '' })).status).toBe(401);
     expect((await post('/tick', {}, { origin: 'https://malicious.example' })).status).toBe(403);
-    expect((await post('/tick', { clientId: '7a1c237d-a187-4c25-9693-52aa99455691' })).status).toBe(400);
+    expect(
+      (
+        await post('/tick', {
+          clientId: '7a1c237d-a187-4c25-9693-52aa99455691',
+        })
+      ).status,
+    ).toBe(400);
     expect((await post('/tick', { text: 'x'.repeat(400001) })).status).toBe(413);
   });
   it('requires review for submit/next and approves only the observed page', async () => {
     const { agent, tick, start } = await setup();
     start();
-    expect(await tick({ snapshot: page() })).toMatchObject({ phase: 'review', observe: false });
+    expect(await tick({ snapshot: page() })).toMatchObject({
+      phase: 'review',
+      observe: false,
+    });
     expect(agent.status().pending?.label).toBe('Submit and next');
     agent.approve();
     const approved = await tick({ snapshot: page() });
-    expect(approved.command?.action).toMatchObject({ kind: 'click', target: 'next' });
+    expect(approved.command?.action).toMatchObject({
+      kind: 'click',
+      target: 'next',
+    });
   });
   it('does not carry approval onto a changed question', async () => {
     const { agent, tick, start } = await setup();
     start();
     await tick({ snapshot: page() });
     agent.approve();
-    expect(await tick({ snapshot: page({ revision: 'rev2', text: 'Another question' }) })).toMatchObject({
+    expect(
+      await tick({
+        snapshot: page({ revision: 'rev2', text: 'Another question' }),
+      }),
+    ).toMatchObject({
       phase: 'review',
       observe: false,
     });
@@ -306,11 +487,23 @@ describe('browser task permissions and lifecycle', () => {
     start(true);
     let receipt;
     for (let i = 0; i < 10; i++) {
-      const reply = await tick({ snapshot: page({ revision: `r${i}`, text: `Question ${i + 1} of 10` }), receipt });
+      const reply = await tick({
+        snapshot: page({ revision: `r${i}`, text: `Question ${i + 1} of 10` }),
+        receipt,
+      });
       expect(reply.command?.action.kind).toBe('click');
       receipt = { id: reply.command!.id, ok: true, message: 'Next loaded' };
     }
-    expect(await tick({ receipt, snapshot: page({ revision: 'results', text: 'Results: 10 completed', elements: [] }) })).toMatchObject({
+    expect(
+      await tick({
+        receipt,
+        snapshot: page({
+          revision: 'results',
+          text: 'Results: 10 completed',
+          elements: [],
+        }),
+      }),
+    ).toMatchObject({
       phase: 'done',
     });
     expect(agent.status().steps).toBe(10);
@@ -319,7 +512,10 @@ describe('browser task permissions and lifecycle', () => {
     const { agent, tick, start } = await setup();
     start(true);
     await tick({ snapshot: page() });
-    expect(await tick({ snapshot: page() })).toMatchObject({ phase: 'error', observe: false });
+    expect(await tick({ snapshot: page() })).toMatchObject({
+      phase: 'error',
+      observe: false,
+    });
     expect(agent.status().steps).toBe(0);
   });
   it('cancels pending inference and prevents commands after Stop', async () => {
@@ -347,17 +543,32 @@ describe('browser task permissions and lifecycle', () => {
     });
     start(true);
     expect((await tick({ snapshot: page() })).command?.action.kind).toBe('click');
-    expect(agent.status()).toMatchObject({ phase: 'running', tab: { title: 'Practice' } });
+    expect(agent.status()).toMatchObject({
+      phase: 'running',
+      tab: { title: 'Practice' },
+    });
   });
   it('revokes commands, client and pairing token on disable', async () => {
     const { agent, start, tick, post, clientId } = await setup();
     start(true);
     const reply = await tick({ snapshot: page() });
     agent.stop();
-    expect(await (await post('/permit', { clientId, runId: reply.command!.runId, commandId: reply.command!.id })).json()).toEqual({
+    expect(
+      await (
+        await post('/permit', {
+          clientId,
+          runId: reply.command!.runId,
+          commandId: reply.command!.id,
+        })
+      ).json(),
+    ).toEqual({
       allowed: false,
     });
-    expect(agent.disable()).toMatchObject({ phase: 'off', pairingCode: null, tab: null });
+    expect(agent.disable()).toMatchObject({
+      phase: 'off',
+      pairingCode: null,
+      tab: null,
+    });
   });
   it('expires task permission and rejects an expired one-action approval', async () => {
     const { agent, start, tick } = await setup();
@@ -372,7 +583,15 @@ describe('browser task permissions and lifecycle', () => {
     const { tick, start, agent } = await setup();
     start(true);
     const result = await tick({ snapshot: page() });
-    expect(await tick({ receipt: { id: result.command!.id, ok: false, message: 'Control changed' } })).toMatchObject({
+    expect(
+      await tick({
+        receipt: {
+          id: result.command!.id,
+          ok: false,
+          message: 'Control changed',
+        },
+      }),
+    ).toMatchObject({
       phase: 'error',
       observe: false,
     });
@@ -382,7 +601,12 @@ describe('browser task permissions and lifecycle', () => {
     const { tick, start, agent } = await setup();
     start(true, 1);
     const reply = await tick({ snapshot: page() });
-    expect(await tick({ receipt: { id: reply.command!.id, ok: true, message: 'ok' }, snapshot: page({ revision: 'r2' }) })).toMatchObject({
+    expect(
+      await tick({
+        receipt: { id: reply.command!.id, ok: true, message: 'ok' },
+        snapshot: page({ revision: 'r2' }),
+      }),
+    ).toMatchObject({
       phase: 'stopped',
     });
     start(true);
@@ -395,4 +619,195 @@ describe('browser task permissions and lifecycle', () => {
     expect(() => parsePlan('{"kind":"evaluate","script":"alert(1)"}')).toThrow();
     expect(parsePlan('```json\n{"kind":"done","reason":"Results shown"}\n```')).toMatchObject({ kind: 'done' });
   });
+});
+
+describe('extended numbered question workflows', () => {
+  const numbered = (n: number, selected: string[] = []): BrowserSnapshot =>
+    page({
+      revision: `q${n}-${selected.join('')}`,
+      text: `Question ${n} / 11`,
+      scroll: { top: 0, max: 0, height: 700 },
+      elements: [
+        ...['A', 'B', 'C'].map((label) => ({
+          id: label,
+          kind: n % 2 ? ('checkbox' as const) : ('radio' as const),
+          label,
+          checked: selected.includes(label),
+          value: '',
+          advances: false,
+          context: 'Which options match?',
+          group: 'answer',
+        })),
+        {
+          id: 'next',
+          kind: 'button',
+          label: 'Next →',
+          value: '',
+          advances: true,
+        },
+        {
+          id: 'final',
+          kind: 'button',
+          label: 'Submit Assessment',
+          value: '',
+          advances: true,
+        },
+      ],
+    });
+  it('reviews all 11 mixed-choice pages, waits for delayed navigation and never submits the assessment', async () => {
+    const { agent, tick } = await setup((p) => {
+      const choice = p.elements.find((el) => (el.label === 'A' || (el.kind === 'checkbox' && el.label === 'B')) && !el.checked);
+      return choice
+        ? { kind: 'click', target: choice.id, reason: 'Select fixture choice' }
+        : { kind: 'done', reason: 'This question is reviewed' };
+    });
+    agent.start({
+      task: 'Solve all the 11 questions by filling the option and going next',
+      consent: true,
+      autoSubmit: true,
+      maxSteps: 150,
+    });
+    let n = 1,
+      selected: string[] = [],
+      receipt: unknown;
+    const advanced: number[] = [];
+    let result;
+    for (let i = 0; i < 100; i++) {
+      result = await tick({
+        snapshot: numbered(n, selected),
+        ...(receipt ? { receipt } : {}),
+      });
+      receipt = undefined;
+      if (result.phase === 'done') break;
+      expect(result.phase).toBe('running');
+      const command = result.command;
+      if (!command) continue;
+      expect(command.action.kind).toBe('click');
+      const target = 'target' in command.action ? command.action.target : '';
+      expect(target).not.toBe('final');
+      if (target === 'next') {
+        advanced.push(n);
+        // The command receipt can arrive before a delayed SPA renders its next question.
+        const waiting = await tick({
+          snapshot: numbered(n, selected),
+          receipt: { id: command.id, ok: true, message: 'Clicked' },
+        });
+        expect(waiting).toMatchObject({ phase: 'running', observe: true });
+        expect(waiting.command).toBeUndefined();
+        n++;
+        selected = [];
+      } else {
+        selected = n % 2 ? [...selected, target] : [target];
+        receipt = { id: command.id, ok: true, message: 'Selected' };
+      }
+    }
+    expect(result?.phase).toBe('done');
+    expect(n).toBe(11);
+    expect(selected).toEqual(['A', 'B']);
+    expect(advanced).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(agent.status().message).toContain('11 of 11');
+  });
+  it('replans a proven pre-execution stale command, but stops on an unknown action outcome', async () => {
+    const { agent, tick, planner } = await setup({
+      kind: 'click',
+      target: 'A',
+      reason: 'Choose',
+    });
+    agent.start({
+      task: 'Fill all 11 questions and go next',
+      consent: true,
+      autoSubmit: true,
+      maxSteps: 150,
+    });
+    const first = await tick({ snapshot: numbered(1) });
+    expect(
+      await tick({
+        snapshot: numbered(2),
+        receipt: {
+          id: first.command!.id,
+          ok: false,
+          stale: true,
+          message: 'Changed before execution',
+        },
+      }),
+    ).toMatchObject({ phase: 'running', observe: true });
+    expect(agent.status().steps).toBe(0);
+    const replanned = await tick({ snapshot: numbered(2) });
+    expect(planner).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.objectContaining({ text: 'Which options match?' }),
+      expect.any(Array),
+      expect.any(AbortSignal),
+    );
+    expect(replanned.command?.id).not.toBe(first.command!.id);
+    expect(
+      await tick({
+        snapshot: numbered(2),
+        receipt: {
+          id: replanned.command!.id,
+          ok: false,
+          message: 'Unknown failure after dispatch',
+        },
+      }),
+    ).toMatchObject({ phase: 'error' });
+  });
+  it('bounds repeated stale observations instead of running forever', async () => {
+    const { agent, tick } = await setup({
+      kind: 'click',
+      target: 'A',
+      reason: 'Choose',
+    });
+    agent.start({
+      task: 'Fill all questions and go next',
+      consent: true,
+      autoSubmit: true,
+      maxSteps: 150,
+    });
+    for (let i = 0; i < 5; i++) {
+      const command = await tick({ snapshot: numbered(1) });
+      const result = await tick({
+        snapshot: numbered(1),
+        receipt: {
+          id: command.command!.id,
+          ok: false,
+          stale: true,
+          message: 'Changed before execution',
+        },
+      });
+      expect(result.phase).toBe(i === 4 ? 'error' : 'running');
+    }
+  });
+  it('does not treat Next permission as final Submit permission', async () => {
+    const { agent, tick } = await setup({
+      kind: 'click',
+      target: 'final',
+      reason: 'Model tries to submit early',
+    });
+    agent.start({
+      task: 'Go next through all 11 questions',
+      consent: true,
+      autoSubmit: true,
+      maxSteps: 150,
+    });
+    expect(
+      await tick({
+        snapshot: page({
+          elements: numbered(1).elements.filter((e) => e.kind === 'button'),
+        }),
+      }),
+    ).toMatchObject({ phase: 'review' });
+    expect(agent.status().pending?.label).toBe('Submit Assessment');
+  });
+});
+
+
+it('retains the earlier batch goal in a continuation without inheriting final submission permission',async()=>{
+ const converse:BrowserChatter=async()=>({kind:'task',task:'Only answer the current question.',autoSubmit:false,text:'Working.'});
+ const {agent,tick}=await setup({kind:'done',reason:'Unused'},undefined,converse);
+ await tick({snapshot:page()});
+ await agent.chat('11111111-1111-4111-8111-111111111111','Answer all 11 questions and submit them.');
+ agent.stop();await tick({snapshot:page()});
+ await agent.chat('22222222-2222-4222-8222-222222222222','Keep going next next question');
+ expect(agent.status().task).toContain('Answer all 11 questions');
+ expect(agent.status().autoSubmit).toBe(true);
 });

@@ -7,9 +7,13 @@ import { SETTINGS_PAGES, directFind, directOpen, isAdminApp, isExecutable, match
 import type { PcHost, SettingsPage } from './pc';
 import { DesktopActionSchema, checkDesktopAction, modelDesktopView } from './desktop';
 import type { DesktopHost, DesktopView } from './desktop';
+import { musicRequest, playSpotify } from './music';
 
 export const FileActionSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('inspect_app'), name: z.string().min(1).max(120) }),
+  z.object({
+    kind: z.literal('inspect_app'),
+    name: z.string().min(1).max(120),
+  }),
   DesktopActionSchema,
   z.object({ kind: z.literal('answer'), text: z.string().min(1).max(16000) }),
   z.object({ kind: z.literal('done'), text: z.string().min(1).max(3000) }),
@@ -28,21 +32,80 @@ export const FileActionSchema = z.discriminatedUnion('kind', [
     destination: z.string().min(1).max(500),
   }),
   // PC-wide actions (0.5.2): fixed host code, no folder permission needed.
-  z.object({ kind: z.literal('find_files'), query: z.string().min(1).max(120) }),
-  z.object({ kind: z.literal('open_found'), path: z.string().min(1).max(500), reveal: z.boolean() }),
+  z.object({
+    kind: z.literal('find_files'),
+    query: z.string().min(1).max(120),
+  }),
+  z.object({
+    kind: z.literal('open_found'),
+    path: z.string().min(1).max(500),
+    reveal: z.boolean(),
+  }),
   z.object({ kind: z.literal('open_app'), name: z.string().min(1).max(80) }),
-  z.object({ kind: z.literal('media'), command: z.enum(['play_pause', 'next', 'previous', 'volume_up', 'volume_down', 'mute']) }),
-  z.object({ kind: z.literal('play_music'), query: z.string().min(1).max(120) }),
-  z.object({ kind: z.literal('volume'), level: z.number().int().min(0).max(100) }),
-  z.object({ kind: z.literal('brightness'), level: z.number().int().min(0).max(100) }),
+  z.object({
+    kind: z.literal('media'),
+    command: z.enum(['play_pause', 'next', 'previous', 'volume_up', 'volume_down', 'mute']),
+  }),
+  z.object({
+    kind: z.literal('play_music'),
+    query: z.string().min(1).max(120),
+  }),
+  z.object({
+    kind: z.literal('volume'),
+    level: z.number().int().min(0).max(100),
+  }),
+  z.object({
+    kind: z.literal('brightness'),
+    level: z.number().int().min(0).max(100),
+  }),
   z.object({ kind: z.literal('dark_mode'), on: z.boolean() }),
-  z.object({ kind: z.literal('open_settings'), page: z.enum(Object.keys(SETTINGS_PAGES) as [SettingsPage, ...SettingsPage[]]) }),
-  z.object({ kind: z.literal('whatsapp'), phone: z.string().max(20), text: z.string().min(1).max(2000) }),
+  z.object({
+    kind: z.literal('open_settings'),
+    page: z.enum(Object.keys(SETTINGS_PAGES) as [SettingsPage, ...SettingsPage[]]),
+  }),
+  z.object({
+    kind: z.literal('whatsapp'),
+    phone: z.string().max(20),
+    text: z.string().min(1).max(2000),
+  }),
 ]);
-const PC_KINDS = new Set(['find_files', 'open_found', 'open_app', 'media', 'play_music', 'volume', 'brightness', 'dark_mode', 'open_settings', 'whatsapp']);
-type PcAction = Extract<z.infer<typeof FileActionSchema>, { kind: 'find_files' | 'open_found' | 'open_app' | 'media' | 'play_music' | 'volume' | 'brightness' | 'dark_mode' | 'open_settings' | 'whatsapp' }>;
+const PC_KINDS = new Set([
+  'find_files',
+  'open_found',
+  'open_app',
+  'media',
+  'play_music',
+  'volume',
+  'brightness',
+  'dark_mode',
+  'open_settings',
+  'whatsapp',
+]);
+type PcAction = Extract<
+  z.infer<typeof FileActionSchema>,
+  {
+    kind:
+      | 'find_files'
+      | 'open_found'
+      | 'open_app'
+      | 'media'
+      | 'play_music'
+      | 'volume'
+      | 'brightness'
+      | 'dark_mode'
+      | 'open_settings'
+      | 'whatsapp';
+  }
+>;
 const isPcAction = (a: z.infer<typeof FileActionSchema>): a is PcAction => PC_KINDS.has(a.kind);
-const MEDIA_DONE: Record<string, string> = { play_pause: 'Pressed play/pause.', next: 'Pressed next track.', previous: 'Pressed previous track.', volume_up: 'Pressed volume up.', volume_down: 'Pressed volume down.', mute: 'Pressed mute.' };
+const MEDIA_DONE: Record<string, string> = {
+  play_pause: 'Pressed play/pause.',
+  next: 'Pressed next track.',
+  previous: 'Pressed previous track.',
+  volume_up: 'Pressed volume up.',
+  volume_down: 'Pressed volume down.',
+  mute: 'Pressed mute.',
+};
 export type FileAction = z.infer<typeof FileActionSchema>;
 export type LocalPlanner = (
   text: string,
@@ -88,6 +151,7 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 /** Files are available only under the folder selected in the native picker. No model shell/code executes. */
 export class LocalAgent {
   private desktopAllowed = false;
+  private lastMusicQuery: string | undefined;
   private root: string | null = null;
   private controller: AbortController | null = null;
   private undoStack: Undo[] = [];
@@ -119,7 +183,10 @@ export class LocalAgent {
     });
   }
   desktopAccess(allow: boolean): LocalStatus {
-    if (!allow) this.stop();
+    if (!allow) {
+      this.stop();
+      this.lastMusicQuery = undefined;
+    }
     this.desktopAllowed = allow;
     this.state.message = allow ? 'App control allowed for this session.' : 'App control off.';
     return this.status();
@@ -139,6 +206,7 @@ export class LocalAgent {
   revoke(): LocalStatus {
     this.stop();
     this.root = null;
+    this.lastMusicQuery = undefined;
     this.pendingDelete = null;
     this.undoStack = [];
     this.state.changes = [];
@@ -148,6 +216,7 @@ export class LocalAgent {
   stop(): LocalStatus {
     this.pendingDelete = null;
     if (this.controller && !this.controller.signal.aborted) {
+      this.lastMusicQuery = undefined;
       this.controller.abort();
       this.reply('Stopped. Review completed changes below.');
     }
@@ -157,6 +226,7 @@ export class LocalAgent {
   clear(): LocalStatus {
     this.stop();
     this.found.clear();
+    this.lastMusicQuery = undefined;
     this.state.messages = [];
     this.state.message = '';
     return this.status();
@@ -261,27 +331,35 @@ export class LocalAgent {
       case 'find_files': {
         const files = await pc.findFiles(action.query);
         for (const f of files) this.found.add(f.path.toLowerCase());
-        if (!files.length) return `I couldn't find a file matching “${action.query}”. I searched Windows Search and your Desktop, Documents, Downloads, Pictures, Music, Videos and OneDrive folders.`;
-        const shown = files.slice(0, 10).map((f) => `- \`${f.path}\``).join('\n');
+        if (!files.length)
+          return `I couldn't find a file matching “${action.query}”. I searched Windows Search and your Desktop, Documents, Downloads, Pictures, Music, Videos and OneDrive folders.`;
+        const shown = files
+          .slice(0, 10)
+          .map((f) => `- \`${f.path}\``)
+          .join('\n');
         return `Found ${files.length === 1 ? 'this file' : `${files.length} files`} matching “${action.query}”:\n${shown}${files.length > 10 ? `\n…and ${files.length - 10} more.` : ''}`;
       }
       case 'open_found': {
         const target = resolve(action.path);
         const rel = this.root ? relative(this.root, target) : '..';
         const inFolder = isAbsolute(action.path) && !rel.startsWith('..') && !isAbsolute(rel);
-        if (!this.found.has(action.path.toLowerCase()) && !inFolder) throw new Error('I can only open files I found for you in this chat. Ask me to find it first.');
+        if (!this.found.has(action.path.toLowerCase()) && !inFolder)
+          throw new Error('I can only open files I found for you in this chat. Ask me to find it first.');
         await lstat(target).catch(() => {
           throw new Error('That file is no longer there.');
         });
         if (action.reveal || isExecutable(target)) {
           pc.revealPath(target);
-          return action.reveal ? `Showed \`${target}\` in File Explorer.` : `\`${target}\` is a program or shortcut, so I showed it in File Explorer instead of running it.`;
+          return action.reveal
+            ? `Showed \`${target}\` in File Explorer.`
+            : `\`${target}\` is a program or shortcut, so I showed it in File Explorer instead of running it.`;
         }
         await pc.openPath(target);
         return `Opened \`${target}\`.`;
       }
       case 'open_app': {
-        if (isAdminApp(action.name)) throw new Error(`I don't open system tools like “${action.name}”. Open it from the Start menu if you need it.`);
+        if (isAdminApp(action.name))
+          throw new Error(`I don't open system tools like “${action.name}”. Open it from the Start menu if you need it.`);
         const matches = matchApps(action.name, await pc.listApps()).filter((a) => !isAdminApp(a.name));
         if (!matches.length) return `I couldn't find an installed app called “${action.name}”.`;
         if (matches.length > 1) return `Which one? ${matches.map((a) => `“${a.name}”`).join(', ')}.`;
@@ -296,7 +374,7 @@ export class LocalAgent {
         const q = encodeURIComponent(action.query);
         if (spotify) {
           await pc.openUri(`spotify:search:${q}`);
-          return `Opened Spotify search for “${action.query}”.${this.desktopAllowed ? ' Read Spotify and choose the matching track to play.' : ' Allow app control to choose and play a matching track.'}`;
+          return `Opened Spotify search for “${action.query}”.${this.desktopAllowed ? '' : ' Click Allow app control so I can choose and play a matching song.'}`;
         }
         await pc.openUri(`https://open.spotify.com/search/${q}`);
         return `Spotify isn't installed, so I opened its web search for “${action.query}” in your browser.`;
@@ -325,7 +403,10 @@ export class LocalAgent {
         if (!matchApps('WhatsApp', await pc.listApps()).length) return "WhatsApp isn't installed on this PC.";
         const uri = whatsappUri(action.phone, action.text);
         if (!uri) {
-          if (this.desktopAllowed) { await pc.launchApp(matchApps('WhatsApp', await pc.listApps())[0]!); return 'Opened WhatsApp. Read its controls and search for the exact contact requested by the user. Ask if several contacts match.'; }
+          if (this.desktopAllowed) {
+            await pc.launchApp(matchApps('WhatsApp', await pc.listApps())[0]!);
+            return 'Opened WhatsApp. Read its controls and search for the exact contact requested by the user. Ask if several contacts match.';
+          }
           return 'Tell me their WhatsApp number with the country code, or allow app control to search for a contact by name.';
         }
         await pc.openUri(uri);
@@ -353,7 +434,9 @@ export class LocalAgent {
     let appSteps = 0;
     let lastAppAction = '';
     let staleAppRetries = 0;
-    const requestedChange = /\b(?:delete|remove|trash|recycle|move|rename|create|write|edit|append|save|organize|update)\b/i.test(text) || /^(?:yes|yep|ok|okay|do it)\b/i.test(text);
+    const requestedChange =
+      /\b(?:delete|remove|trash|recycle|move|rename|create|write|edit|append|save|organize|update)\b/i.test(text) ||
+      /^(?:yes|yep|ok|okay|do it)\b/i.test(text);
     let completionRetries = 0;
     const approval = this.pendingDelete && /^(?:yes|yep|ok|okay|do it|delete it)(?:[.! ]|$)/i.test(text.trim()) ? this.pendingDelete : null;
     if (!approval) this.pendingDelete = null;
@@ -369,23 +452,35 @@ export class LocalAgent {
         const appName = !approval && step === 0 && this.pc && !found ? directOpen(text) : null;
         const openApp = appName && (isAdminApp(appName) || matchApps(appName, await this.pc!.listApps()).length) ? appName : null;
         const inspectApp = step === 0 && this.desktopAllowed ? /^(?:in|inside|using)\s+(.{2,100}?),\s+/i.exec(text)?.[1] : null;
+        const song = step === 0 && this.pc ? musicRequest(text, this.lastMusicQuery) : null;
         const action = FileActionSchema.parse(
-          inspectApp ? { kind: 'inspect_app', name: inspectApp } : found ? { kind: 'find_files', query: found } : openApp ? { kind: 'open_app', name: openApp } : approval && !recent.length ? {kind:'delete',path:approval.path} : await this.plan(
-            text,
-            {
-              folder: !!this.root,
-              desktop: this.desktopAllowed,
-              app: !!appView,
-              history,
-              observation,
-              recent: recent.slice(-8),
-            },
-            signal,
-          ),
+          song
+            ? { kind: 'play_music', query: song }
+            : inspectApp
+              ? { kind: 'inspect_app', name: inspectApp }
+              : found
+                ? { kind: 'find_files', query: found }
+                : openApp
+                  ? { kind: 'open_app', name: openApp }
+                  : approval && !recent.length
+                    ? { kind: 'delete', path: approval.path }
+                    : await this.plan(
+                        text,
+                        {
+                          folder: !!this.root,
+                          desktop: this.desktopAllowed,
+                          app: !!appView,
+                          history,
+                          observation,
+                          recent: recent.slice(-8),
+                        },
+                        signal,
+                      ),
         );
         signal.throwIfAborted();
         if (action.kind === 'inspect_app' || action.kind === 'app_action') {
-          if (!this.desktopAllowed || !this.desktop) throw new Error('Click Allow app control to let me read and use apps for this session.');
+          if (!this.desktopAllowed || !this.desktop)
+            throw new Error('Click Allow app control to let me read and use apps for this session.');
           if (action.kind === 'inspect_app') {
             appView = await this.desktop.inspect(action.name, signal);
             observation = modelDesktopView(appView);
@@ -394,7 +489,8 @@ export class LocalAgent {
             if (!appView) throw new Error('Read the app before choosing a control.');
             const control = checkDesktopAction(action, appView, text);
             const signature = JSON.stringify([appView.handle, control.runtime ?? control.name, action.action, action.text]);
-            if (signature === lastAppAction && action.action !== 'scroll_down' && action.action !== 'scroll_up') throw new Error('The app action repeated without progress. Stopped before doing it twice.');
+            if (signature === lastAppAction && action.action !== 'scroll_down' && action.action !== 'scroll_up')
+              throw new Error('The app action repeated without progress. Stopped before doing it twice.');
             try {
               appView = await this.desktop.act(appView, control, action, signal);
             } catch (error) {
@@ -408,7 +504,12 @@ export class LocalAgent {
             }
             lastAppAction = signature;
             signal.throwIfAborted();
-            const receipt = action.action === 'type' ? `Entered text in “${control.name || control.type}”.` : action.action.startsWith('scroll_') ? 'Scrolled the app.' : `Activated “${control.name || control.type}”.`;
+            const receipt =
+              action.action === 'type'
+                ? `Entered text in “${control.name || control.type}”.`
+                : action.action.startsWith('scroll_')
+                  ? 'Scrolled the app.'
+                  : `Activated “${control.name || control.type}”.`;
             receipts.push(receipt);
             observation = `Confirmed UI operation: ${receipt} This confirms the control operation, not message delivery or playback. Inspect the resulting state before continuing.\n${modelDesktopView(appView)}`;
             recent.push(receipt);
@@ -417,22 +518,63 @@ export class LocalAgent {
           continue;
         }
         if (action.kind === 'answer' || action.kind === 'done') {
-          if (!receipts.length && !confirmed.length && /\b(?:open|launch|play|send|turn|switch|set|click|type|scroll)\b/i.test(text) && !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) && /\b(?:sent|opened|played|turned|changed|completed|clicked|typed|scrolled)\b/i.test(action.text)) {
-            if (completionRetries++ === 0) { observation = 'No app action has executed. Do not claim success. Use an available tool or explain what is missing. ' + observation; continue; }
-            this.reply('No app action was confirmed. I could not complete that request.'); return;
+          if (
+            !receipts.length &&
+            !confirmed.length &&
+            /\b(?:open|launch|play|send|turn|switch|set|click|type|scroll)\b/i.test(text) &&
+            !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) &&
+            /\b(?:sent|opened|played|turned|changed|completed|clicked|typed|scrolled)\b/i.test(action.text)
+          ) {
+            if (completionRetries++ === 0) {
+              observation =
+                'No app action has executed. Do not claim success. Use an available tool or explain what is missing. ' + observation;
+              continue;
+            }
+            this.reply('No app action was confirmed. I could not complete that request.');
+            return;
           }
           if (receipts.length) {
-            const files = confirmed.map((change) => `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`);
+            const files = confirmed.map(
+              (change) =>
+                `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`,
+            );
             this.reply([...receipts, ...files].join('\n\n'));
           } else if (confirmed.length) {
-            this.reply(confirmed.map((change) => `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`).join('\n'));
-          } else if (requestedChange && !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) && (/\b(?:delete|remove|trash|recycle|rename|move)\b/i.test(text) || action.kind === 'done' || /\b(?:deleted|removed|created|saved|renamed|updated|moved|completed|done)\b/i.test(action.text))) {
-            if (completionRetries++ === 0) { observation = 'No filesystem changes have happened. Do not claim completion. Execute an available tool, or ask a factual clarification. ' + observation; continue; }
+            this.reply(
+              confirmed
+                .map(
+                  (change) =>
+                    `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`,
+                )
+                .join('\n'),
+            );
+          } else if (
+            requestedChange &&
+            !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) &&
+            (/\b(?:delete|remove|trash|recycle|rename|move)\b/i.test(text) ||
+              action.kind === 'done' ||
+              /\b(?:deleted|removed|created|saved|renamed|updated|moved|completed|done)\b/i.test(action.text))
+          ) {
+            if (completionRetries++ === 0) {
+              observation =
+                'No filesystem changes have happened. Do not claim completion. Execute an available tool, or ask a factual clarification. ' +
+                observation;
+              continue;
+            }
             this.reply('No files were changed. I could not complete that request. Tell me the exact file or folder to use.');
           } else this.reply(action.text.replace(/\{\s*"kind"\s*:[^{}]*\}/g, '').trim() || 'Done.');
           return;
         }
         if (isPcAction(action)) {
+          if (action.kind === 'play_music') {
+            this.lastMusicQuery = action.query;
+            const searched = await this.runPc(action, signal);
+            if (this.desktopAllowed && this.desktop && this.pc && matchApps('Spotify', await this.pc.listApps()).length) {
+              this.state.message = 'Finding and playing the closest song in Spotify…';
+              this.reply(await playSpotify(action.query, text, this.desktop, this.pc, signal));
+            } else this.reply(searched);
+            return;
+          }
           const done = await this.runPc(action, signal);
           receipts.push(done);
           // A plain request the app handled itself ("find my resume", "open spotify") needs no next step:
@@ -457,21 +599,44 @@ export class LocalAgent {
           signal.throwIfAborted();
           if (action.kind === 'delete') {
             if (!this.trash) throw new Error('Moving items to the Recycle Bin is unavailable. Nothing was deleted.');
-            const info = await lstat(path).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') throw new Error(`Could not find “${action.path}”. Nothing was deleted.`); throw error; });
+            const info = await lstat(path).catch((error: NodeJS.ErrnoException) => {
+              if (error.code === 'ENOENT') throw new Error(`Could not find “${action.path}”. Nothing was deleted.`);
+              throw error;
+            });
             const identity = `${info.dev}:${info.ino}`;
-            const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-            const explicit = /\b(?:delete|remove|trash|recycle)\b/i.test(text) && !/\b(?:line|paragraph|sentence|word|character)\b/i.test(text) && normalize(action.path).length > 0 && normalize(text).includes(normalize(action.path));
-            if (!approval && !/\b(?:delete|remove|trash|recycle)\b/i.test(text)) throw new Error('Specify the file or folder you want moved to the Recycle Bin. Nothing was deleted.');
-            if (!explicit && !approval) { this.pendingDelete = { path: action.path, identity }; this.reply(`I found “${action.path}”. Move this ${info.isDirectory() ? 'folder' : 'file'} to the Recycle Bin?`); return; }
-            if (approval && (approval.path !== action.path || approval.identity !== identity)) throw new Error('The item changed since confirmation. Nothing was deleted.');
+            const normalize = (value: string) =>
+              value
+                .normalize('NFKC')
+                .toLocaleLowerCase()
+                .replace(/[^\p{L}\p{N}]/gu, '');
+            const explicit =
+              /\b(?:delete|remove|trash|recycle)\b/i.test(text) &&
+              !/\b(?:line|paragraph|sentence|word|character)\b/i.test(text) &&
+              normalize(action.path).length > 0 &&
+              normalize(text).includes(normalize(action.path));
+            if (!approval && !/\b(?:delete|remove|trash|recycle)\b/i.test(text))
+              throw new Error('Specify the file or folder you want moved to the Recycle Bin. Nothing was deleted.');
+            if (!explicit && !approval) {
+              this.pendingDelete = { path: action.path, identity };
+              this.reply(`I found “${action.path}”. Move this ${info.isDirectory() ? 'folder' : 'file'} to the Recycle Bin?`);
+              return;
+            }
+            if (approval && (approval.path !== action.path || approval.identity !== identity))
+              throw new Error('The item changed since confirmation. Nothing was deleted.');
             signal.throwIfAborted();
             await this.path(action.path);
             await this.trash(path);
-            const remains = await lstat(path).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return false; throw error; });
+            const remains = await lstat(path).then(
+              () => true,
+              (error: NodeJS.ErrnoException) => {
+                if (error.code === 'ENOENT') return false;
+                throw error;
+              },
+            );
             if (remains) throw new Error('Windows did not move the item to the Recycle Bin. Nothing was confirmed deleted.');
             this.pendingDelete = null;
-            this.undoStack.push({kind:'trash',path:action.path});
-            this.state.changes.push({path:action.path,kind:'trashed'});
+            this.undoStack.push({ kind: 'trash', path: action.path });
+            this.state.changes.push({ path: action.path, kind: 'trashed' });
           } else if (action.kind === 'write') {
             if (!TEXT_EXTENSIONS.has(extname(action.path).toLowerCase()))
               throw new Error('Create a text, Markdown, JSON, CSV or code file.');
@@ -562,7 +727,7 @@ export class LocalAgent {
         this.reply(
           e instanceof z.ZodError || e instanceof SyntaxError
             ? 'The local model could not format its next step. Try a smaller request.'
-            : (e as Error).message.slice(0, 500),
+            : ((e as Error).message || 'The app could not complete this action. No success was confirmed.').slice(0, 500),
         );
     } finally {
       if (this.controller === controller) {
