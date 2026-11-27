@@ -86,3 +86,23 @@ it("never overwrites an existing Doing profile or follows junctions", () => {
   expect(() => migrateDoingDirectory(old, linked)).toThrow("without a link");
   expect(existsSync(join(target, ".migrated-from-hirora"))).toBe(false);
 });
+
+it("finds the newest Doing folder left inside an app container", async () => {
+  const { containerCopy } = await import("./doingMigration");
+  const { utimesSync } = await import("node:fs");
+  const local = mkdtempSync(join(tmpdir(), "doing-container-"));
+  try {
+    expect(containerCopy(local, "Roaming", "doing.db")).toBeNull();
+    const older = join(local, "Packages", "Tool.A_1", "LocalCache", "Roaming", "Doing");
+    const newer = join(local, "Packages", "Tool.B_2", "LocalCache", "Roaming", "Doing");
+    for (const dir of [older, newer]) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "doing.db"), "x");
+    }
+    utimesSync(join(older, "doing.db"), new Date(2026, 0, 1), new Date(2026, 0, 1));
+    expect(containerCopy(local, "Roaming", "doing.db")).toBe(newer);
+    expect(containerCopy(local, "Local", "whisper")).toBeNull();
+  } finally {
+    rmSync(local, { recursive: true, force: true });
+  }
+});

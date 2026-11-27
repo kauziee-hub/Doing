@@ -45,6 +45,35 @@ const hash = (file: string) => {
   }
 };
 
+/**
+ * A Doing folder left inside an app container. MSIX-packaged tools (found on this PC: Codex and
+ * Claude) start child processes with AppData writes redirected into
+ * %LOCALAPPDATA%\Packages\<package>\LocalCache\{Roaming,Local}, so a Doing launched from one of
+ * them kept its profile and engine there, where a normal launch never looks (2026-11-27: the
+ * owner's documents and settings were in Codex's LocalCache). Returns the newest such folder that
+ * holds `marker`, or null. Read-only.
+ */
+export function containerCopy(localAppData: string, kind: "Roaming" | "Local", marker: string): string | null {
+  const packages = join(localAppData, "Packages");
+  let names: string[];
+  try {
+    names = readdirSync(packages);
+  } catch {
+    return null;
+  }
+  let best: { path: string; at: number } | null = null;
+  for (const name of names) {
+    const dir = join(packages, name, "LocalCache", kind, "Doing");
+    try {
+      const at = lstatSync(join(dir, marker)).mtimeMs;
+      if (!best || at > best.at) best = { path: dir, at };
+    } catch {
+      /* no Doing data in this package */
+    }
+  }
+  return best?.path ?? null;
+}
+
 /** Copies individual files, including Chromium's encryption key, before Electron reads the profile.
  * The original remains a rollback copy. Interrupted copies resume without overwriting changed data. */
 export function migrateDoingDirectory(

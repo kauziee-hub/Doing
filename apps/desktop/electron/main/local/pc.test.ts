@@ -141,7 +141,10 @@ it('searches straight away for plain find requests', async () => {
   agent.send('find my resume');
   await vi.waitFor(() => expect(agent.status().busy).toBe(false));
   expect(agent.status().messages.at(-1)?.text).toContain('Found this file');
-  expect(asked).toEqual([1]); // the model is asked only after the search, for a possible next step
+  expect(asked).toEqual([]); // a plain find replies at once, without the model
+  agent.send('find my resume and open it');
+  await vi.waitFor(() => expect(agent.status().busy).toBe(false));
+  expect(asked).toEqual([1]); // with a follow-up, the model picks the next step
 });
 
 it('opens installed apps straight away and refuses system tools without asking the model', async () => {
@@ -156,7 +159,7 @@ it('opens installed apps straight away and refuses system tools without asking t
   expect(await run(new LocalAgent(planner, undefined, host), 'open spotify')).toBe('Opened Spotify.');
   expect(await run(new LocalAgent(planner, undefined, host), 'open powershell')).toContain("I don't open system tools");
   expect(calls).toEqual(['launch Spotify']);
-  expect(asked).toEqual([1]);
+  expect(asked).toEqual([]);
   // A model that pastes its action into an answer doesn't show the raw JSON.
   expect(await run(new LocalAgent(async () => ({ kind: 'answer', text: 'Sure. {"kind":"open_app","name":"X"}' }), undefined, host), 'hello')).toBe('Sure.');
 });

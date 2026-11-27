@@ -8,7 +8,7 @@ import { AppServices } from './services';
 import { UI_PARTITION, WindowManager } from './windows';
 import { HotkeyManager, TrayController } from './shell';
 import { registerIpc } from './ipc';
-import { migrateDoingDirectory } from './doingMigration';
+import { containerCopy, migrateDoingDirectory } from './doingMigration';
 import { LEGACY_PROFILE_DIR_NAME, migrateLegacyProfile } from './migrate';
 import { UpdateManager } from './updates';
 import { BrowserAgent } from './browser/agent';
@@ -32,7 +32,16 @@ const migration = migrateLegacyProfile(
   userDataOverride ? app.getPath('userData') : join(appData, 'Hirora'),
 );
 try {
-  if (!userDataOverride) migrateDoingDirectory(join(appData, 'Hirora'), app.getPath('userData'), true);
+  if (!userDataOverride) {
+    const target = app.getPath('userData');
+    // An empty profile here, but one left inside an app container (Doing launched from Codex or
+    // another packaged tool): copy the newest one in first; it is newer than any Hirora profile.
+    if (!existsSync(join(target, 'settings.json')) && !existsSync(join(target, 'doing.db'))) {
+      const left = containerCopy(process.env.LOCALAPPDATA ?? join(appData, '..', 'Local'), 'Roaming', 'doing.db');
+      if (left && left.toLowerCase() !== target.toLowerCase()) migrateDoingDirectory(left, target, true);
+    }
+    migrateDoingDirectory(join(appData, 'Hirora'), target, true);
+  }
 } catch (error) {
   dialog.showErrorBox('Doing data migration', (error as Error).message);
   app.exit(1);

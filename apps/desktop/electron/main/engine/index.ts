@@ -1,7 +1,7 @@
 import '../environment';
-import { migrateDoingDirectory } from '../doingMigration';
+import { containerCopy, migrateDoingDirectory } from '../doingMigration';
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, statSync, statfsSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, statfsSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AppSettings, EngineComponentId, EngineComponentStatus, EngineStatus, EngineTier } from '@doing/contracts';
@@ -75,8 +75,16 @@ export class EngineManager {
   constructor(private readonly deps: EngineDeps) {
     const localData = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local');
     this.root = deps.root ?? process.env.DOING_ENGINE_DIR ?? join(localData, 'Doing');
-    if (!deps.root && !process.env.DOING_ENGINE_DIR)
+    if (!deps.root && !process.env.DOING_ENGINE_DIR) {
+      // No engine here and no Hirora engine to migrate, but one left inside an app container:
+      // copy it rather than downloading 6 GB again.
+      const empty = !existsSync(this.root) || readdirSync(this.root).length === 0;
+      if (empty && !existsSync(join(localData, 'Hirora', 'whisper'))) {
+        const left = containerCopy(localData, 'Local', 'whisper');
+        if (left && left.toLowerCase() !== this.root.toLowerCase()) migrateDoingDirectory(left, this.root);
+      }
       migrateDoingDirectory(join(localData, 'Hirora'), this.root);
+    }
     this.whisper = new WhisperServer(deps.log, this.whisperPort);
     this.ollama = new OllamaServer(deps.log, this.ollamaPort);
     this.ollama.logFile = join(this.root, 'ollama', 'server.log');

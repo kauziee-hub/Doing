@@ -9,6 +9,8 @@
 - **Settings:** volume, brightness and dark mode are set and read back; Bluetooth, Wi-Fi, notifications and other pages are opened for you to change.
 - **WhatsApp drafts:** the message opens in WhatsApp for the number you give; you press Enter. Doing never sends messages, installs software, runs commands or changes security settings.
 - Plain "find …" and "open <app>" requests skip the model's first step: the 4B model kept answering "I can't access your files" or "Would you like me to open it?" instead of acting. Other requests get a one-line hint. Measured with the real local model (`tools/pc-actions-check.mjs`): every request in the check did what's described above, 0.0–7.2 s each. Details in `docs/LOCAL_ASSISTANT.md`.
+- **Your profile and engine are found when Doing was run from another app.** AI coding tools such as Codex and Claude are MSIX-packaged, and anything they start writes AppData into their own container (`%LOCALAPPDATA%\Packages\<app>\LocalCache`). A Doing started from one kept its settings, documents and 3.4 GB engine there, so opening Doing normally found nothing. Now, when its own profile or engine folder is empty, Doing copies the newest container copy in before it starts (the original stays). Checked with the built app: an empty profile and engine were filled from a container copy and the app started normally.
+- Plain "find …" and "open <app>" requests reply as soon as the action is done (1.1 s for a find, 1.9 s to open Calculator on the installed build), instead of waiting for the model to load.
 
 ## 0.5.1 — 2026-11-27
 

@@ -371,7 +371,10 @@ export class LocalAgent {
         if (isPcAction(action)) {
           const done = await this.runPc(action, signal);
           receipts.push(done);
-          if (++pcSteps >= 3 || receipts.filter((r) => r === done).length > 1) {
+          // A plain request the app handled itself ("find my resume", "open spotify") needs no next step:
+          // reply now instead of waiting for the model (seconds while it loads).
+          const plain = (found || openApp) && !/\b(?:and|then|also)\b/i.test(text);
+          if (plain || ++pcSteps >= 3 || receipts.filter((r) => r === done).length > 1) {
             this.reply(receipts.join('\n\n'));
             return;
           }
