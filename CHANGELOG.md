@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.4 — 2026-11-29
+## 0.5.4 — 2026-11-28
 
 - Browser tasks continue through numbered questions, including multi-select questions and Next buttons with arrows. Completion requires reaching the last observed question, rather than the bottom of one panel.
 - MCQ answers are planned as a complete selection set; correct checked options are kept, and only necessary changes are applied. The answer set is reused while the question is unchanged.
