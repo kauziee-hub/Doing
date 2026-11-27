@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, FolderOpen, Plus, Square, Undo2, X } from 'lucide-react';
+import { ArrowUp, FolderOpen, Monitor, Plus, Square, Undo2, X } from 'lucide-react';
 import { Button, Card } from '@doing/ui';
 import type { LocalStatus } from '@doing/contracts';
 import { invoke } from '../../shared/api';
@@ -82,6 +82,10 @@ export function Assistant({ go }: { go: (page: string) => void }) {
       )}
       <div className="doing-workspace">
         <div className="doing-scope">
+          <Button size="sm" icon={<Monitor size={14} />} disabled={sending}
+            onClick={() => void act(() => invoke('local:desktopAccess', { allow: !status?.desktopAllowed }))}>
+            {status?.desktopAllowed ? 'Revoke app control' : 'Allow app control'}
+          </Button>
           <Button
             size="sm"
             icon={<FolderOpen size={14} />}
@@ -90,7 +94,7 @@ export function Assistant({ go }: { go: (page: string) => void }) {
           >
             {status?.folder ? 'Change folder' : 'Allow a folder'}
           </Button>
-          <span title={status?.folder || ''}>{status?.folder || 'Choose a folder for file tasks. Chat works without one.'}</span>
+          <span title={status?.folder || ''}>{status?.folder || (status?.desktopAllowed ? 'App control is on for this session. Stop anytime.' : 'Find files and open apps. Allow app control to click and type.')}</span>
           {status?.folder && (
             <Button
               size="sm"
@@ -105,7 +109,7 @@ export function Assistant({ go }: { go: (page: string) => void }) {
           {!status?.messages.length && (
             <div className="doing-welcome">
               <h2>What can I take off your list?</h2>
-              <p>Find files, open apps, play music, change a setting, draft a WhatsApp message, or work with files in a folder you allow.</p>
+              <p>Find a file on your PC, work in an app, play music or change a setting. Tell me what to do next.</p>
               <div className="doing-suggestions">
                 {[
                   'Where is my resume?',

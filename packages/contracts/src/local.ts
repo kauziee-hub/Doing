@@ -4,6 +4,7 @@ export interface LocalMessage {
   text: string;
 }
 export interface LocalStatus {
+  desktopAllowed: boolean;
   folder: string | null;
   busy: boolean;
   message: string;

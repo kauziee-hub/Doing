@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { BrowserActionSchema } from '@doing/contracts';
 import { requestsSubmission } from './chat';
 import { modelPage, usesOtherTabs } from './context';
+import { taskEffort } from '../taskEffort';
 
 type PlannerServices = Pick<AppServices, 'ensureEngine' | 'resolveProvider'> & {
   engine: { status: () => { ready: boolean; tier: 'cpu' | 'gpu' } };
@@ -74,6 +75,7 @@ export function createBrowserPlanner(svc: PlannerServices): BrowserPlanner {
     const resolved = svc.resolveProvider('ollama');
     if (!resolved) throw new Error('The local answer model is unavailable.');
     const gpu = svc.engine.status().tier === 'gpu';
+    const effort = taskEffort(task, gpu);
     const rules = page.elements.some(el => el.context && el.context === page.text) ? QUESTION_RULES : RULES;
     const context = modelPage(page, Math.max(1800, (gpu ? 20_000 : 9000) - rules.length - task.length - JSON.stringify(recent).length - 300), usesOtherTabs(task));
     const schema = browserActionSchema(context, task);
@@ -83,14 +85,14 @@ export function createBrowserPlanner(svc: PlannerServices): BrowserPlanner {
     ];
 
     let output = '';
-    const timeout = AbortSignal.any([signal, AbortSignal.timeout(90_000)]);
+    const timeout = AbortSignal.any([signal, AbortSignal.timeout(effort === 'deep' ? 180_000 : 90_000)]);
     for await (const chunk of resolved.provider.stream({
       model: resolved.model,
       messages,
       jsonSchema: schema,
-      maxOutputTokens: gpu ? 2400 : 1200,
+      maxOutputTokens: effort === 'deep' ? 4096 : gpu ? 2400 : 1200,
       temperature: 0,
-      effort: 'fast',
+      effort,
       signal: timeout,
     })) {
       if (chunk.type === 'text') output += chunk.text;

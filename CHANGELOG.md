@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3 — 2026-11-28
+
+- Session permission for Windows app control using native UI Automation. Read accessible controls, type with value read-back, invoke buttons, toggle settings and scroll nested app panels. Refresh control identities after every action; stop on stale windows, unsupported controls or revocation.
+- App actions can continue beyond opening a search or draft. Sending/saving requires explicit authority in the current message; password/payment/security controls, administrator tools and browser windows stay outside desktop control. App button invocation is reported separately from message delivery or playback.
+- Whole-page explanations use a read-only scan: return to the beginning, scroll through visible sections and combine a rolling answer. This path cannot click, fill or submit.
+- GPU reasoning for difficult code/maths and explicit thinking requests, with larger output and time budgets. Ordinary actions stay fast. The local model can still make mistakes.
+- Includes the unreleased 0.5.2 PC actions and container-profile recovery. Existing data and model files remain compatible.
+
 ## 0.5.2 — 2026-11-27 (unsigned, not released)
 **The Assistant works across the PC, not only in an allowed folder.** Ask in plain words:
 - **Find files anywhere:** Windows Search first, then your usual folders; app data and developer folders are left out. "Find my resume" lists the résumés, not `node_modules`.

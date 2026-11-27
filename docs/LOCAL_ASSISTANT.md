@@ -8,7 +8,7 @@ Paths are relative to the selected folder. Absolute paths, traversal, Windows al
 
 Undo reverses the last file change, keeping up to 30 changes in memory. It refuses to overwrite a file edited outside Doing after its own write. Undo is lost after restart, folder change or revocation; completed file changes remain on disk. Stop aborts the model and prevents late model results from taking another action; an already dispatched filesystem operation may finish.
 
-Tasks stop after 30 steps or ten minutes. The small local model can misunderstand a request; review important changes. Browser tasks and meeting transcripts have their own pages and permission scopes.
+Tasks stop after 60 steps or ten minutes; app control has a 40-step limit. The small local model can misunderstand a request; review important changes. Browser tasks and meeting transcripts have their own pages and permission scopes.
 
 Verification: `pnpm test:ts` covers scope restrictions, link/traversal rejection, Stop, file creation, moves and Undo with external edits. `node tools/browser-typing-check.mjs --exe <Doing.exe> --full` also uses the packaged app and real local model to create a plan, preserve and edit an existing note, Undo it and revoke access in a temporary folder. Only the native picker result is supplied by the test; model calls and disk operations are real.
 
@@ -31,6 +31,18 @@ The Assistant also works outside the allowed folder through a fixed set of PC ac
 | "Turn on Bluetooth / Wi-Fi", notifications, display… | Opens that Settings page; you change it there. |
 | "WhatsApp +91 98765 43210: running late" | Opens WhatsApp Desktop with the message drafted to that number. **Doing never sends it: you press Enter.** Without a number it asks for one (WhatsApp doesn't let other apps find contacts by name). |
 
-Not available, by design: sending messages, email or payments; installing or uninstalling; running commands; changing security, password, account or protection settings. Local doesn't mean risk-free: the model can misread a request, and text in files or web pages can try to steer it, so actions are limited to this list and anything that reaches another person stays a draft.
+In 0.5.2, messages stayed drafts and Spotify stopped at search. Version 0.5.3 adds the app control path below. Payments, installing/uninstalling, model-generated commands and security/password/account/protection changes remain outside these tools.
+
+## App control (0.5.3)
+
+Click **Allow app control** in Assistant to grant access for this session; **Revoke app control** stops it. This permission is separate from folder edits and Chrome tabs, and is not restored on restart. Give the app/window name and task in ordinary chat. `inspect_app` reads visible accessible controls, and `app_action` chooses one observed control and an advertised action: type, invoke/toggle/select/expand, vertical scroll or Enter. There are no model-generated selectors, scripts, coordinates or commands. Arguments are JSON data passed to the packaged fixed PowerShell/UI Automation helper.
+
+Typing uses ValuePattern and reads the value back. Each operation returns a new observation and fresh control IDs. Window handle, process identity, accessibility runtime identity and the full observed control state are rechecked before mutation. A changed app stops before acting. Enter additionally requires the exact field and app to have keyboard focus; ordinary UI Automation patterns target the specific control without relying on global keyboard focus. Password fields are omitted. Browsers use the separate extension permission; Doing itself, command/admin tools, security, payment and installation controls are excluded.
+
+The planner can continue after opening WhatsApp, Spotify or Settings instead of ending at the draft/search/page. It must inspect the requested recipient/track/setting and operate the matching accessible control. Sending or saving needs explicit authority in the current message; a draft or no-send instruction blocks it. Receipts describe the actual control operation, not message delivery or guaranteed playback. Apps without suitable accessibility controls, ambiguous contacts, sign-in and administrator dialogs need human input. Local inference does not make external app messages local or eliminate mistakes.
+
+GPU tasks requesting careful thinking and difficult coding/maths use reasoning with a 180-second inference budget; ordinary actions stay fast. This is the same local model with more reasoning time, not a guarantee of correctness.
+
+Verification: `node tools/desktop-control-check.mjs [--exe <packaged Doing.exe>]` runs the real local model against a temporary Windows Forms app. It checks exact message text, one Send operation, changed-state rejection, native nested scrolling and permission revocation. No messages leave the fixture.
 
 Verification: `pnpm test:ts` (`local/pc.test.ts`: argument safety, app matching, programs never run, made-up paths refused, drafts only, repeated actions stopped). `node tools/pc-actions-check.mjs` runs plain requests through the real local model on a fresh profile and restores dark mode, volume and brightness afterwards. Measured 2026-11-27 (RTX 4060 laptop): find, find-and-show, open Calculator, Bluetooth and Wi-Fi pages, Spotify search, volume, brightness, dark mode on/off and the refusals (PowerShell, installing VLC, deleting C:\Windows) all behaved as above, 0.0–7.2 s each.

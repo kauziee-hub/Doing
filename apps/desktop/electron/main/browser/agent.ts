@@ -8,6 +8,7 @@ import type { BrowserAction, BrowserCommand, BrowserSnapshot, BrowserStart, Brow
 import type { BrowserTrustStore } from './trust';
 import type { BrowserChatter } from './chat';
 import { approvesPending, requestsSubmission } from './chat';
+import { PageScan, readsWholePage } from './pageScan';
 
 export type BrowserPlanner = (task: string, page: BrowserSnapshot, recent: string[], signal: AbortSignal) => Promise<BrowserAction>;
 export type BrowserReader = (question: string, page: BrowserSnapshot, signal: AbortSignal) => Promise<string>;
@@ -61,6 +62,7 @@ export function parsePlan(raw: string): BrowserAction {
 
 /** Task/tab permissions stay in memory; only an explicitly approved browser credential persists. */
 export class BrowserAgent {
+  private pageScan: PageScan | null = null;
   private server: Server | null = null;
   private token = '';
   private clientId: string | null = null;
@@ -264,6 +266,7 @@ export class BrowserAgent {
   }
 
   stop(): BrowserStatus {
+    this.pageScan = null;
     if (this.chatTask) this.finishChatTask('Stopped. Tell me what you would like to do next.');
     this.reading?.abort();
     this.reading = null;
@@ -308,6 +311,14 @@ export class BrowserAgent {
     if (this.seenMessages.size > 100) this.seenMessages.delete(this.seenMessages.values().next().value!);
     this.state.messages = [...this.state.messages.slice(-59), { id, role: 'user', text, tabId: this.selectedTabId ?? undefined }];
     try {
+      if (this.read && readsWholePage(text) && !this.state.pending) {
+        this.reading = null;
+        this.start({ task: text, autoSubmit: false, consent: true, maxSteps: 150 });
+        this.pageScan = new PageScan(text, this.read);
+        this.chatTask = true;
+        this.reply('I’ll read through the page and then answer.');
+        return;
+      }
       const result = await this.converse(text, page, history, this.state.pending?.label ?? null, controller.signal);
       controller.signal.throwIfAborted();
       if (
@@ -489,7 +500,7 @@ export class BrowserAgent {
     const page = body.snapshot;
     if (!page) return { phase: 'running', observe: true, runId: run };
     const questionContexts = [...new Set(page.elements.filter(el => ['radio','checkbox'].includes(el.kind) && el.context).map(el => el.context!))];
-    const question = /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)
+    const question = !this.pageScan && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)
       ? questionContexts.find(context => !this.reviewedQuestions.has(context)) : undefined;
     const planningPage = question ? {...page,text:question,elements:page.elements.filter(el => el.context === question || el.kind === 'scroll')} : page;
     this.planning = true;
@@ -510,7 +521,9 @@ export class BrowserAgent {
         previousPage?.text === page.text &&
         inputs.every((el) => el.kind === 'radio' && el.group === confirmedChoice.group) &&
         inputs.some((el) => el.id === confirmedChoice.id && el.label === confirmedChoice.label && el.checked);
-      if (reviewedScreen && region?.scroll && region.scroll.top < region.scroll.max - 2) {
+      if (this.pageScan) {
+        action = await this.pageScan.step(page, signal);
+      } else if (reviewedScreen && region?.scroll && region.scroll.top < region.scroll.max - 2) {
         action = {kind:'scroll',target:region.id,direction:'down',reason:'Continue to the next unanswered question.'};
       } else if (reviewedScreen && region?.scroll && region.scroll.top >= region.scroll.max - 2) {
         action = {kind:'done',reason:'Reached the end after reviewing and selecting answers for the encountered questions.'};
@@ -610,7 +623,8 @@ export class BrowserAgent {
       if (action.kind === 'done' || action.kind === 'ask') {
         this.state.phase = action.kind === 'done' ? 'done' : 'stopped';
         this.note(action.reason);
-        this.finishChatTask(action.reason);
+        this.finishChatTask(this.pageScan?.summary || action.reason);
+        this.pageScan = null;
         return { phase: this.state.phase, observe: false };
       }
       if (action.kind === 'wait') {

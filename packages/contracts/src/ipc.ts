@@ -31,6 +31,7 @@ import type { AppSettings } from './settings';
  */
 export const IpcRequestSchemas = {
   'local:status': z.void(),
+  'local:desktopAccess': z.object({ allow: z.boolean() }),
   'local:chooseFolder': z.void(),
   'local:revoke': z.void(),
   'local:send': z.object({ text: z.string().trim().min(1).max(6000) }),
@@ -250,6 +251,7 @@ export interface LocalBenchResult {
 /** Response types for each channel (compile-time only). */
 export interface IpcResponses {
   'local:status': LocalStatus;
+  'local:desktopAccess': LocalStatus;
   'local:chooseFolder': LocalStatus;
   'local:revoke': LocalStatus;
   'local:send': LocalStatus;

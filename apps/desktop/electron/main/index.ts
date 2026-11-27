@@ -17,6 +17,7 @@ import { browserTrustStore } from './browser/trust';
 import { createBrowserChatter } from './browser/chat';
 import { LocalAgent } from './local/agent';
 import { createLocalPlanner } from './local/planner';
+import { createDesktopHost } from './local/desktop';
 import { createPcHost } from './local/pc';
 
 const processStart = performance.timeOrigin;
@@ -206,6 +207,7 @@ async function main(): Promise<void> {
     createLocalPlanner(services),
     (path) => shell.trashItem(path),
     createPcHost({ openPath: (p) => shell.openPath(p), showItemInFolder: (p) => shell.showItemInFolder(p), openExternal: (uri) => shell.openExternal(uri) }),
+    createDesktopHost(app.isPackaged ? join(process.resourcesPath, 'desktop-control.ps1') : join(app.getAppPath(), 'resources', 'desktop-control.ps1')),
   );
   registerIpc({ services, windows, hotkeys, tray, paintTokens, updates, browser, local });
   updates.startAutoCheck();

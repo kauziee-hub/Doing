@@ -65,6 +65,7 @@ export function registerIpc(ctx: IpcContext): void {
 
   const handlers: { [C in IpcChannel]: Handler<C> } = {
     'local:status': () => ctx.local.status(),
+    'local:desktopAccess': (p) => ctx.local.desktopAccess(IpcRequestSchemas['local:desktopAccess'].parse(p).allow),
     'local:chooseFolder': async () => {
       const choice = await dialog.showOpenDialog({title:'Allow Doing to work in a folder',properties:['openDirectory']});
       return choice.canceled || !choice.filePaths[0] ? ctx.local.status() : ctx.local.allow(choice.filePaths[0]);

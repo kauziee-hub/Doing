@@ -223,7 +223,7 @@ try {
     .getByLabel('Message Doing')
     .fill('What must I implement on this page? State the exact function signature and the return value.');
   await popup.getByRole('button', { name: 'Send message', exact: true }).click();
-  await popup.locator('.message.assistant').first().waitFor({ timeout: 100000 });
+  await popup.locator('.message.assistant').first().waitFor({ timeout: 210000 });
   const pageAnswer = await popup.locator('.message.assistant').last().innerText();
   if (!/twoSum/.test(pageAnswer) || !/nums/.test(pageAnswer) || !/target/.test(pageAnswer))
     throw new Error('Page answer did not read the function signature');

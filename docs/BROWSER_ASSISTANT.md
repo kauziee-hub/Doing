@@ -1,5 +1,7 @@
 # Browser chat
 
+0.5.3 / companion 0.7.1 adds whole-page explanations. “Go through this page and tell me what it is about” enters a host-owned read-only scan: scroll to the start, read visible sections, scroll down and maintain a bounded rolling answer. This path never calls the action planner and cannot click, type or submit. It stops after 50 read sections if a page keeps growing. Page/nested scrolling and explicit submission workflows remain available for action requests. Difficult coding and explicit careful-thinking requests on the GPU receive a longer reasoning/output budget; the companion waits up to 210 seconds for a step. App control does not grant browser access.
+
 Doing's Chrome/Edge companion opens a chat in the browser side panel. Ask about an allowed page or describe what to do in ordinary language. Questions get a reply; action requests start a browser task, then report the result in the same conversation. Follow-up messages can refer to earlier messages. Everything uses the existing local Ollama model. The desktop **Browser assistant** section only handles connection setup and status.
 
 ## Setup and use

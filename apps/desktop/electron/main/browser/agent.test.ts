@@ -54,6 +54,21 @@ async function setup(
 }
 
 describe('browser task permissions and lifecycle', () => {
+  it('reads a whole-page chat through scrolling without consulting the action planner', async () => {
+    const read = vi.fn(async (_q: string, p: BrowserSnapshot) => p.text.includes('Final section') ? 'First and final sections summarized.' : 'First section summary.');
+    const converse = vi.fn(async () => ({kind:'answer' as const,text:'Should not be used'}));
+    const {agent,tick,planner} = await setup({kind:'click',target:'next',reason:'Must never click'},read,converse);
+    const first = page({text:'First section',scroll:{top:0,max:800,height:800}});
+    await tick({snapshot:first});
+    await agent.chat('9451abc7-e876-4a01-b991-b3e50cb4fcc1','Go through this page and tell me what it is about');
+    const scroll = await tick({snapshot:first});
+    expect(scroll.command?.action).toMatchObject({kind:'scroll',direction:'down'});
+    const result = await tick({snapshot:page({revision:'bottom',text:'Final section',scroll:{top:800,max:800,height:800}}),receipt:{id:scroll.command!.id,ok:true,message:'Scrolled'}});
+    expect(result.phase).toBe('done');
+    expect(planner).not.toHaveBeenCalled(); expect(converse).not.toHaveBeenCalled();
+    expect(agent.status().autoSubmit).toBe(false);
+    expect(agent.status().messages.at(-1)?.text).toContain('final sections');
+  });
   it('requires a full editor replacement to preserve the requested JavaScript function', () => {
     const codePage = page({ elements: [{ id: 'code', kind: 'code', label: 'JavaScript', value: 'var twoSum = function(nums, target) { };', advances: false }] });
     expect(checkAction({ kind: 'type', target: 'code', text: 'return [];', reason: 'Incomplete' }, codePage, 'Solve and preserve the signature')).toContain('omits');

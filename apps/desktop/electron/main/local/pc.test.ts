@@ -93,7 +93,7 @@ it('opens apps by name, asks when unsure, and leaves system tools alone', async 
 
 it('plays music through Spotify search, sets volume and dark mode, opens Settings pages', async () => {
   const { host, calls } = fakeHost();
-  expect(await run(new LocalAgent(steps({ kind: 'play_music', query: 'Blinding Lights The Weeknd' }), undefined, host), 'play blinding lights')).toContain('Opened Spotify and searched');
+  expect(await run(new LocalAgent(steps({ kind: 'play_music', query: 'Blinding Lights The Weeknd' }), undefined, host), 'play blinding lights')).toContain('Opened Spotify search');
   expect(await run(new LocalAgent(steps({ kind: 'volume', level: 30 }), undefined, host), 'volume 30')).toBe('Volume set to 30%.');
   expect(await run(new LocalAgent(steps({ kind: 'dark_mode', on: true }), undefined, host), 'dark mode on')).toBe('Dark mode is on.');
   expect(await run(new LocalAgent(steps({ kind: 'open_settings', page: 'bluetooth' }), undefined, host), 'turn on bluetooth')).toContain('Opened Settings → bluetooth');

@@ -17,7 +17,7 @@ async function request(path, body, current = session) {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${current.token}` },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(110000),
+      signal: AbortSignal.timeout(210000),
     });
   } catch {
     throw new Error('Cannot reach Doing. Open the Doing app and enable Browser assistant, then click Allow this tab again.');

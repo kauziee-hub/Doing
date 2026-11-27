@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Doing — Browser assistant",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Chat with your private Doing assistant beside the tabs you allow.",
   "permissions": [
     "activeTab",
