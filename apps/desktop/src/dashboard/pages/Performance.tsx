@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Timer, Trash2 } from 'lucide-react';
-import type { LocalBenchResult, PerfSample, PerfSummaryRow } from '@hirora/contracts';
-import { Badge, Button, Card, EmptyState } from '@hirora/ui';
+import type { LocalBenchResult, PerfSample, PerfSummaryRow } from '@doing/contracts';
+import { Badge, Button, Card, EmptyState } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 

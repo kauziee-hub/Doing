@@ -54,18 +54,18 @@ const page = await ctx.newPage();
 await page.setContent(PAGE);
 await sleep(800);
 
-const ud = mkdtempSync(join(tmpdir(), 'hirora-coding-'));
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
+const ud = mkdtempSync(join(tmpdir(), 'doing-coding-'));
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 await call('settings:update', { onboardingComplete: true });
 await dash.evaluate(() => {
   window.__ans = {};
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     if (e.type === 'answer') window.__ans[e.answer.requestId] = e.answer;
   });
 });

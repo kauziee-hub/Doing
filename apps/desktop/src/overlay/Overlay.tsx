@@ -4,9 +4,9 @@ import {
   ArrowUpRight, Camera, ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, EyeOff, LayoutDashboard, Mic, MicOff, Pause, Play,
   RotateCcw, Send, Speaker, Square, Sparkles, Baby, Minimize2, X, ShieldAlert, Check,
 } from 'lucide-react';
-import type { AnswerRecord, AudioSource, ClipboardContext, SourceStatus, TranscriptSegment } from '@hirora/contracts';
-import { PROVIDER_ERROR_HINTS } from '@hirora/contracts';
-import { Badge, Button, LevelMeter, cx } from '@hirora/ui';
+import type { AnswerRecord, AudioSource, ClipboardContext, SourceStatus, TranscriptSegment } from '@doing/contracts';
+import { PROVIDER_ERROR_HINTS } from '@doing/contracts';
+import { Badge, Button, LevelMeter, cx } from '@doing/ui';
 import { invoke } from '../shared/api';
 import { useLive } from '../shared/store';
 import { Markdown } from '../shared/Markdown';

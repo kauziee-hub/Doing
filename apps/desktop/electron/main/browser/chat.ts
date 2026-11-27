@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BrowserChatMessage, BrowserSnapshot } from '@hirora/contracts';
+import type { BrowserChatMessage, BrowserSnapshot } from '@doing/contracts';
 import type { AppServices } from '../services';
 
 export const ChatDecisionSchema = z.discriminatedUnion('kind', [

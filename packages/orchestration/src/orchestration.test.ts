@@ -4,10 +4,10 @@
  * are not used by the application at runtime.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { AnswerRecord, AppSettings, PerfSample, RetrievedChunk } from '@hirora/contracts';
-import { defaultSettings } from '@hirora/contracts';
-import { ProviderError } from '@hirora/providers';
-import type { StreamChunk, StreamRequest, TextModelProvider, SttHandlers, SttSession, StreamingTranscriptionProvider } from '@hirora/providers';
+import type { AnswerRecord, AppSettings, PerfSample, RetrievedChunk } from '@doing/contracts';
+import { defaultSettings } from '@doing/contracts';
+import { ProviderError } from '@doing/providers';
+import type { StreamChunk, StreamRequest, TextModelProvider, SttHandlers, SttSession, StreamingTranscriptionProvider } from '@doing/providers';
 import { analyzeQuestion, extractQuestion, isFragment, triageUtterance } from './question';
 import { buildGateMessages, parseGateReply } from './gate';
 import type { GateDecision } from './gate';

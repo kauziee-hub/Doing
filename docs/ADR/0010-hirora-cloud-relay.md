@@ -4,7 +4,7 @@
 
 **Context.** The owner wants Hirora to work on any PC — including friends' laptops without a GPU — with no paid keys and nothing running on the owner's laptop. Local Ollama answers were fast (~0.6 s) but only on a GPU machine; Gemini answers swung between 0.8 s and 37 s with intermittent HTTP 503 "high demand". Free always-on servers with GPUs don't exist; free CPU hosts would take 10 s+ per answer with our prompt sizes.
 
-**Decision.** Deploy a tiny OpenAI-compatible relay as Vercel Functions in the same project as the install website (`apps/cloud`, `https://hirora-one.vercel.app/v1`). It holds the owner's Groq API key (free tier) as an encrypted Vercel environment variable and exposes:
+**Decision.** Deploy a tiny OpenAI-compatible relay as Vercel Functions in the same project as the install website (`apps/cloud`, `https://doing-pc.vercel.app/v1`). It holds the owner's Groq API key (free tier) as an encrypted Vercel environment variable and exposes:
 
 - `POST /v1/chat/completions` → Groq (`openai/gpt-oss-20b` default, `openai/gpt-oss-120b` for in-depth answers; the Llama models listed in Groq's docs returned 404 for this free account), streaming passed through with `reasoning_effort: low` and hidden reasoning;
 - `POST /v1/audio/transcriptions` → Groq Whisper (`whisper-large-v3-turbo`), `verbose_json`;

@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await context?.close();
   server?.closeAllConnections();
   if (server) await new Promise<void>((r) => server!.close(() => r()));
-  if (folder && resolve(folder).startsWith(resolve(tmpdir()) + '\\hirora-browser-fixture-')) await rm(folder, { recursive: true, force: true });
+  if (folder && resolve(folder).startsWith(resolve(tmpdir()) + '\\doing-browser-fixture-')) await rm(folder, { recursive: true, force: true });
 });
 
 const CODE = 'function answer() {\n  return 42;\n}\n';
@@ -44,7 +44,7 @@ render();
 
 test('real Chromium extension selects MCQs, types multiline code, submits ten pages and observes results', async ({ browserName: _browserName }, testInfo) => {
   test.setTimeout(90000);
-  folder = await mkdtemp(join(tmpdir(), 'hirora-browser-fixture-'));
+  folder = await mkdtemp(join(tmpdir(), 'doing-browser-fixture-'));
   server = createServer((req, res) => { res.setHeader('Content-Type', 'text/html'); res.end(req.url === '/reference' ? '<!doctype html><title>Group reference FIXTURE</title><h1>Reference value: 7</h1><label>Result<input id="result"></label>' : FIXTURE); });
   await new Promise<void>((r) => server!.listen(0, '127.0.0.1', r));
   const address = server.address();
@@ -168,6 +168,13 @@ test('real Chromium extension selects MCQs, types multiline code, submits ten pa
   await expect(panel.locator('.message.assistant').last()).toContainText('correct option is 42');
   await panel.setViewportSize({ width: 390, height: 900 });
   await panel.screenshot({ path: testInfo.outputPath('sidepanel.png') });
+  // Simulate an existing extension upgrading from its old credential storage key.
+  await worker.evaluate(async () => {
+    const api = (globalThis as unknown as {chrome:{storage:{local:{get:(key:string)=>Promise<Record<string,unknown>>,set:(value:unknown)=>Promise<void>,remove:(key:string)=>Promise<void>}}}}).chrome;
+    const stored = await api.storage.local.get('trustedDoing');
+    await api.storage.local.set({trustedHirora:stored.trustedDoing});
+    await api.storage.local.remove('trustedDoing');
+  });
   await context.close();
   context = await chromium.launchPersistentContext(join(folder, 'profile'), {
     headless: true, channel: 'chromium', args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
@@ -187,6 +194,10 @@ test('real Chromium extension selects MCQs, types multiline code, submits ten pa
     return api.runtime.sendMessage({ type: 'connect', port });
   }, { port: status.port });
   expect(reconnected.error).toBeUndefined();
+  expect(await restartedWorker.evaluate(async () => {
+    const api = (globalThis as unknown as {chrome:{storage:{local:{get:(key:string)=>Promise<Record<string,unknown>>}}}}).chrome;
+    return !!(await api.storage.local.get('trustedDoing')).trustedDoing && !(await api.storage.local.get('trustedHirora')).trustedHirora;
+  })).toBe(true);
   expect(agent.status()).toMatchObject({ phase: 'ready', connectionRequest: null });
   await expect(restartedSite.getByRole('heading', { name: 'Question 1 of 10' })).toBeVisible();
   await restartedSite.waitForTimeout(1200);

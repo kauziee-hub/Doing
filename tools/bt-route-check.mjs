@@ -7,7 +7,7 @@
 import { spawn, execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 
-const helperPath = resolve('native/windows-audio/target/release/hirora-audio.exe');
+const helperPath = resolve('native/windows-audio/target/release/doing-audio.exe');
 const micId = process.argv[2] && process.argv[2] !== 'default' ? process.argv[2] : null;
 
 function helper() {

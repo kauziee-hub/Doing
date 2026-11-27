@@ -1,5 +1,5 @@
 {
-  "name": "@hirora/settings",
+  "name": "@doing/settings",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@hirora/contracts": "workspace:^",
+    "@doing/contracts": "workspace:^",
     "zod": "^4.6.7"
   }
 }

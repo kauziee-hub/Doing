@@ -11,10 +11,10 @@ import type {
   SessionProfile,
   TranscriptSegment,
   Usage,
-} from '@hirora/contracts';
-import { LOCAL_ENGINE, PROVIDER_ERROR_HINTS } from '@hirora/contracts';
-import { ProviderError, isContextOverflowMessage, toProviderError } from '@hirora/providers';
-import type { ContentPart, TextModelProvider } from '@hirora/providers';
+} from '@doing/contracts';
+import { LOCAL_ENGINE, PROVIDER_ERROR_HINTS } from '@doing/contracts';
+import { ProviderError, isContextOverflowMessage, toProviderError } from '@doing/providers';
+import type { ContentPart, TextModelProvider } from '@doing/providers';
 import { buildMessages, buildPrimingMessages, isBuildWalkthrough, missingFacts } from './prompt';
 import type { MemoryTurn } from './prompt';
 

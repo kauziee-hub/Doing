@@ -12,8 +12,8 @@ import { join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
-// HIRORA_E2E_EXE=<path to installed Hirora.exe> runs the suite against an installed build.
-const INSTALLED = process.env.HIRORA_E2E_EXE;
+// DOING_E2E_EXE=<path to installed Doing.exe> runs the suite against an installed build.
+const INSTALLED = process.env.DOING_E2E_EXE;
 const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
 // Keep painting even when other windows cover the app (Chromium's native occlusion
 // tracking otherwise stops frames, and page.screenshot() waits forever).
@@ -45,18 +45,18 @@ async function windowByTitle(title: string): Promise<Page> {
 }
 
 test.beforeAll(async () => {
-  userData = mkdtempSync(join(tmpdir(), 'hirora-e2e-'));
-  engineDir = mkdtempSync(join(tmpdir(), 'hirora-e2e-engine-'));
+  userData = mkdtempSync(join(tmpdir(), 'doing-e2e-'));
+  engineDir = mkdtempSync(join(tmpdir(), 'doing-e2e-engine-'));
   app = await electron.launch({
     executablePath: ELECTRON,
     args: LAUNCH_ARGS,
     env: {
       ...process.env,
-      HIRORA_USER_DATA: userData, HIRORA_BROWSER_PORT: '0',
+      DOING_USER_DATA: userData, DOING_BROWSER_PORT: '0',
       NODE_ENV: 'production',
-      HIRORA_ENGINE_DIR: engineDir,
-      HIRORA_ENGINE_MODELS: join(engineDir, 'models'),
-      HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1',
+      DOING_ENGINE_DIR: engineDir,
+      DOING_ENGINE_MODELS: join(engineDir, 'models'),
+      DOING_ENGINE_NO_SYSTEM_OLLAMA: '1',
     },
   });
 });
@@ -132,16 +132,16 @@ test('browser connection is available on launch and tab permission can be fully 
   await expect(dash.getByLabel('Pairing code')).toHaveCount(0);
   await expect(dash.getByText('No pairing code needed.', { exact: false })).toBeVisible();
   const token = 'ab'.repeat(24);
-  const port = await dash.evaluate(async () => (await window.hirora.invoke('browser:status') as { port: number }).port);
-  const pending = await fetch(`http://127.0.0.1:${port}/pair/request`, { method: 'POST', headers: { 'content-type': 'application/json', origin: `chrome-extension://${'a'.repeat(32)}`, authorization: `Bearer ${token}` }, body: JSON.stringify({ label: 'Hirora companion FIXTURE' }) });
+  const port = await dash.evaluate(async () => (await window.doing.invoke('browser:status') as { port: number }).port);
+  const pending = await fetch(`http://127.0.0.1:${port}/pair/request`, { method: 'POST', headers: { 'content-type': 'application/json', origin: `chrome-extension://${'a'.repeat(32)}`, authorization: `Bearer ${token}` }, body: JSON.stringify({ label: 'Doing companion FIXTURE' }) });
   expect(pending.ok).toBe(true);
   await dash.getByRole('button', { name: 'Allow connection & remember' }).click();
   await expect(dash.getByText('Browser remembered', { exact: true })).toBeVisible();
   expect(readFileSync(join(userData, 'browser-connection.bin')).includes(token)).toBe(false);
   await app.close();
-  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, HIRORA_BROWSER_PORT: '0', NODE_ENV: 'production', HIRORA_ENGINE_DIR: engineDir, HIRORA_ENGINE_MODELS: join(engineDir, 'models'), HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
+  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, DOING_USER_DATA: userData, DOING_BROWSER_PORT: '0', NODE_ENV: 'production', DOING_ENGINE_DIR: engineDir, DOING_ENGINE_MODELS: join(engineDir, 'models'), DOING_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
   const restartedDash = await windowByTitle('Doing');
-  const saved = await restartedDash.evaluate(() => window.hirora.invoke('browser:status')) as { enabled: boolean; trustedBrowser: boolean; tab: unknown };
+  const saved = await restartedDash.evaluate(() => window.doing.invoke('browser:status')) as { enabled: boolean; trustedBrowser: boolean; tab: unknown };
   expect(saved).toMatchObject({ enabled: true, trustedBrowser: true, tab: null });
   await restartedDash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Browser assistant', exact: true }).click();
   await restartedDash.getByText('Access & connection', { exact: true }).click();
@@ -154,16 +154,16 @@ test('browser connection is available on launch and tab permission can be fully 
 
 test('light and dark themes render', async () => {
   const dash = await windowByTitle('Doing');
-  type B = { hirora: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
+  type B = { doing: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
   for (const theme of ['light', 'dark'] as const) {
-    await dash.evaluate((t) => (window as unknown as B).hirora.invoke('settings:update', { appearance: { theme: t } }), theme);
-    await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:get')).then(() => undefined);
+    await dash.evaluate((t) => (window as unknown as B).doing.invoke('settings:update', { appearance: { theme: t } }), theme);
+    await dash.evaluate(() => (window as unknown as B).doing.invoke('settings:get')).then(() => undefined);
     await dash.reload();
     await expect(dash.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(dash.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
     await snap(dash, `08-home-${theme}.png`);
   }
-  await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:update', { appearance: { theme: 'system' } }));
+  await dash.evaluate(() => (window as unknown as B).doing.invoke('settings:update', { appearance: { theme: 'system' } }));
   await dash.reload();
 });
 
@@ -184,14 +184,14 @@ test('renderer has no access to Node, secrets or raw IPC', async () => {
   const probe = await dash.evaluate(() => ({
     require: typeof (globalThis as { require?: unknown }).require,
     process: typeof (globalThis as { process?: unknown }).process,
-    bridgeKeys: Object.keys((window as unknown as { hirora: object }).hirora).sort(),
+    bridgeKeys: Object.keys((window as unknown as { doing: object }).doing).sort(),
   }));
   expect(probe.require).toBe('undefined');
   expect(probe.process).toBe('undefined');
   expect(probe.bridgeKeys).toEqual(['invoke', 'onLive', 'pathForFile', 'platform']);
   const blocked = await dash.evaluate(async () => {
     try {
-      await (window as unknown as { hirora: { invoke: (c: string) => Promise<unknown> } }).hirora.invoke('shell:exec');
+      await (window as unknown as { doing: { invoke: (c: string) => Promise<unknown> } }).doing.invoke('shell:exec');
       return 'allowed';
     } catch (e) {
       return String(e);
@@ -212,7 +212,7 @@ test('renderer has no access to Node, secrets or raw IPC', async () => {
 
 test('overlay window exists, toggles and paints transcript area', async () => {
   const dash = await windowByTitle('Doing');
-  await dash.evaluate(() => (window as unknown as { hirora: { invoke: (c: string) => Promise<unknown> } }).hirora.invoke('overlay:toggle'));
+  await dash.evaluate(() => (window as unknown as { doing: { invoke: (c: string) => Promise<unknown> } }).doing.invoke('overlay:toggle'));
   const overlay = await windowByTitle('Doing Overlay');
   await expect(overlay.getByLabel('Ask a question')).toBeVisible();
   await expect(overlay.getByText(/isn’t set up on this PC yet/)).toBeVisible();
@@ -231,7 +231,7 @@ test('consent is required before capture starts', async () => {
   await expect(overlay.getByText(/everyone has agreed to transcription/)).toBeVisible();
   await snap(overlay, '07-consent.png');
   await overlay.getByRole('button', { name: 'Cancel' }).click();
-  const state = await overlay.evaluate(async () => (await (window as unknown as { hirora: { invoke: (c: string) => Promise<{ snapshot: { session: string } }> } }).hirora.invoke('session:snapshot')).snapshot.session);
+  const state = await overlay.evaluate(async () => (await (window as unknown as { doing: { invoke: (c: string) => Promise<{ snapshot: { session: string } }> } }).doing.invoke('session:snapshot')).snapshot.session);
   expect(state).toBe('idle');
 });
 

@@ -51,7 +51,7 @@ describe('upgrade from 0.2.x', () => {
       JSON.stringify({
         schemaVersion: 1,
         onboardingComplete: true,
-        providers: { cloud: { enabled: true, model: 'openai/gpt-oss-20b', baseUrl: 'https://hirora-one.vercel.app/v1' } },
+        providers: { cloud: { enabled: true, model: 'openai/gpt-oss-20b', baseUrl: 'https://doing-pc.vercel.app/v1' } },
         answer: { primaryProvider: 'ollama', fallbackProvider: 'cloud', format: 'paragraph', length: 'medium' },
         stt: { provider: 'local-whisper', language: 'en', geminiMode: 'VERBATIM', endpointingMs: 600, localWhisperUrl: 'http://127.0.0.1:8178' },
         budget: { dailyAnswerLimit: 150, prices: {} },

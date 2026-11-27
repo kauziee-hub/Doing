@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSettings } from '@hirora/contracts';
+import { defaultSettings } from '@doing/contracts';
 import { AnswerEngine } from './answer';
 import { SessionController } from './session';
 import type { WhisperClient } from './streamingTranscriber';

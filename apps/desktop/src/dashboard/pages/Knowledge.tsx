@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { DragEvent } from 'react';
 import { FileText, Search, Trash2, Upload, Eye } from 'lucide-react';
-import type { DocKind, DocumentPreview, DocumentSummary, IngestResult, RetrievedChunk } from '@hirora/contracts';
-import { DOC_KINDS } from '@hirora/contracts';
-import { Badge, Button, Card, EmptyState, cx } from '@hirora/ui';
+import type { DocKind, DocumentPreview, DocumentSummary, IngestResult, RetrievedChunk } from '@doing/contracts';
+import { DOC_KINDS } from '@doing/contracts';
+import { Badge, Button, Card, EmptyState, cx } from '@doing/ui';
 import { invoke, pathForFile } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';

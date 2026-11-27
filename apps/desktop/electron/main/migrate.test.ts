@@ -28,8 +28,8 @@ describe('migrateLegacyProfile', () => {
     expect(r).toEqual({ outcome: 'copied', copied: true, renamedDb: true, backedUpDb: null, error: null });
     expect(readFileSync(join(target, 'secrets.json'), 'utf8')).toContain('ENCRYPTED');
     expect(readFileSync(join(target, 'Local State'), 'utf8')).toContain('LEGACY');
-    expect(readFileSync(join(target, 'hirora.db'), 'utf8')).toBe('db');
-    expect(readFileSync(join(target, 'hirora.db-wal'), 'utf8')).toBe('wal');
+    expect(readFileSync(join(target, 'doing.db'), 'utf8')).toBe('db');
+    expect(readFileSync(join(target, 'doing.db-wal'), 'utf8')).toBe('wal');
     expect(existsSync(join(target, 'veyracue.db'))).toBe(false);
     expect(existsSync(join(target, 'lockfile'))).toBe(false);
     expect(existsSync(join(target, 'Cache'))).toBe(false);
@@ -48,15 +48,15 @@ describe('migrateLegacyProfile', () => {
     mkdirSync(target, { recursive: true });
     writeFileSync(join(target, 'settings.json'), '{"fresh":true}');
     writeFileSync(join(target, 'Local State'), '{"os_crypt":{"encrypted_key":"NEW"}}');
-    writeFileSync(join(target, 'hirora.db'), 'fresh-db');
-    writeFileSync(join(target, 'hirora.db-wal'), 'fresh-wal');
+    writeFileSync(join(target, 'doing.db'), 'fresh-db');
+    writeFileSync(join(target, 'doing.db-wal'), 'fresh-wal');
     const r = migrateLegacyProfile(legacy, target);
-    expect(r).toMatchObject({ outcome: 'copied', copied: true, renamedDb: true, backedUpDb: 'hirora.db.before-migration' });
+    expect(r).toMatchObject({ outcome: 'copied', copied: true, renamedDb: true, backedUpDb: 'doing.db.before-migration' });
     expect(readFileSync(join(target, 'Local State'), 'utf8')).toContain('LEGACY');
     expect(readFileSync(join(target, 'secrets.json'), 'utf8')).toContain('ENCRYPTED');
-    expect(readFileSync(join(target, 'hirora.db'), 'utf8')).toBe('db');
-    expect(readFileSync(join(target, 'hirora.db.before-migration'), 'utf8')).toBe('fresh-db');
-    expect(readFileSync(join(target, 'hirora.db.before-migration-wal'), 'utf8')).toBe('fresh-wal');
+    expect(readFileSync(join(target, 'doing.db'), 'utf8')).toBe('db');
+    expect(readFileSync(join(target, 'doing.db.before-migration'), 'utf8')).toBe('fresh-db');
+    expect(readFileSync(join(target, 'doing.db.before-migration-wal'), 'utf8')).toBe('fresh-wal');
   });
 
   it('never overwrites a Hirora profile that has its own saved keys', () => {

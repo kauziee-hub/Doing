@@ -1,4 +1,4 @@
-import type { SttProviderId } from '@hirora/contracts';
+import type { SttProviderId } from '@doing/contracts';
 import type { ProviderError } from './errors';
 
 export interface SttOptions {

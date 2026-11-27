@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => (args.indexOf(name) >= 0 ? args[args.indexOf(name) + 1] : def);
-const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Hirora');
+const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Doing');
 const exeArg = opt('--exe', null);
 const live = opt('--live', 'on') === 'on';
 const detector = opt('--detector', 'sava');
@@ -23,21 +23,21 @@ const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', '--disable
 const QUESTIONS = ['Please introduce yourself.', 'Can you tell me about a challenging project you worked on?', 'What is the difference between a process and a thread?'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const ud = join(mkdtempSync(join(tmpdir(), 'hirora-trace-')), 'Hirora');
+const ud = join(mkdtempSync(join(tmpdir(), 'doing-trace-')), 'Doing');
 cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(s) === profile && statSync(s).isFile() && !/lockfile$/.test(s)) });
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud, HIRORA_STT_DEBUG: '1' } });
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud, DOING_STT_DEBUG: '1' } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 await call('settings:update', { privacy: { saveHistory: false }, overlay: { contentProtection: true }, stt: { streamingTranscription: live, sttTurnDetector: detector } });
 const settings = await call('settings:get');
 for (let i = 0; i < 240 && !(await call('engine:status')).ready; i++) await sleep(250);
 await dash.evaluate(() => {
   window.__rec = { answers: {}, segs: [], levels: [] };
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     const t = Date.now();
     if (e.type === 'answer') window.__rec.answers[e.answer.requestId] = { ...e.answer, text: undefined, seenAt: t };
     if (e.type === 'transcript') window.__rec.segs.push({ t, id: e.segment.id, source: e.segment.source, final: e.segment.final, text: e.segment.text, committed: e.segment.committedText ?? null, tentative: e.segment.tentativeText ?? null });
@@ -79,7 +79,7 @@ await call('session:stop');
 const rec = await dash.evaluate(() => window.__rec);
 const perf = await call('perf:summary');
 await app.close();
-// Live-path debug lines (HIRORA_STT_DEBUG=1): numbers per 40 ms block, no audio or text.
+// Live-path debug lines (DOING_STT_DEBUG=1): numbers per 40 ms block, no audio or text.
 const debug = [];
 try {
   const { readFileSync, readdirSync } = await import('node:fs');

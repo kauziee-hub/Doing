@@ -11,10 +11,10 @@ import type {
   IpcResponses,
   LocalBenchResult,
   ScreenPreview,
-} from '@hirora/contracts';
-import { IpcRequestSchemas, detectSecrets, redactSecrets, defaultSettings } from '@hirora/contracts';
-import { analyzeQuestion, buildMessages } from '@hirora/orchestration';
-import { percentile } from '@hirora/knowledge';
+} from '@doing/contracts';
+import { IpcRequestSchemas, detectSecrets, redactSecrets, defaultSettings } from '@doing/contracts';
+import { analyzeQuestion, buildMessages } from '@doing/orchestration';
+import { percentile } from '@doing/knowledge';
 import { FrameDecoder } from './audioHelper';
 import type { AppServices } from './services';
 import type { WindowManager } from './windows';
@@ -156,7 +156,7 @@ export function registerIpc(ctx: IpcContext): void {
     'audio:apps': async () => {
       try {
         const apps = await svc.helper.request<never[]>('list_audio_apps');
-        return { apps: apps.filter((a: { exe: string }) => !/hirora/i.test(a.exe)), error: null };
+        return { apps: apps.filter((a: { exe: string }) => !/(?:doing|hirora)/i.test(a.exe)), error: null };
       } catch (err) {
         return { apps: [], error: (err as Error).message };
       }
@@ -269,7 +269,7 @@ export function registerIpc(ctx: IpcContext): void {
       if (!prev) return { requestId: null, error: 'Screenshot preview expired. Capture again.' };
       if (!svc.engine.answerModelReadsImages) {
         screenPreviews.delete(previewId);
-        return { requestId: null, error: 'The answer model on this PC can’t read images (it needs the NVIDIA GPU setup). Copy the text and use the clipboard button instead.' };
+        return { requestId: null, error: 'The answer model on this PC canâ€™t read images (it needs the NVIDIA GPU setup). Copy the text and use the clipboard button instead.' };
       }
       screenPreviews.delete(previewId);
       const q = question.trim() || 'Describe what is on this screen and answer any question or task shown.';
@@ -309,7 +309,7 @@ export function registerIpc(ctx: IpcContext): void {
           dataUrl: `data:image/jpeg;base64,${jpeg.toString('base64')}`,
           width: img.getSize().width,
           height: img.getSize().height,
-          displayLabel: `${display.label || 'Display'} (${display.size.width}×${display.size.height})`,
+          displayLabel: `${display.label || 'Display'} (${display.size.width}Ã—${display.size.height})`,
           capturedAt: Date.now(),
         };
         return out;
@@ -440,7 +440,7 @@ export function registerIpc(ctx: IpcContext): void {
       const { tool, result, notes } = IpcRequestSchemas['capture:recordManual'].parse(p);
       const r: CaptureCheckResult = {
         method: `manual:${tool}`,
-        description: `Manual test with ${tool}${notes ? ` — ${notes}` : ''}`,
+        description: `Manual test with ${tool}${notes ? ` â€” ${notes}` : ''}`,
         result,
         detail: 'Recorded by the user; not measured by Doing.',
         contentProtectionEnabled: svc.settings.get().overlay.contentProtection,

@@ -4,7 +4,7 @@
  * the asset's `digest` that GitHub computes on upload (or, failing that, the "SHA-256:" line in
  * the release notes), and the download must match it before it is run.
  */
-export const RELEASE_REPO = 'kauziee-hub/hirora';
+export const RELEASE_REPO = 'kauziee-hub/Doing';
 export const LATEST_RELEASE_API = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
 const DOWNLOAD_PREFIX = `https://github.com/${RELEASE_REPO}/releases/download/`;
 /** Doing-Setup-x.y.z from 0.4.0 (the app was called Hirora before). */

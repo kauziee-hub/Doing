@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Screen-reading check with the real engine: shows a code snippet full-screen in Edge (like a
-// colleague's shared screen in a call), then asks Hirora about "this code" and about something
+// colleague's shared screen in a call), then asks Doing about "this code" and about something
 // unrelated, and reports whether the screen was used, the latency and the answer. Fresh profile.
 //   node tools/screen-check.mjs [--exe <Doing.exe>]
 import { _electron as electron, chromium } from '@playwright/test';
@@ -44,23 +44,23 @@ const page = await ctx.newPage();
 await page.setContent(`<!doctype html><title>${TITLE}</title><body style="margin:0;background:#1e1e1e;color:#d4d4d4;font:28px/1.5 Consolas,monospace;padding:48px"><pre>${CODE.replace(/</g, '&lt;')}</pre></body>`);
 await sleep(800);
 
-const ud = mkdtempSync(join(tmpdir(), 'hirora-screen-'));
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
+const ud = mkdtempSync(join(tmpdir(), 'doing-screen-'));
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 await call('settings:update', { onboardingComplete: true });
 const engine = await call('engine:status');
 await dash.evaluate(() => {
   window.__ans = {};
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     if (e.type === 'answer') window.__ans[e.answer.requestId] = e.answer;
   });
 });
-// Keep Edge in front, like a call app showing a shared screen (Hirora's windows are left out of captures anyway).
+// Keep Edge in front, like a call app showing a shared screen (Doing's windows are left out of captures anyway).
 await page.bringToFront();
 const edgeOnTop = pinOnTop(TITLE);
 await sleep(500);

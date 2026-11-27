@@ -2,7 +2,7 @@ import type { BrowserPlanner, BrowserReader } from './agent';
 import { parsePlan } from './agent';
 import type { AppServices } from '../services';
 import { z } from 'zod';
-import { BrowserActionSchema } from '@hirora/contracts';
+import { BrowserActionSchema } from '@doing/contracts';
 import { requestsSubmission } from './chat';
 
 type PlannerServices = Pick<AppServices, 'ensureEngine' | 'resolveProvider'> & {

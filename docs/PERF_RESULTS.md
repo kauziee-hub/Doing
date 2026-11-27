@@ -71,7 +71,7 @@ The sections below describe paths that were **removed in 0.3.0** (Hirora Cloud, 
 
 ## Hirora Cloud (free relay → Groq) — 2026-11-21
 
-This is the default for new installs. A fresh temp profile was used, with only the access code entered: no keys, no GPU work, no Ollama. Path: app → `https://hirora-one.vercel.app/v1` (Vercel Function) → Groq. Machine and network as above (home broadband, India; Vercel region auto). Raw data: `test-results/cloud-report.json`.
+This is the default for new installs. A fresh temp profile was used, with only the access code entered: no keys, no GPU work, no Ollama. Path: app → `https://doing-pc.vercel.app/v1` (Vercel Function) → Groq. Machine and network as above (home broadband, India; Vercel region auto). Raw data: `test-results/cloud-report.json`.
 
 | Stage | Result | Notes |
 |---|---|---|

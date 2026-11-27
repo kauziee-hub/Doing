@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { AppSettings } from '@hirora/contracts';
-import { AppSettingsSchema, defaultSettings } from '@hirora/contracts';
+import type { AppSettings } from '@doing/contracts';
+import { AppSettingsSchema, defaultSettings } from '@doing/contracts';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);

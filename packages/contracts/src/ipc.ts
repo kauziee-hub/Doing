@@ -336,4 +336,4 @@ export interface IpcResponses {
 export type IpcRequest<C extends IpcChannel> = z.input<(typeof IpcRequestSchemas)[C]>;
 
 /** The single push channel main → renderer. */
-export const LIVE_EVENT_CHANNEL = 'hirora:live';
+export const LIVE_EVENT_CHANNEL = 'doing:live';

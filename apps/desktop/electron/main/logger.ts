@@ -25,7 +25,7 @@ export class Logger {
 
   constructor(dir: string) {
     mkdirSync(dir, { recursive: true });
-    this.file = join(dir, 'hirora.log');
+    this.file = join(dir, 'doing.log');
   }
 
   get path(): string {
@@ -39,7 +39,7 @@ export class Logger {
       }
       const line = `${new Date().toISOString()} ${level} ${redact(msg)}${meta ? ' ' + redact(JSON.stringify(meta)) : ''}\n`;
       appendFileSync(this.file, line, 'utf8');
-      if (process.env.HIRORA_LOG_STDOUT) process.stdout.write(line);
+      if (process.env.DOING_LOG_STDOUT) process.stdout.write(line);
     } catch {
       /* logging must never crash the app */
     }

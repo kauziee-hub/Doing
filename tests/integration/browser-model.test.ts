@@ -1,14 +1,14 @@
 import { expect, it } from 'vitest';
 import { createAnswerProvider, validateLocalBaseUrl } from '../../packages/providers/src';
 import { createBrowserPlanner } from '../../apps/desktop/electron/main/browser/planner';
-import type { BrowserSnapshot } from '@hirora/contracts';
+import type { BrowserSnapshot } from '@doing/contracts';
 import { createBrowserChatter } from '../../apps/desktop/electron/main/browser/chat';
 
-it.skipIf(!process.env.HIRORA_BROWSER_MODEL_CHECK)('real local model plans an MCQ selection, coding answer and observed completion', async () => {
-  const base = process.env.HIRORA_BROWSER_MODEL_URL || 'http://127.0.0.1:11434/v1';
+it.skipIf(!process.env.DOING_BROWSER_MODEL_CHECK)('real local model plans an MCQ selection, coding answer and observed completion', async () => {
+  const base = process.env.DOING_BROWSER_MODEL_URL || 'http://127.0.0.1:11434/v1';
   if (!validateLocalBaseUrl(base)) throw new Error('Local model check requires a loopback URL');
   const provider = createAnswerProvider({ baseUrl: base });
-  const model = process.env.HIRORA_BROWSER_MODEL || 'qwen3.5:4b';
+  const model = process.env.DOING_BROWSER_MODEL || 'qwen3.5:4b';
   const plan = createBrowserPlanner({
     engine: { status: () => ({ ready: true, tier: 'gpu' }) },
     ensureEngine: async () => {},

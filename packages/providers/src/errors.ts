@@ -1,4 +1,4 @@
-import type { ProviderErrorCode } from '@hirora/contracts';
+import type { ProviderErrorCode } from '@doing/contracts';
 
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;

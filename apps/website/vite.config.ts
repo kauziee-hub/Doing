@@ -5,10 +5,10 @@ import { defineConfig } from 'vite';
 /**
  * Multi-page site. Every page has `<!--@header-->` and `<!--@footer-->` placeholders that are
  * filled from partials/ at build time (so the pages never drift apart), with the current
- * page's nav link marked. HIRORA_SITE_URL=https://… makes canonical and social-card URLs absolute.
+ * page's nav link marked. DOING_SITE_URL=https://… makes canonical and social-card URLs absolute.
  */
-const siteUrl = process.env.HIRORA_SITE_URL?.trim().replace(/\/+$/, '') ?? '';
-if (siteUrl && !/^https:\/\//.test(siteUrl)) throw new Error('HIRORA_SITE_URL must start with https://');
+const siteUrl = process.env.DOING_SITE_URL?.trim().replace(/\/+$/, '') ?? '';
+if (siteUrl && !/^https:\/\//.test(siteUrl)) throw new Error('DOING_SITE_URL must start with https://');
 
 export const PAGES = ['index', 'features', 'download', 'guide', 'privacy', 'faq', 'changelog'] as const;
 const root = __dirname;
@@ -23,7 +23,7 @@ export default defineConfig({
   preview: { port: 4317, strictPort: true },
   plugins: [
     {
-      name: 'hirora-partials',
+      name: 'doing-partials',
       transformIndexHtml(html, ctx) {
         const page = basename(ctx.filename, '.html');
         const path = page === 'index' ? '/' : `/${page}`;

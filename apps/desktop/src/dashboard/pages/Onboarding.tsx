@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, Check, Lock, FolderOpen, Globe, Mic } from 'lucide-react';
-import { Button, cx } from '@hirora/ui';
+import { Button, cx } from '@doing/ui';
 import { useLive } from '../../shared/store';
 import { EngineSetup } from '../EngineSetup';
 import { Wordmark } from '../../shared/Logo';

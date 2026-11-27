@@ -7,7 +7,7 @@ import type {
   PerfStage,
   PerfSummaryRow,
   TranscriptSegment,
-} from '@hirora/contracts';
+} from '@doing/contracts';
 import type { SqlDatabase } from './db';
 import { tx } from './db';
 

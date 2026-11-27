@@ -1,5 +1,5 @@
-import type { DocKind, RetrievedChunk } from '@hirora/contracts';
-import { evidenceClassForKind } from '@hirora/contracts';
+import type { DocKind, RetrievedChunk } from '@doing/contracts';
+import { evidenceClassForKind } from '@doing/contracts';
 import type { KnowledgeStore } from './store';
 
 const STOPWORDS = new Set(

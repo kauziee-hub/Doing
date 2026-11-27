@@ -1,4 +1,4 @@
-import type { EngineTier } from '@hirora/contracts';
+import type { EngineTier } from '@doing/contracts';
 
 /**
  * Everything Doing downloads on first run, pinned to exact files. SHA-256 values come

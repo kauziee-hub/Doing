@@ -1,5 +1,5 @@
-import type { AppSettings, Mode, PersonalProfile, RetrievedChunk, SessionProfile, TranscriptSegment } from '@hirora/contracts';
-import type { ChatMessage, ContentPart } from '@hirora/providers';
+import type { AppSettings, Mode, PersonalProfile, RetrievedChunk, SessionProfile, TranscriptSegment } from '@doing/contracts';
+import type { ChatMessage, ContentPart } from '@doing/providers';
 
 export interface MemoryTurn {
   question: string;

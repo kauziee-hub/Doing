@@ -1,6 +1,6 @@
 /** Injected only into the explicitly allowed tab. Never accepts code or selectors from the model. */
 export function pageSnapshot() {
-  const KEY = '__hiroraBrowserObservation';
+  const KEY = '__doingBrowserObservation';
   const previous = globalThis[KEY];
   const nodes = new Map();
   const elements = [];
@@ -106,7 +106,7 @@ export function pageSnapshot() {
 }
 
 export function prepareAction(command) {
-  const observation = globalThis.__hiroraBrowserObservation;
+  const observation = globalThis.__doingBrowserObservation;
   if (location.origin !== command.origin || !observation || observation.revision !== command.revision)
     throw new Error('The page changed before the action.');
   const target = observation.nodes.get(command.action.target);
@@ -153,7 +153,7 @@ export function prepareAction(command) {
 }
 
 export function verifyFocus(command) {
-  const o = globalThis.__hiroraBrowserObservation;
+  const o = globalThis.__doingBrowserObservation;
   const target = o?.nodes.get(command.action.target)?.node;
   return (
     location.origin === command.origin &&
@@ -165,7 +165,7 @@ export function verifyFocus(command) {
 
 /** Keep editor auto-closing/auto-indent from rewriting a complete solution during text input. */
 export function setEditorComposition(command, active) {
-  const observation = globalThis.__hiroraBrowserObservation;
+  const observation = globalThis.__doingBrowserObservation;
   const root = observation?.nodes.get(command.action.target)?.node;
   const focus = document.activeElement;
   if (location.origin !== command.origin || !root || !focus || !(root === focus || root.contains(focus))) return false;

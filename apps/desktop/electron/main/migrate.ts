@@ -4,7 +4,7 @@ import { basename, join } from 'node:path';
 /** Hirora was called VeyraCue before 0.2.0; its profile lived in %APPDATA%\VeyraCue. */
 export const LEGACY_PROFILE_DIR_NAME = 'VeyraCue';
 const LEGACY_DB = 'veyracue.db';
-export const DB_FILE = 'hirora.db';
+export const DB_FILE = 'doing.db';
 /** Written once a migration decision is final, so a profile is never migrated twice. */
 export const MIGRATION_MARKER = '.migrated-from-veyracue';
 

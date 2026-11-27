@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Monitor, Moon, RefreshCw, Sun, Trash2, Volume2 } from 'lucide-react';
-import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction, UpdateStatus } from '@hirora/contracts';
-import { DEFAULT_HOTKEYS, HOTKEY_LABELS } from '@hirora/contracts';
-import { Button, Card, Field, LevelMeter, Toggle, cx } from '@hirora/ui';
+import type { AudioAppInfo, CaptureCheckResult, DeviceInfo, HotkeyAction, UpdateStatus } from '@doing/contracts';
+import { DEFAULT_HOTKEYS, HOTKEY_LABELS } from '@doing/contracts';
+import { Button, Card, Field, LevelMeter, Toggle, cx } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';

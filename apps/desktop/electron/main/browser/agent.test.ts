@@ -1,6 +1,6 @@
 import { fixturePort } from '../../../../../tests/fixtures/ports';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BrowserAction, BrowserSnapshot } from '@hirora/contracts';
+import type { BrowserAction, BrowserSnapshot } from '@doing/contracts';
 import { BrowserAgent, checkAction, parsePlan } from './agent';
 import type { BrowserReader } from './agent';
 import type { BrowserChatter } from './chat';

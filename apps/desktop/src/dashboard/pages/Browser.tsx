@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FolderOpen, Globe, Square } from 'lucide-react';
-import { Button, Card } from '@hirora/ui';
-import type { BrowserStatus } from '@hirora/contracts';
+import { Button, Card } from '@doing/ui';
+import type { BrowserStatus } from '@doing/contracts';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
 import { PageHeader } from '../App';

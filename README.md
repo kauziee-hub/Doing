@@ -2,11 +2,9 @@
 
 <img src="brand/doing-wordmark.svg" alt="Doing" height="48">
 
-*Formerly Hirora (and VeyraCue).*
-
 **A free, private assistant for your PC, browser and meetings.** Ask questions, draft text and work with files in a folder you allow. Chat beside Chrome or Edge tabs to read pages, fill forms, choose options, type code and complete workflows. Meetings provides live transcripts, answers and an optional overlay; Library and History keep your context organized. AI runs on your PC through whisper.cpp and Qwen in a Doing-managed Ollama runtime. No account, API keys, subscription or telemetry. Setup downloads the right models for your hardware once. Browser submissions still go to the website, and file changes are real changes on disk.
 
-**Download:** https://hirora-one.vercel.app
+**Download:** https://doing-pc.vercel.app
 
 > Formerly **VeyraCue** (renamed in 0.2.0; an existing `%APPDATA%\VeyraCue` profile is migrated on first launch). 0.3.0 removed Doing Cloud and every bring-your-own-key provider ([ADR 0012](docs/ADR/0012-local-only-engine.md)); 0.3.1 merged the six modes into one assistant that can read the shared screen ([ADR 0013](docs/ADR/0013-one-assistant-screen.md)). Use Doing only where AI assistance and transcription are allowed, with everyone's consent.
 
@@ -24,7 +22,7 @@
 | Overlay: translucent, always-on-top, never steals focus, global hotkeys | **Verified** |
 | Screen-capture exclusion (on by default) | **Measured**: left out of a real Chrome 157 / Edge 158 screen share, GDI and desktopCapturer (`capture.e2e.ts`). Live Meet/Teams/Zoom calls: *not verified*. Never "invisible". |
 | Security: sandboxed renderer, Zod-validated allowlisted IPC, CSP, engine on loopback only | **Verified** by e2e + unit tests |
-| Windows installer (NSIS, per-user, unsigned) and install website | **Verified**; website on Vercel (`apps/hosting`), installer on [GitHub Releases](https://github.com/kauziee-hub/hirora/releases) |
+| Windows installer (NSIS, per-user, unsigned) and install website | **Verified**; website on Vercel (`apps/hosting`), installer on [GitHub Releases](https://github.com/kauziee-hub/Doing/releases) |
 
 Measured numbers and their limits are in [docs/PERF_RESULTS.md](docs/PERF_RESULTS.md); the acceptance matrix is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
@@ -61,7 +59,7 @@ The file assistant does not control arbitrary Windows apps or run generated shel
 
 ```
 mic ─┐                                          whisper-server.exe (127.0.0.1:8178)
-     ├─ hirora-audio.exe (Rust, WASAPI) ──▶ Electron main: SessionController ─▶ live text, question detection
+     ├─ doing-audio.exe (Rust, WASAPI) ──▶ Electron main: SessionController ─▶ live text, question detection
 loop ┘   framed stdout, 20 ms PCM16 16 kHz              │
                                                          └─▶ AnswerEngine ─▶ ollama serve (127.0.0.1:11435, 2 slots) · Qwen
                                                                   ▲ HybridRetriever (node:sqlite FTS5)

@@ -1,13 +1,13 @@
 import { BrowserWindow, app, nativeTheme, screen, shell } from 'electron';
 import type { Rectangle } from 'electron';
 import { join } from 'node:path';
-import type { Bounds } from '@hirora/contracts';
-import type { SettingsStore } from '@hirora/settings';
+import type { Bounds } from '@doing/contracts';
+import type { SettingsStore } from '@doing/settings';
 import type { Logger } from './logger';
 
 const preloadPath = () => join(__dirname, '../preload/index.cjs');
 /** Windows use a dedicated session so UI network policy never affects main-process provider calls. */
-export const UI_PARTITION = 'persist:hirora-ui';
+export const UI_PARTITION = 'persist:doing-ui';
 
 function rendererUrl(page: 'index' | 'overlay'): { url?: string; file?: string } {
   const dev = process.env.ELECTRON_RENDERER_URL;
@@ -89,7 +89,7 @@ export class WindowManager {
       },
     });
     hardenWebContents(win, this.log);
-    // The dashboard can show your résumé, transcript and answers too: same capture rule as the overlay.
+    // The dashboard can show your rÃ©sumÃ©, transcript and answers too: same capture rule as the overlay.
     this.applyContentProtection(win, this.settings.get().overlay.contentProtection);
     const target = rendererUrl('index');
     void (target.url ? win.loadURL(target.url) : win.loadFile(target.file!));

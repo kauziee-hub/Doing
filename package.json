@@ -1,5 +1,5 @@
 {
-  "name": "hirora",
+  "name": "doing",
   "private": true,
   "version": "0.2.0",
   "description": "Doing \u2014 a free private assistant for PC files, browser tasks and meetings.",
@@ -9,16 +9,16 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm native:build:debug && pnpm --filter @hirora/desktop dev",
-    "start": "pnpm --filter @hirora/desktop start",
+    "dev": "pnpm native:build:debug && pnpm --filter @doing/desktop dev",
+    "start": "pnpm --filter @doing/desktop start",
     "lint": "eslint . --max-warnings=0 && pnpm native:lint",
     "lint:ts": "eslint . --max-warnings=0",
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "vitest run && pnpm native:test",
     "test:ts": "vitest run",
     "test:e2e": "pnpm build && playwright test -c tests/e2e/playwright.config.ts",
-    "build": "pnpm native:build && pnpm --filter @hirora/desktop build",
-    "package:win": "pnpm build && node tools/fetch-sava-onnx.mjs && pnpm --filter @hirora/desktop package:win",
+    "build": "pnpm native:build && pnpm --filter @doing/desktop build",
+    "package:win": "pnpm build && node tools/fetch-sava-onnx.mjs && pnpm --filter @doing/desktop package:win",
     "perf": "node tools/perf/run-local-bench.mjs",
     "native:build": "cargo build --release --manifest-path native/windows-audio/Cargo.toml",
     "native:build:debug": "cargo build --manifest-path native/windows-audio/Cargo.toml",

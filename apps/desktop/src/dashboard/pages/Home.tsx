@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowUp, Eye, Mic, Pause, Play, Square } from 'lucide-react';
-import { Button, Card, LevelMeter, cx } from '@hirora/ui';
+import { Button, Card, LevelMeter, cx } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
 import { AnswerView, ConsentModal, TranscriptLine } from '../../overlay/Overlay';

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { AppInfo } from '@hirora/contracts';
-import { Button, Card } from '@hirora/ui';
+import type { AppInfo } from '@doing/contracts';
+import { Button, Card } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 

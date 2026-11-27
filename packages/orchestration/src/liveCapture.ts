@@ -1,4 +1,4 @@
-import type { AudioSource } from '@hirora/contracts';
+import type { AudioSource } from '@doing/contracts';
 import { pcmLevelDbfs, EnergyVad } from './vad';
 import { StreamingTranscriber, type WhisperClient } from './streamingTranscriber';
 import { TurnDetector, thresholdsFor, SAVA_FRAME_MS, SAVA_LOOKAHEAD_MS, type TurnEvent, type TurnThresholds } from './turnDetector';
@@ -21,7 +21,7 @@ export interface LiveCaptureDeps {
   onPause: (lastVoiceTs: number) => void;
   onResume: () => void;
   onWindowMs: (ms: number) => void;
-  /** Debug only (HIRORA_STT_DEBUG=1): numbers per block (level, SAVA scores, turn events), never audio or text. */
+  /** Debug only (DOING_STT_DEBUG=1): numbers per block (level, SAVA scores, turn events), never audio or text. */
   debug?: (line: string) => void;
   /** Timings only (no text), for the Performance page and checks. */
   onTiming?: (e: { stage: 'stt_decode' | 'stt_final_wait' | 'turn_end_detect' | 'speech_end_to_final'; ms: number; label: string }) => void;

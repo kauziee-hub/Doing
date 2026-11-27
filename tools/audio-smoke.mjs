@@ -3,7 +3,7 @@
 //
 //   node tools/audio-smoke.mjs [seconds] [--no-tone] [--helper path]
 //
-// 1. spawns hirora-audio.exe, lists devices
+// 1. spawns doing-audio.exe, lists devices
 // 2. starts microphone + system loopback capture
 // 3. plays a generated 440 Hz tone through the default output (unless --no-tone)
 // 4. decodes the framed stdout protocol, reports per-source frame counts, levels,
@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 const seconds = Number(args.find((a) => /^\d+$/.test(a)) ?? 6);
 const playTone = !args.includes('--no-tone');
 const helperIdx = args.indexOf('--helper');
-const helper = helperIdx >= 0 ? args[helperIdx + 1] : resolve('native/windows-audio/target/release/hirora-audio.exe');
+const helper = helperIdx >= 0 ? args[helperIdx + 1] : resolve('native/windows-audio/target/release/doing-audio.exe');
 if (!existsSync(helper)) {
   console.error(`helper not found: ${helper} (run pnpm native:build)`);
   process.exit(2);
@@ -111,7 +111,7 @@ await sleep(800);
 let tonePath = null;
 let player = null;
 if (playTone) {
-  tonePath = join(tmpdir(), `hirora-tone-${process.pid}.wav`);
+  tonePath = join(tmpdir(), `doing-tone-${process.pid}.wav`);
   makeToneWav(tonePath, 440, Math.max(1, seconds - 2));
   player = spawn('powershell.exe', ['-NoProfile', '-Command', `(New-Object Media.SoundPlayer '${tonePath}').PlaySync()`], { stdio: 'ignore', windowsHide: true });
 }

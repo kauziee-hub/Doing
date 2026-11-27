@@ -1,4 +1,4 @@
-//! Hirora native audio helper library.
+//! Doing native audio helper library.
 //!
 //! The platform-independent parts (protocol framing, DSP, output queue) compile
 //! and are unit-tested everywhere. WASAPI capture, device enumeration and the GDI

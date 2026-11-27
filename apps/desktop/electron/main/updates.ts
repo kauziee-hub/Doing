@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { UpdateStatus } from '@hirora/contracts';
+import type { UpdateStatus } from '@doing/contracts';
 import type { FetchFn } from './engine/download';
 import { downloadPinned, sha256File } from './engine/download';
 import type { Logger } from './logger';
@@ -11,7 +11,7 @@ import type { UpdateInfo } from './updateInfo';
 export interface UpdateDeps {
   fetchImpl: FetchFn;
   log: Logger;
-  /** This app's version (`HIRORA_UPDATE_AS_VERSION` pretends to be an older one, for tests). */
+  /** This app's version (`DOING_UPDATE_AS_VERSION` pretends to be an older one, for tests). */
   current: string;
   /** Only an installed (packaged) app installs updates; a dev build can still check. */
   packaged: boolean;
@@ -30,7 +30,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Updates from GitHub Releases (0.3.8): checks the latest release, and on the user's click
  * downloads its installer (resumable), checks size and SHA-256, runs it silently over this
  * install and quits; the installer starts the new version when it's done. Nothing installs
- * without that click. The automatic check (on by default, Settings → Updates) only asks GitHub
+ * without that click. The automatic check (on by default, Settings â†’ Updates) only asks GitHub
  * once a day and says when a newer version is out.
  */
 export class UpdateManager {
@@ -66,11 +66,11 @@ export class UpdateManager {
       this.s = { ...this.s, phase: info.newer ? 'available' : 'up-to-date', latest: info.latest, notes: info.notes, pageUrl: info.pageUrl, bytes: info.bytes, done: null, checkedAt: Date.now() };
       if (!byUser && info.newer && this.notified !== info.latest) {
         this.notified = info.latest;
-        this.deps.notify(`Doing ${info.latest} is available. Settings → Updates installs it.`);
+        this.deps.notify(`Doing ${info.latest} is available. Settings â†’ Updates installs it.`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.s = { ...this.s, phase: 'error', error: /fetch|network|ENOTFOUND|ECONN|timed? ?out|abort/i.test(message) ? 'Couldn’t reach GitHub to check for updates. Check the internet connection.' : message, checkedAt: Date.now() };
+      this.s = { ...this.s, phase: 'error', error: /fetch|network|ENOTFOUND|ECONN|timed? ?out|abort/i.test(message) ? 'Couldnâ€™t reach GitHub to check for updates. Check the internet connection.' : message, checkedAt: Date.now() };
       if (!byUser) this.deps.log.info('update check failed', { error: message });
     }
     return this.status();
@@ -104,7 +104,7 @@ export class UpdateManager {
   }
 
   private async run(info: UpdateInfo): Promise<void> {
-    const dest = join(this.deps.tempDir, 'hirora-update', info.file);
+    const dest = join(this.deps.tempDir, 'doing-update', info.file);
     try {
       // Downloaded before (an earlier try that didn't finish installing) and still intact: reuse it.
       const ready = existsSync(dest) && (await sha256File(dest)) === info.sha256;
@@ -136,7 +136,7 @@ export class UpdateManager {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.deps.log.warn('update failed', { error: message });
-      this.s = { ...this.s, phase: 'error', error: `The update didn’t install: ${message}` };
+      this.s = { ...this.s, phase: 'error', error: `The update didnâ€™t install: ${message}` };
     }
   }
 }

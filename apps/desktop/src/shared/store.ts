@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnswerRecord, AppSettings, AudioSource, EngineStatus, LiveEvent, LiveSnapshot, TranscriptSegment } from '@hirora/contracts';
+import type { AnswerRecord, AppSettings, AudioSource, EngineStatus, LiveEvent, LiveSnapshot, TranscriptSegment } from '@doing/contracts';
 import { invoke, onLive, reportPaint } from './api';
 
 export interface Toast {

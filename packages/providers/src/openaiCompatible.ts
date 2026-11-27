@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderId } from '@hirora/contracts';
+import type { ModelInfo, ProviderId } from '@doing/contracts';
 import { ProviderError, toProviderError } from './errors';
 import { fetchJson, fetchStream } from './http';
 import { readSse } from './sse';

@@ -31,7 +31,12 @@ async function request(path, body, current = session) {
 }
 
 async function rememberedConnection(port, force = false, expectedGeneration = generation) {
-  const stored = (await chrome.storage.local.get('trustedHirora')).trustedHirora;
+  const legacy = (await chrome.storage.local.get('trustedHirora')).trustedHirora;
+  if (legacy && !(await chrome.storage.local.get('trustedDoing')).trustedDoing) {
+    await chrome.storage.local.set({ trustedDoing: legacy });
+    await chrome.storage.local.remove('trustedHirora');
+  }
+  const stored = (await chrome.storage.local.get('trustedDoing')).trustedDoing;
   if (!force && stored?.port === port && /^[a-f0-9]{48}$/.test(stored.token)) return stored;
   const token = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, '0')).join('');
   const candidate = { token, port };
@@ -44,7 +49,7 @@ async function rememberedConnection(port, force = false, expectedGeneration = ge
     const reply = await request('/pair/status', { requestId: pending.requestId }, candidate);
     if (reply.state === 'denied') throw new Error('Connection declined in Doing.');
     if (reply.state === 'approved') {
-      await chrome.storage.local.set({ trustedHirora: candidate });
+      await chrome.storage.local.set({ trustedDoing: candidate });
       return candidate;
     }
   }
@@ -264,7 +269,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
         protocol: 5,
         connected: !!session,
         connecting,
-        remembered: !!(await chrome.storage.local.get('trustedHirora')).trustedHirora,
+        remembered: !!(await chrome.storage.local.get('trustedDoing')).trustedDoing,
         message: (await chrome.storage.session.get('message')).message || 'No tab shared.',
         selectedTabId: session?.tabId,
         allowedTabs: session?.allowedTabs || [],
@@ -276,7 +281,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     }
     if (message.type === 'forget') {
       await stop();
-      await chrome.storage.local.remove('trustedHirora');
+      await chrome.storage.local.remove('trustedDoing');
       return { connected: false, message: 'Connection forgotten. Approval will be requested next time.' };
     }
     if (message.type === 'remove-tab') {
@@ -343,7 +348,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
         paired = await request('/connect', { id: String(tab.id), url: latest.url, title: (latest.title || '').slice(0, 300) }, credential);
       } catch (error) {
         if (![401, 403].includes(error.status) || message.token) throw error;
-        await chrome.storage.local.remove('trustedHirora');
+        await chrome.storage.local.remove('trustedDoing');
         credential = await rememberedConnection(port, true, connectGeneration);
         if (generation !== connectGeneration) throw new Error('Tab permission canceled.', { cause: error });
         paired = await request('/connect', { id: String(tab.id), url: latest.url, title: (latest.title || '').slice(0, 300) }, credential);

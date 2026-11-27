@@ -142,14 +142,14 @@ export class OllamaServer extends ManagedServer {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       OLLAMA_HOST: `127.0.0.1:${this.port}`,
-      OLLAMA_NUM_PARALLEL: process.env.HIRORA_ENGINE_PARALLEL ?? '2',
+      OLLAMA_NUM_PARALLEL: process.env.DOING_ENGINE_PARALLEL ?? '2',
       OLLAMA_MAX_LOADED_MODELS: '1',
     };
     if (this.modelsDir) env.OLLAMA_MODELS = this.modelsDir;
     if (this.contextLength) env.OLLAMA_CONTEXT_LENGTH = String(this.contextLength);
     // Tests measure a PC without a GPU this way. Hiding CUDA alone is not enough: Ollama then
     // runs on the same card through Vulkan.
-    if (process.env.HIRORA_ENGINE_FORCE_CPU === '1') {
+    if (process.env.DOING_ENGINE_FORCE_CPU === '1') {
       env.CUDA_VISIBLE_DEVICES = '-1';
       env.GGML_VK_VISIBLE_DEVICES = '-1';
       env.HIP_VISIBLE_DEVICES = '-1';

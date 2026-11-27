@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Save, Trash2, CheckCircle2 } from 'lucide-react';
-import type { PersonalProfile, ProjectCard, SessionProfile } from '@hirora/contracts';
-import { Badge, Button, Card, EmptyState, Field } from '@hirora/ui';
+import type { PersonalProfile, ProjectCard, SessionProfile } from '@doing/contracts';
+import { Badge, Button, Card, EmptyState, Field } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';

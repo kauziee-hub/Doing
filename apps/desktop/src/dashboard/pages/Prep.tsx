@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cx } from '@hirora/ui';
+import { cx } from '@doing/ui';
 import { PageHeader } from '../App';
 import { Knowledge } from './Knowledge';
 import { Profiles } from './Profiles';

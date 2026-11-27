@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, FolderOpen, Plus, Square, Undo2, X } from 'lucide-react';
-import { Button, Card } from '@hirora/ui';
-import type { LocalStatus } from '@hirora/contracts';
+import { Button, Card } from '@doing/ui';
+import type { LocalStatus } from '@doing/contracts';
 import { invoke } from '../../shared/api';
 import { useLive } from '../../shared/store';
 import { Markdown } from '../../shared/Markdown';

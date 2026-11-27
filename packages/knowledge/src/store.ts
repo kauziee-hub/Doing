@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { DocKind, DocumentSummary, ProjectCard, PersonalProfile, SessionProfile } from '@hirora/contracts';
-import { PersonalProfileSchema, ProjectCardSchema, SessionProfileSchema } from '@hirora/contracts';
+import type { DocKind, DocumentSummary, ProjectCard, PersonalProfile, SessionProfile } from '@doing/contracts';
+import { PersonalProfileSchema, ProjectCardSchema, SessionProfileSchema } from '@doing/contracts';
 import { chunkPages } from './chunk';
 import type { SqlDatabase } from './db';
 import { newId, tx } from './db';

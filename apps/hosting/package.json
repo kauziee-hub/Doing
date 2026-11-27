@@ -1,7 +1,7 @@
 {
-  "name": "@hirora/hosting",
+  "name": "@doing/hosting",
   "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Vercel project that serves the Hirora install website (a copy of apps/website/dist in public/). No server code."
+  "description": "Vercel project that serves the Doing install website (a copy of apps/website/dist in public/). No server code."
 }

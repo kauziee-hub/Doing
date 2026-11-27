@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
-const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Hirora');
+const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Doing');
 const exeIdx = args.indexOf('--exe');
 const tierIdx = args.indexOf('--tier');
 const APP = resolve('apps/desktop');
@@ -19,23 +19,23 @@ const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/di
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', ...(exeIdx >= 0 ? [] : [APP])];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const tmp = mkdtempSync(join(tmpdir(), 'hirora-quiet-'));
-const ud = join(tmp, 'Hirora');
+const tmp = mkdtempSync(join(tmpdir(), 'doing-quiet-'));
+const ud = join(tmp, 'Doing');
 cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(s) === profile && statSync(s).isFile() && !/lockfile$/.test(s)) });
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 await call('settings:update', { privacy: { saveHistory: false }, ...(tierIdx >= 0 ? { engine: { tier: args[tierIdx + 1] } } : {}) });
 const engine = await call('engine:status');
 if (!engine.ready) throw new Error(`engine not installed for the ${engine.tier} tier`);
 // Warm-up: the first question waits for the engine (model load + résumé pre-read), like a real one.
 await dash.evaluate(() => {
   window.__warm = null;
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     if (e.type === 'answer' && ['done', 'error'].includes(e.answer.status)) window.__warm = e.answer;
   });
 });
@@ -48,7 +48,7 @@ await call('perf:clear');
 await sleep(1000);
 await dash.evaluate(() => {
   window.__ans = {};
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     if (e.type === 'answer') window.__ans[e.answer.requestId] = e.answer;
   });
 });
@@ -74,7 +74,7 @@ for (const q of questions) {
   await sleep(500);
 }
 // Speech: SAPI → WAV file (silent), then the app's whisper server transcribes it.
-const port = Number(process.env.HIRORA_ENGINE_WHISPER_PORT) || 8178;
+const port = Number(process.env.DOING_ENGINE_WHISPER_PORT) || 8178;
 const spoken = [];
 for (const q of questions.slice(0, 4)) {
   const wav = join(tmp, `q${spoken.length}.wav`);

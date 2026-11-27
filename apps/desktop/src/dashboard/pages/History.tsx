@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import type { HistorySessionDetail, HistorySessionSummary } from '@hirora/contracts';
-import { Button, Card, EmptyState, Toggle } from '@hirora/ui';
+import type { HistorySessionDetail, HistorySessionSummary } from '@doing/contracts';
+import { Button, Card, EmptyState, Toggle } from '@doing/ui';
 import { invoke } from '../../shared/api';
 import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';

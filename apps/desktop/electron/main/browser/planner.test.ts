@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { browserActionSchema } from './planner';
-import type { BrowserSnapshot } from '@hirora/contracts';
+import type { BrowserSnapshot } from '@doing/contracts';
 
 it('constrains clicks to available controls and prevents repeating a selected radio', () => {
   const page: BrowserSnapshot = {

@@ -15,8 +15,8 @@ const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/di
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows', ...(exeIdx >= 0 ? [] : [APP])];
 const out = resolve('test-results/screenshots');
 mkdirSync(out, { recursive: true });
-const ud = mkdtempSync(join(tmpdir(), 'hirora-shots-'));
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud, NODE_ENV: 'production' } });
+const ud = mkdtempSync(join(tmpdir(), 'doing-shots-'));
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud, NODE_ENV: 'production' } });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const byTitle = async (t) => {
   for (let i = 0; i < 80; i++) {
@@ -26,7 +26,7 @@ const byTitle = async (t) => {
   throw new Error(`no window ${t}`);
 };
 const dash = await byTitle('Doing');
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 await call('settings:update', { onboardingComplete: true });
 // Settings changes re-apply screen-capture protection, and a window behind others stops
 // painting: before every shot, bring the window forward with protection off (this capture only).
@@ -82,7 +82,7 @@ for (let i = 0; i < 240; i++) {
 }
 const r = await call('ask:text', { text: 'Write a function that checks whether a string has balanced brackets.' });
 await dash.evaluate((id) => new Promise((res) => {
-  const off = window.hirora.onLive((e) => {
+  const off = window.doing.onLive((e) => {
     if (e.type === 'answer' && e.answer.requestId === id && ['done', 'error'].includes(e.answer.status)) {
       off();
       res(null);

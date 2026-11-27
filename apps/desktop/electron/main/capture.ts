@@ -1,7 +1,7 @@
 import { desktopCapturer, screen } from 'electron';
 import type { BrowserWindow, NativeImage, Rectangle } from 'electron';
 import { release } from 'node:os';
-import type { CaptureCheckResult } from '@hirora/contracts';
+import type { CaptureCheckResult } from '@doing/contracts';
 import type { AudioHelper } from './audioHelper';
 import type { WindowManager } from './windows';
 import type { Logger } from './logger';
@@ -86,7 +86,7 @@ export async function runCaptureCheck(windows: WindowManager, helper: AudioHelpe
   const meta = { osRelease: `Windows ${release()}`, electron: process.versions.electron ?? '' };
   try {
     win.setOpacity(1);
-    win.webContents.send('hirora:live', { type: 'command', command: 'captureProbe', arg: true });
+    win.webContents.send('doing:live', { type: 'command', command: 'captureProbe', arg: true });
     if (!wasVisible) win.showInactive();
     await sleep(600);
 
@@ -148,7 +148,7 @@ export async function runCaptureCheck(windows: WindowManager, helper: AudioHelpe
   } finally {
     windows.applyContentProtection(win, contentProtectionSetting);
     win.setOpacity(prevOpacity);
-    win.webContents.send('hirora:live', { type: 'command', command: 'captureProbe', arg: false });
+    win.webContents.send('doing:live', { type: 'command', command: 'captureProbe', arg: false });
     if (!wasVisible) win.hide();
   }
   log.info('capture check finished', { results: results.map((r) => `${r.method}:${r.result}`) });

@@ -1,8 +1,8 @@
 import { Menu, Tray, globalShortcut, nativeImage, app } from 'electron';
 import { join } from 'node:path';
-import type { HotkeyAction } from '@hirora/contracts';
-import { HOTKEY_LABELS } from '@hirora/contracts';
-import type { SettingsStore } from '@hirora/settings';
+import type { HotkeyAction } from '@doing/contracts';
+import { HOTKEY_LABELS } from '@doing/contracts';
+import type { SettingsStore } from '@doing/settings';
 import type { Logger } from './logger';
 
 export function iconPath(name = 'icon.png'): string {

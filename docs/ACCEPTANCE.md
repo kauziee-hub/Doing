@@ -24,5 +24,5 @@ Legend: ✅ verified (how) · 🟡 partially verified · ⏳ manual test still r
 
 1. Plug the laptop in and use Hirora in a real Meet call: speak a question into the mic and have someone ask questions; confirm the transcript and answers, and that a phone viewing your screen share doesn't show the overlay.
 2. Unplug/replug a headset and switch the Windows default device mid-session; sleep the laptop and resume.
-3. A friend installs from https://hirora-one.vercel.app on their own PC (ideally one without an NVIDIA GPU) and presses Set up.
+3. A friend installs from https://doing-pc.vercel.app on their own PC (ideally one without an NVIDIA GPU) and presses Set up.
 4. 30-minute soak: start listening, leave a podcast playing, then check `framesDropped` on Home and memory in Task Manager.

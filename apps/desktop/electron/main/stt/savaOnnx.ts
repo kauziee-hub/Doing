@@ -6,7 +6,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
-import type { AudioSource } from '@hirora/contracts';
+import type { AudioSource } from '@doing/contracts';
 import type { Logger } from '../logger';
 
 const FRAME_SAMPLES = 640;
@@ -29,7 +29,7 @@ export function resolveSavaModelPath(): string | null {
   if (app.isPackaged && existsSync(packaged)) return packaged;
   const repo = join(app.getAppPath(), '..', '..', 'apps', 'desktop', 'resources', 'sava', name);
   const local = join(app.getAppPath(), 'resources', 'sava', name);
-  return [process.env.HIRORA_SAVA_ONNX, packaged, local, repo].find((p) => p && existsSync(p)) ?? null;
+  return [process.env.DOING_SAVA_ONNX, packaged, local, repo].find((p) => p && existsSync(p)) ?? null;
 }
 
 type Ort = {

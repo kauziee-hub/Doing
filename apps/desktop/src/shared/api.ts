@@ -1,4 +1,4 @@
-import type { IpcChannel, IpcRequest, IpcResponses, LiveEvent } from '@hirora/contracts';
+import type { IpcChannel, IpcRequest, IpcResponses, LiveEvent } from '@doing/contracts';
 
 interface Bridge {
   invoke(channel: IpcChannel, payload?: unknown): Promise<unknown>;
@@ -9,21 +9,21 @@ interface Bridge {
 
 declare global {
   interface Window {
-    hirora: Bridge;
+    doing: Bridge;
   }
 }
 
 /** Typed wrapper over the preload bridge. */
 export function invoke<C extends IpcChannel>(channel: C, ...payload: IpcRequest<C> extends void ? [] : [IpcRequest<C>]): Promise<IpcResponses[C]> {
-  return window.hirora.invoke(channel, payload[0]) as Promise<IpcResponses[C]>;
+  return window.doing.invoke(channel, payload[0]) as Promise<IpcResponses[C]>;
 }
 
 export function onLive(cb: (ev: LiveEvent) => void): () => void {
-  return window.hirora.onLive(cb);
+  return window.doing.onLive(cb);
 }
 
 export function pathForFile(file: File): string {
-  return window.hirora.pathForFile(file);
+  return window.doing.pathForFile(file);
 }
 
 /** Epoch-based high-resolution timestamp comparable with the main process clock. */

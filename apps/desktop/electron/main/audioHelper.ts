@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
-import type { AudioSource } from '@hirora/contracts';
+import type { AudioSource } from '@doing/contracts';
 import type { Logger } from './logger';
 
 export const HEADER_LEN = 24;

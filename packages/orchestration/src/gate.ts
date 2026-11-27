@@ -1,5 +1,5 @@
-import type { TranscriptSegment } from '@hirora/contracts';
-import type { ChatMessage, TextModelProvider } from '@hirora/providers';
+import type { TranscriptSegment } from '@doing/contracts';
+import type { ChatMessage, TextModelProvider } from '@doing/providers';
 import { escapeData } from './prompt';
 
 export type GateDecision = 'answer' | 'skip';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AudioLines, BookOpen, History as HistoryIcon, Settings as SettingsIcon, Globe, MessageCircle } from 'lucide-react';
-import { cx } from '@hirora/ui';
+import { cx } from '@doing/ui';
 import { useLive } from '../shared/store';
 import { useTheme } from '../shared/theme';
 import { LogoMark } from '../shared/Logo';

@@ -55,3 +55,9 @@ Doing 0.4.1 installed verification (2026-11-27): Qwen 3.5 4B completed ten diffe
 Numbered single-group native MCQs have a verified continuation path: after a model-selected choice is acknowledged and visibly checked, a unique observed Submit/Next button can advance under the current user's explicit batch-submission grant. Mixed forms and unknown groups stay with the model planner. Dynamic action schemas exclude checked radios and premature completion during unfinished numbered batches; runtime validation and cancellation still apply.
 
 Doing 0.4.2 repeated the installed real-model workflow: ten MCQs correct and submitted through results (25.1 seconds, 20 actions), Monaco code 5/5, and file create/edit/Undo/revoke passed. It also corrects panel character encoding and checks complete JavaScript declarations before replacing an editor. The suite now has 205 passing TypeScript tests; the 15 Rust and 10 app/browser e2e checks pass.
+
+### Doing 0.5.0 verification
+
+The installed app and real Qwen 3.5 4B model answered a read-only page question without modifying the editor, then typed a full Two Sum solution into Monaco (315 content-change events, 5/5 independent execution cases). A separate local practice page completed all ten different questions with 20 confirmed actions and a score of 10/10. This is a local browser test, not a live LeetCode submission. The extension E2E test also covers credential-key migration, reconnection, grouped tabs and revocation.
+
+If the installation folder changes, load the unpacked extension from the new installation's `resources/browser-extension` folder once. Chrome does not follow an unpacked extension to a new path. Re-allow the tabs you want to share.

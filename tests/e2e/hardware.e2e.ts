@@ -15,8 +15,8 @@ import { join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
-// HIRORA_E2E_EXE=<path to installed Hirora.exe> runs the suite against an installed build.
-const INSTALLED = process.env.HIRORA_E2E_EXE;
+// DOING_E2E_EXE=<path to installed Doing.exe> runs the suite against an installed build.
+const INSTALLED = process.env.DOING_E2E_EXE;
 const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
 // Keep painting even when other windows cover the app (Chromium's native occlusion
 // tracking otherwise stops frames, and page.screenshot() waits forever).
@@ -29,9 +29,9 @@ let app: ElectronApplication;
 let dash: Page;
 let userData: string;
 
-type Bridge = { hirora: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
+type Bridge = { doing: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
 const call = <T>(page: Page, channel: string, payload?: unknown) =>
-  page.evaluate(([c, p]) => (window as unknown as Bridge).hirora.invoke(c as string, p), [channel, payload] as const) as Promise<T>;
+  page.evaluate(([c, p]) => (window as unknown as Bridge).doing.invoke(c as string, p), [channel, payload] as const) as Promise<T>;
 
 function toneWav(path: string, seconds: number) {
   const rate = 48000;
@@ -46,8 +46,8 @@ function toneWav(path: string, seconds: number) {
 
 test.beforeAll(async () => {
   mkdirSync(OUT, { recursive: true });
-  userData = mkdtempSync(join(tmpdir(), 'hirora-hw-'));
-  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, HIRORA_ENGINE_WHISPER_PORT: '8189', HIRORA_ENGINE_OLLAMA_PORT: '11445' } });
+  userData = mkdtempSync(join(tmpdir(), 'doing-hw-'));
+  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, DOING_USER_DATA: userData, DOING_ENGINE_WHISPER_PORT: '8189', DOING_ENGINE_OLLAMA_PORT: '11445' } });
   for (let i = 0; i < 60 && !dash; i++) {
     for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
     if (!dash) await new Promise((r) => setTimeout(r, 250));
@@ -72,7 +72,7 @@ test('native helper enumerates real devices', async () => {
   expect(d.capture.length + d.render.length).toBeGreaterThan(0);
 });
 
-// Uses the engine installed on this PC (on its own ports, so a running Hirora is untouched).
+// Uses the engine installed on this PC (on its own ports, so a running Doing is untouched).
 test('live session captures mic + system audio and transcribes on this PC (a tone yields no text)', async () => {
   const engine = await call<{ ready: boolean }>(dash, 'engine:status');
   test.skip(!engine.ready, 'the engine is not installed on this PC (press Set up in the app first)');
@@ -84,7 +84,7 @@ test('live session captures mic + system audio and transcribes on this PC (a ton
   const t0 = Date.now();
   while (Date.now() - t0 < 4500) {
     const levels = await dash.evaluate(() => new Promise<Record<string, number>>((res) => {
-      const off = (window as unknown as { hirora: { onLive: (cb: (e: { type: string; levels?: Record<string, number> }) => void) => () => void } }).hirora.onLive((e) => {
+      const off = (window as unknown as { doing: { onLive: (cb: (e: { type: string; levels?: Record<string, number> }) => void) => () => void } }).doing.onLive((e) => {
         if (e.type === 'levels' && e.levels) {
           off();
           res(e.levels);

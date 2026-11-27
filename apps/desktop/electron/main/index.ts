@@ -1,11 +1,14 @@
+import './environment';
 import { app, dialog, net, powerMonitor, safeStorage, screen, session } from 'electron';
 import { dirname, join } from 'node:path';
-import type { HotkeyAction } from '@hirora/contracts';
+import { existsSync } from 'node:fs';
+import type { HotkeyAction } from '@doing/contracts';
 import { Logger } from './logger';
 import { AppServices } from './services';
 import { UI_PARTITION, WindowManager } from './windows';
 import { HotkeyManager, TrayController } from './shell';
 import { registerIpc } from './ipc';
+import { migrateDoingDirectory } from './doingMigration';
 import { LEGACY_PROFILE_DIR_NAME, migrateLegacyProfile } from './migrate';
 import { UpdateManager } from './updates';
 import { BrowserAgent } from './browser/agent';
@@ -17,18 +20,22 @@ import { createLocalPlanner } from './local/planner';
 
 const processStart = performance.timeOrigin;
 
-if (process.env.HIRORA_USER_DATA) app.setPath('userData', process.env.HIRORA_USER_DATA);
-// The app is called Doing since 0.4.0, but its settings, documents and history stay in the
-// folder they have always been in (Electron would otherwise switch to %APPDATA%\Doing).
-else app.setPath('userData', join(app.getPath('appData'), 'Hirora'));
+// Run migrations before Chromium reads Local State, so browser trust remains decryptable.
+const appData = app.getPath('appData');
+const userDataOverride = process.env.DOING_USER_DATA;
+app.setPath('userData', userDataOverride ?? join(appData, 'Doing'));
+// Stable Windows identity lets the Doing installer replace old installations.
 app.setAppUserModelId('app.hirora.desktop');
-
-// Carry a pre-rename (VeyraCue) profile over before Chromium loads `Local State`.
-// HIRORA_MIGRATE_FROM lets tests point at a copied legacy profile.
 const migration = migrateLegacyProfile(
-  process.env.HIRORA_MIGRATE_FROM ?? (process.env.HIRORA_USER_DATA ? '' : join(app.getPath('appData'), LEGACY_PROFILE_DIR_NAME)),
-  app.getPath('userData'),
+  process.env.DOING_MIGRATE_FROM ?? (userDataOverride || existsSync(join(app.getPath('userData'), 'settings.json')) ? '' : join(appData, LEGACY_PROFILE_DIR_NAME)),
+  userDataOverride ? app.getPath('userData') : join(appData, 'Hirora'),
 );
+try {
+  if (!userDataOverride) migrateDoingDirectory(join(appData, 'Hirora'), app.getPath('userData'), true);
+} catch (error) {
+  dialog.showErrorBox('Doing data migration', (error as Error).message);
+  app.exit(1);
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -80,7 +87,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const devTools = !app.isPackaged || process.env.HIRORA_DEVTOOLS === '1';
+  const devTools = !app.isPackaged || process.env.DOING_DEVTOOLS === '1';
   const windows = new WindowManager(services.settings, log, devTools);
   services.windows = windows;
   const paintTokens = new Map<string, { at: number; stage: 'hotkey_to_paint' }>();
@@ -169,7 +176,7 @@ async function main(): Promise<void> {
   const updates = new UpdateManager({
     fetchImpl: (url, init) => net.fetch(url, init),
     log,
-    current: process.env.HIRORA_UPDATE_AS_VERSION?.trim() || app.getVersion(),
+    current: process.env.DOING_UPDATE_AS_VERSION?.trim() || app.getVersion(),
     packaged: app.isPackaged,
     installDir: dirname(process.execPath),
     tempDir: app.getPath('temp'),
@@ -180,7 +187,7 @@ async function main(): Promise<void> {
   const browserTrust = browserTrustStore(join(app.getPath('userData'), 'browser-connection.bin'), {
     available: () => safeStorage.isEncryptionAvailable(), encrypt: (text) => safeStorage.encryptString(text), decrypt: (data) => safeStorage.decryptString(data),
   });
-  const browser = new BrowserAgent(createBrowserPlanner(services), Number(process.env.HIRORA_BROWSER_PORT ?? 19389), browserTrust, () => {
+  const browser = new BrowserAgent(createBrowserPlanner(services), Number(process.env.DOING_BROWSER_PORT ?? 19389), browserTrust, () => {
     windows.showDashboard();
     services.emit({ type: 'command', command: 'navigate', arg: 'browser' });
   }, createBrowserReader(services), createBrowserChatter(services));

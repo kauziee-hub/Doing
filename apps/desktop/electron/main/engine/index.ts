@@ -1,9 +1,11 @@
+import '../environment';
+import { migrateDoingDirectory } from '../doingMigration';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, statSync, statfsSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { AppSettings, EngineComponentId, EngineComponentStatus, EngineStatus, EngineTier } from '@hirora/contracts';
-import { ENGINE_OLLAMA_PORT } from '@hirora/contracts';
+import type { AppSettings, EngineComponentId, EngineComponentStatus, EngineStatus, EngineTier } from '@doing/contracts';
+import { ENGINE_OLLAMA_PORT } from '@doing/contracts';
 import type { Logger } from '../logger';
 import { ANSWER_RUNTIME, CATALOG, resolveTier } from './catalog';
 import type { TierCatalog } from './catalog';
@@ -19,7 +21,7 @@ export interface GpuInfo {
   driver: string;
 }
 
-/** Reads the NVIDIA driver's own report. No NVIDIA GPU (or no driver) → null. */
+/** Reads the NVIDIA driver's own report. No NVIDIA GPU (or no driver) â†’ null. */
 export function detectNvidiaGpu(): Promise<GpuInfo | null> {
   const smi = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'nvidia-smi.exe');
   return new Promise((resolve) => {
@@ -50,7 +52,7 @@ export interface EngineDeps {
   emit: (status: EngineStatus) => void;
   /** Used for downloads: Electron's net.fetch honours the system proxy. */
   fetchImpl: FetchFn;
-  /** Engine files live here (default %LOCALAPPDATA%\Hirora). */
+  /** Engine files live here (default %LOCALAPPDATA%\Doing). */
   root?: string;
 }
 
@@ -71,7 +73,10 @@ export class EngineManager {
   private lastEmit = 0;
 
   constructor(private readonly deps: EngineDeps) {
-    this.root = deps.root ?? process.env.HIRORA_ENGINE_DIR ?? join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'Hirora');
+    const localData = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local');
+    this.root = deps.root ?? process.env.DOING_ENGINE_DIR ?? join(localData, 'Doing');
+    if (!deps.root && !process.env.DOING_ENGINE_DIR)
+      migrateDoingDirectory(join(localData, 'Hirora'), this.root);
     this.whisper = new WhisperServer(deps.log, this.whisperPort);
     this.ollama = new OllamaServer(deps.log, this.ollamaPort);
     this.ollama.logFile = join(this.root, 'ollama', 'server.log');
@@ -84,10 +89,10 @@ export class EngineManager {
 
   /** Loopback ports; tests can move them so two engines never share a server. */
   get whisperPort(): number {
-    return Number(process.env.HIRORA_ENGINE_WHISPER_PORT) || 8178;
+    return Number(process.env.DOING_ENGINE_WHISPER_PORT) || 8178;
   }
   get ollamaPort(): number {
-    return Number(process.env.HIRORA_ENGINE_OLLAMA_PORT) || ENGINE_OLLAMA_PORT;
+    return Number(process.env.DOING_ENGINE_OLLAMA_PORT) || ENGINE_OLLAMA_PORT;
   }
   get whisperUrl(): string {
     return `http://127.0.0.1:${this.whisperPort}`;
@@ -127,10 +132,10 @@ export class EngineManager {
   /**
    * Where the answer model lives. With an Ollama the user installed themselves, its model folder
    * is shared (nothing downloaded twice). Otherwise models stay under Doing's own folder, so
-   * removing %LOCALAPPDATA%\Hirora removes everything Doing downloaded.
+   * removing %LOCALAPPDATA%\Doing removes everything Doing downloaded.
    */
   modelsDir(): string {
-    if (process.env.HIRORA_ENGINE_MODELS) return process.env.HIRORA_ENGINE_MODELS;
+    if (process.env.DOING_ENGINE_MODELS) return process.env.DOING_ENGINE_MODELS;
     if (process.env.OLLAMA_MODELS) return process.env.OLLAMA_MODELS;
     const own = join(this.root, 'models');
     if (existsSync(join(own, 'manifests'))) return own;
@@ -140,7 +145,7 @@ export class EngineManager {
 
   ollamaExe(): string | null {
     if (existsSync(this.ownOllama)) return this.ownOllama;
-    if (process.env.HIRORA_ENGINE_NO_SYSTEM_OLLAMA === '1') return null;
+    if (process.env.DOING_ENGINE_NO_SYSTEM_OLLAMA === '1') return null;
     // An Ollama the user installed themselves works the same way; reuse its runtime.
     const system = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'Programs', 'Ollama', 'ollama.exe');
     return existsSync(system) ? system : null;

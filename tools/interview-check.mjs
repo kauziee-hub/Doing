@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// End-to-end "interviewer asks, Hirora answers" check on a COPY of a real profile:
+// End-to-end "interviewer asks, Doing answers" check on a COPY of a real profile:
 // speaks questions through the default output with Windows SAPI (labelled TTS fixture),
 // listens with the profile's own mic + system settings, and reports transcripts, whether
 // each question was auto-answered and the latency, using the engine on this PC. The real
 // profile is never modified; the copy is deleted afterwards.
 //   node tools/interview-check.mjs [profileDir] [--exe <Doing.exe>] [--system all|default|keep]
 //     [--tier auto|gpu|cpu] [--script questions|chatter]
-// HIRORA_ENGINE_FORCE_CPU=1 keeps the answer engine off the GPU (measures a PC without one).
+// DOING_ENGINE_FORCE_CPU=1 keeps the answer engine off the GPU (measures a PC without one).
 import { _electron as electron } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, statSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
-const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Hirora');
+const profile = args[0] && !args[0].startsWith('--') ? args[0] : join(process.env.APPDATA, 'Doing');
 const exeIdx = args.indexOf('--exe');
 const sysIdx = args.indexOf('--system');
 const systemMode = sysIdx >= 0 ? args[sysIdx + 1] : 'all';
@@ -24,7 +24,7 @@ const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', '--disable
 
 const scriptIdx = args.indexOf('--script');
 const script = scriptIdx >= 0 ? args[scriptIdx + 1] : 'questions';
-/** [line, should Hirora answer it?] */
+/** [line, should Doing answer it?] */
 const SCRIPTS = {
   questions: [
     ['Please introduce yourself.', true],
@@ -43,16 +43,16 @@ const SCRIPTS = {
 };
 const QUESTIONS = SCRIPTS[script];
 
-const ud = join(mkdtempSync(join(tmpdir(), 'hirora-interview-')), 'Hirora');
-// Top-level files only (settings, keys, Local State, db): a running Hirora keeps its Chromium folders locked.
+const ud = join(mkdtempSync(join(tmpdir(), 'doing-interview-')), 'Doing');
+// Top-level files only (settings, keys, Local State, db): a running Doing keeps its Chromium folders locked.
 cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(s) === profile && statSync(s).isFile() && !/lockfile$/.test(s)) });
-const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
+const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, DOING_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await new Promise((r) => setTimeout(r, 250));
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const patch = { privacy: { saveHistory: false }, overlay: { contentProtection: true } };
@@ -71,7 +71,7 @@ if (!engine.ready) {
 const s = await call('settings:get');
 await dash.evaluate(() => {
   window.__rec = { answers: {}, segments: {} };
-  window.hirora.onLive((e) => {
+  window.doing.onLive((e) => {
     if (e.type === 'answer') window.__rec.answers[e.answer.requestId] = e.answer;
     if (e.type === 'transcript' && e.segment.final) window.__rec.segments[e.segment.id] = e.segment;
   });
@@ -117,7 +117,7 @@ rmSync(join(ud, '..'), { recursive: true, force: true });
 
 const segs = Object.values(rec.segments).sort((a, b) => a.startedAt - b.startedAt);
 console.log(JSON.stringify({
-  engine: { tier: engine.tier, gpu: engine.gpu?.name ?? null, speech: engine.speechModel, answers: engine.answerModel, forceCpu: process.env.HIRORA_ENGINE_FORCE_CPU === '1' },
+  engine: { tier: engine.tier, gpu: engine.gpu?.name ?? null, speech: engine.speechModel, answers: engine.answerModel, forceCpu: process.env.DOING_ENGINE_FORCE_CPU === '1' },
   settings: { language: s.stt.language, mic: s.audio.micDeviceId ? 'pinned' : 'default', system: s.audio.systemDeviceId, autoAnswerSources: s.answer.autoAnswerSources },
   warmup: (warmPerf.recent ?? []).filter((r) => r.stage === 'provider_preconnect').map((r) => `${r.label}: ${Math.round(r.ms)} ms`),
   sources: snap.snapshot.sources.map((x) => ({ source: x.source, state: x.state, device: x.deviceName, stt: x.sttState, err: x.sttError })),

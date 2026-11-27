@@ -21,8 +21,8 @@ asar: true
 extraResources:
   - from: resources/browser-extension
     to: browser-extension
-  - from: ../../native/windows-audio/target/release/hirora-audio.exe
-    to: bin/hirora-audio.exe
+  - from: ../../native/windows-audio/target/release/doing-audio.exe
+    to: bin/doing-audio.exe
   - from: resources/icon.png
     to: icon.png
   - from: resources/tray.png

@@ -1,17 +1,17 @@
 [package]
-name = "hirora-audio"
+name = "doing-audio"
 version = "0.2.0"
 edition = "2021"
-description = "Hirora native Windows audio helper: WASAPI microphone + loopback capture streamed over a framed stdout protocol."
+description = "Doing native Windows audio helper: WASAPI microphone + loopback capture streamed over a framed stdout protocol."
 license = "UNLICENSED"
 publish = false
 
 [[bin]]
-name = "hirora-audio"
+name = "doing-audio"
 path = "src/main.rs"
 
 [lib]
-name = "hirora_audio"
+name = "doing_audio"
 path = "src/lib.rs"
 
 [dependencies]

@@ -1,4 +1,4 @@
-//! hirora-audio — long-lived helper process.
+//! doing-audio — long-lived helper process.
 //!
 //! stdin : newline-delimited JSON commands `{"id": 1, "cmd": "...", ...}`
 //! stdout: framed binary messages (see `protocol.rs`)
@@ -13,17 +13,17 @@ fn main() {
 
 #[cfg(not(windows))]
 fn main() {
-    eprintln!("hirora-audio only supports Windows");
+    eprintln!("doing-audio only supports Windows");
     std::process::exit(2);
 }
 
 #[cfg(windows)]
 mod windows_main {
-    use hirora_audio::capture::{self, CaptureHandle, CaptureTarget};
-    use hirora_audio::devices::{self, DefaultTracker};
-    use hirora_audio::output::{clock_init, Output, QUEUE_CAPACITY};
-    use hirora_audio::protocol::{SourceId, FRAME_MS, OUTPUT_SAMPLE_RATE, VERSION};
-    use hirora_audio::screen;
+    use doing_audio::capture::{self, CaptureHandle, CaptureTarget};
+    use doing_audio::devices::{self, DefaultTracker};
+    use doing_audio::output::{clock_init, Output, QUEUE_CAPACITY};
+    use doing_audio::protocol::{SourceId, FRAME_MS, OUTPUT_SAMPLE_RATE, VERSION};
+    use doing_audio::screen;
     use serde_json::{json, Value};
     use std::collections::HashMap;
     use std::io::BufRead;

@@ -1,4 +1,4 @@
-import type { AudioSource, SpeakerRole, TranscriptSegment } from '@hirora/contracts';
+import type { AudioSource, SpeakerRole, TranscriptSegment } from '@doing/contracts';
 import { analyzeQuestion } from './question';
 
 /** Providers sometimes glue sentences together ("thread?You"): restore the missing space. */

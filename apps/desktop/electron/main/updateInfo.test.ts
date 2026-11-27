@@ -6,12 +6,12 @@ const release = (over: Record<string, unknown> = {}, asset: Record<string, unkno
   tag_name: 'v0.3.9',
   draft: false,
   prerelease: false,
-  html_url: 'https://github.com/kauziee-hub/hirora/releases/tag/v0.3.9',
+  html_url: 'https://github.com/kauziee-hub/Doing/releases/tag/v0.3.9',
   published_at: '2026-11-27T01:00:00Z',
   body: 'Doing runs on your PC.\n\n### What changed\n- Updates from inside the app.\n\n### Download\n`Doing-Setup-0.3.9-x64-unsigned.exe`\n\nSHA-256: `' + SHA + '`',
   assets: [
-    { name: 'notes.txt', size: 10, browser_download_url: 'https://github.com/kauziee-hub/hirora/releases/download/v0.3.9/notes.txt' },
-    { name: 'Doing-Setup-0.3.9-x64-unsigned.exe', size: 142_873_509, digest: `sha256:${SHA}`, browser_download_url: 'https://github.com/kauziee-hub/hirora/releases/download/v0.3.9/Doing-Setup-0.3.9-x64-unsigned.exe', ...asset },
+    { name: 'notes.txt', size: 10, browser_download_url: 'https://github.com/kauziee-hub/Doing/releases/download/v0.3.9/notes.txt' },
+    { name: 'Doing-Setup-0.3.9-x64-unsigned.exe', size: 142_873_509, digest: `sha256:${SHA}`, browser_download_url: 'https://github.com/kauziee-hub/Doing/releases/download/v0.3.9/Doing-Setup-0.3.9-x64-unsigned.exe', ...asset },
   ],
   ...over,
 });

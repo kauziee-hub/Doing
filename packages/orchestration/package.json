@@ -1,5 +1,5 @@
 {
-  "name": "@hirora/orchestration",
+  "name": "@doing/orchestration",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@hirora/contracts": "workspace:^",
-    "@hirora/knowledge": "workspace:^",
-    "@hirora/providers": "workspace:^"
+    "@doing/contracts": "workspace:^",
+    "@doing/knowledge": "workspace:^",
+    "@doing/providers": "workspace:^"
   }
 }

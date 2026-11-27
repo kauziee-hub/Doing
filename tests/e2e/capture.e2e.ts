@@ -2,7 +2,7 @@
  * Screen-share check against a REAL browser share: Microsoft Edge's getDisplayMedia
  * ("Entire screen"), the path Google Meet and other browser meetings use.
  *
- * A fresh Hirora profile paints its overlay with a solid probe colour; Edge shares the
+ * A fresh Doing profile paints its overlay with a solid probe colour; Edge shares the
  * screen and the test samples the overlay's area in the shared video. Protection off
  * is the baseline (the share must show the probe, otherwise the method can't be judged).
  *
@@ -20,7 +20,7 @@ import { join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
-const INSTALLED = process.env.HIRORA_E2E_EXE;
+const INSTALLED = process.env.DOING_E2E_EXE;
 const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
 const PAINT_FLAGS = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows'];
 const LAUNCH_ARGS = INSTALLED ? PAINT_FLAGS : [...PAINT_FLAGS, APP_DIR];
@@ -28,7 +28,7 @@ const LAUNCH_ARGS = INSTALLED ? PAINT_FLAGS : [...PAINT_FLAGS, APP_DIR];
 const PROBE = { r: 255, g: 0, b: 255 };
 
 type Rgb = { r: number; g: number; b: number };
-type Bridge = { hirora: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
+type Bridge = { doing: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
 const dist = (a: Rgb, b: Rgb) => Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -66,8 +66,8 @@ let server: Server;
 let browser: Browser;
 
 test.beforeAll(async () => {
-  userData = mkdtempSync(join(tmpdir(), 'hirora-capture-'));
-  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, NODE_ENV: 'production' , HIRORA_ENGINE_DIR: join(userData, 'engine'), HIRORA_ENGINE_MODELS: join(userData, 'engine', 'models'), HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
+  userData = mkdtempSync(join(tmpdir(), 'doing-capture-'));
+  app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, DOING_USER_DATA: userData, NODE_ENV: 'production' , DOING_ENGINE_DIR: join(userData, 'engine'), DOING_ENGINE_MODELS: join(userData, 'engine', 'models'), DOING_ENGINE_NO_SYSTEM_OLLAMA: '1' } });
   server = createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end(PAGE);
@@ -97,17 +97,17 @@ const dashboard = () => windowByTitle('Doing');
 
 test('the overlay is left out of a real browser screen share, on by default', async () => {
   const dash = await dashboard();
-  const settings = (await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('settings:get'))) as { overlay: { contentProtection: boolean } };
+  const settings = (await dash.evaluate(() => (window as unknown as Bridge).doing.invoke('settings:get'))) as { overlay: { contentProtection: boolean } };
   expect(settings.overlay.contentProtection).toBe(true);
 
   // Show the overlay the way the hotkey does, then paint the probe (as the in-app check does).
-  await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle'));
+  await dash.evaluate(() => (window as unknown as Bridge).doing.invoke('overlay:toggle'));
   const overlay = await windowByTitle('Doing Overlay');
   await overlay.waitForSelector('.ov-input, textarea, input', { timeout: 15_000 }); // renderer is up
   await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing Overlay')!;
     w.setOpacity(1);
-    w.webContents.send('hirora:live', { type: 'command', command: 'captureProbe', arg: true });
+    w.webContents.send('doing:live', { type: 'command', command: 'captureProbe', arg: true });
   });
   await overlay.waitForSelector('.ov-probe', { timeout: 5_000 });
   const geo = await app.evaluate(({ BrowserWindow, screen }) => {
@@ -128,7 +128,7 @@ test('the overlay is left out of a real browser screen share, on by default', as
   // Edge picks the primary screen automatically (no picker): "Entire screen" with one monitor, "Screen 1" with more.
   const source = geo.displays > 1 ? 'Screen 1' : 'Entire screen';
   browser = await chromium.launch({
-    channel: process.env.HIRORA_SHARE_CHANNEL ?? 'msedge', // 'chrome' to use installed Google Chrome
+    channel: process.env.DOING_SHARE_CHANNEL ?? 'msedge', // 'chrome' to use installed Google Chrome
     headless: false,
     args: [`--auto-select-desktop-capture-source=${source}`, '--use-fake-ui-for-media-stream', '--window-position=40,40', '--window-size=420,320'],
   });
@@ -138,13 +138,13 @@ test('the overlay is left out of a real browser screen share, on by default', as
   await page.waitForFunction(() => (window as unknown as { __share?: unknown }).__share, null, { timeout: 15_000 });
   const share = await page.evaluate(() => (window as unknown as { __share: { label?: string; error?: string } }).__share);
   expect(share.error, 'getDisplayMedia failed').toBeUndefined();
-  console.log(`${process.env.HIRORA_SHARE_CHANNEL ?? 'msedge'} ${browser.version()} sharing "${share.label}"`);
+  console.log(`${process.env.DOING_SHARE_CHANNEL ?? 'msedge'} ${browser.version()} sharing "${share.label}"`);
 
   const sample = async (): Promise<Rgb & { W: number; H: number }> => {
     await sleep(700); // let a few new frames arrive after a change
     return page.evaluate((f) => (window as unknown as { __sample: (...a: number[]) => Promise<Rgb & { W: number; H: number }> }).__sample(f.x, f.y, f.w, f.h), frac);
   };
-  const setProtection = (on: boolean) => dash.evaluate((v) => (window as unknown as Bridge).hirora.invoke('settings:update', { overlay: { contentProtection: v } }), on);
+  const setProtection = (on: boolean) => dash.evaluate((v) => (window as unknown as Bridge).doing.invoke('settings:update', { overlay: { contentProtection: v } }), on);
   const fmt = (c: Rgb) => `rgb(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)})`;
 
   const byDefault = await sample();
@@ -153,8 +153,8 @@ test('the overlay is left out of a real browser screen share, on by default', as
   await setProtection(true);
   const turnedOn = await sample();
   // Hide and show again (Ctrl+Shift+Space twice) — protection must survive it.
-  await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle'));
-  await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle'));
+  await dash.evaluate(() => (window as unknown as Bridge).doing.invoke('overlay:toggle'));
+  await dash.evaluate(() => (window as unknown as Bridge).doing.invoke('overlay:toggle'));
   const afterReshow = await sample();
   console.log(
     `shared frame ${byDefault.W}x${byDefault.H}; probe ${fmt(PROBE)}; default ${fmt(byDefault)}; protection off ${fmt(baseline)}; on ${fmt(turnedOn)}; after hide/show ${fmt(afterReshow)}`,
@@ -166,7 +166,7 @@ test('the overlay is left out of a real browser screen share, on by default', as
   expect(dist(afterReshow, PROBE), 'after hide/show: overlay must not appear in the share').toBeGreaterThan(120);
 
   // The main window follows the same setting (it can show the résumé, transcript and answers).
-  await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle')); // hide the overlay
+  await dash.evaluate(() => (window as unknown as Bridge).doing.invoke('overlay:toggle')); // hide the overlay
   const dashGeo = await app.evaluate(({ BrowserWindow, screen }) => {
     const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing')!;
     const d = screen.getPrimaryDisplay().bounds;

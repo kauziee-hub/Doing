@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 — 2026-11-27
+
+- Renamed the GitHub repository and Vercel project to Doing, with new release and website links.
+- Renamed workspace packages, native audio helper and public renderer API to Doing. Legacy environment overrides remain compatible.
+- Migrates existing documents, encrypted browser trust and cached models to Doing data folders before opening them. Original files are retained for rollback.
+- Local tasks can move and rename whole folders, preserve nested files, and undo changes without replacing an externally changed item.
+
 ## 0.4.2 — 2026-11-27 (unsigned)
 - Coding tasks that must preserve an existing JavaScript function now reject a body-only editor replacement and request the complete declaration before typing. A failed correction stops instead of claiming completion.
 - Corrects garbled symbols in the browser side panel: New chat, Allow this tab, Send, prompt arrows and ellipses. Uses HTML entities so the extension renders them consistently. Includes the complete 0.4.1 workspace and browser features.
@@ -47,7 +54,7 @@ From the owner: Hirora couldn't see the screen when a coding problem was on it, 
 - Measured with the packaged build and `tools/coding-screen-check.mjs` (made-up problem full-screen in Edge, RTX 4060 laptop): the screen key read the signature and wrote a solution, first word 1.8 s, done in 7.0 s; "Can you solve this problem?" 3.9 s to the first word with the capture (1.7–2.5 s per capture at 1600×1000); "Tell me about yourself" didn't use the screen. Installed 0.3.7, the real Ctrl+Shift+O pressed through Windows: screen read, signature quoted, first word 2.1 s, captures 0.9–1.1 s; all 14 e2e tests pass on the packaged build. Honest limit: the 4B model's instant solutions to medium problems were often subtly wrong in these runs (3 of 4 sliding-window solutions had a bug). With thinking on it wrote a correct one, but only after 71 s, so answers keep thinking off; read the code before using it.
 
 ## 0.3.6 — 2026-11-26 (unsigned)
-Published as a GitHub release (https://github.com/kauziee-hub/hirora/releases/tag/v0.3.6), and the site's download button now points there: the Vercel Blob store that held 0.3.5 and older was suspended (billing state Inactive, 980 MB), and its links return 403. The privacy page says where the installer comes from.
+Published as a GitHub release (https://github.com/kauziee-hub/Doing/releases/tag/v0.3.6), and the site's download button now points there: the Vercel Blob store that held 0.3.5 and older was suspended (billing state Inactive, 980 MB), and its links return 403. The privacy page says where the installer comes from.
 
 From the owner's interview practice: "can you explain the procedure you built <project>" got a 25-word answer that only named the stack (and read "procedure" as an ML training procedure), and Expand on it never answered.
 - **Expand never answered.** It turned the model's thinking on (effort `deep`), and qwen3.5 thought through Expand's whole 2,500-token budget: measured on 0.3.5, "Provider returned an empty answer" after 79 s. Every answer now runs with thinking off; Expand still gets the long length and more evidence. Its instruction no longer asks for "examples and trade-offs", which the 4B model invented for the user's own work ("decoding in about 20 milliseconds", a made-up trade-off for random forest): it asks for more of the detail the materials hold and forbids new numbers, tools, trade-offs or events. Measured on the installed build's engine (RTX 4060 laptop, a copy of a real profile): 5 of 5 Expands answered, first word in 0.46–0.72 s, whole answer in 4.0–12.0 s, 170–546 words.
@@ -138,10 +145,10 @@ For users: a new choice in Settings → Engine, *Where the conversation is*: on 
 - The "Question end → first answer paint" metric is recorded only while the overlay is visible. A hidden overlay used to report 2–2.5 s "paints" that never reached the screen; with the overlay visible the answer paints 25–73 ms after its first token.
 
 ## 0.2.0 — 2026-11-21 (unsigned)
-- **Hirora Cloud**, the new default: a free, always-on relay (Vercel Functions in `apps/cloud`, `https://hirora-one.vercel.app/v1`) to Groq's open models (`openai/gpt-oss-20b`, `gpt-oss-120b`) and Whisper. Friends install Hirora, paste the shared access code, and get answers and transcription with no key, no GPU and no cost. The relay checks the code in constant time, allowlists models, caps request and output size, rate-limits per IP and strips account ids from upstream errors (ADR 0010).
+- **Hirora Cloud**, the new default: a free, always-on relay (Vercel Functions in `apps/cloud`, `https://doing-pc.vercel.app/v1`) to Groq's open models (`openai/gpt-oss-20b`, `gpt-oss-120b`) and Whisper. Friends install Hirora, paste the shared access code, and get answers and transcription with no key, no GPU and no cost. The relay checks the code in constant time, allowlists models, caps request and output size, rate-limits per IP and strips account ids from upstream errors (ADR 0010).
 - New `cloud-whisper` transcriber, the default for new installs. The local VAD cuts each utterance, sends it as a 16 kHz WAV, and drops silence and segments Whisper marks as no speech. There's no interim text.
 - Migration from VeyraCue now waits when either profile is in use (Chromium `lockfile` held) instead of copying a live profile.
-- Website deployed at https://hirora-one.vercel.app, with the installer hosted on Vercel Blob, new screenshots of a fresh cloud install and measured cloud latency.
+- Website deployed at https://doing-pc.vercel.app, with the installer hosted on Vercel Blob, new screenshots of a fresh cloud install and measured cloud latency.
 - e2e: new opt-in `cloud.e2e.ts` (fresh profile, access code only). Paint flags stop Chromium's occlusion tracking from hanging screenshots.
 
 First 0.2.0 build (2026-11-19):

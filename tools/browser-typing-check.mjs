@@ -21,7 +21,7 @@ const dev = process.argv.includes('--dev');
 const monaco = resolve('test-results/monaco-0.58.0/package/min');
 const out = resolve('test-results/browser-typing');
 await mkdir(out, { recursive: true });
-const temp = await mkdtemp(join(tmpdir(), 'hirora-real-typing-'));
+const temp = await mkdtemp(join(tmpdir(), 'doing-real-typing-'));
 let app, context, server, dash, siteVideo;
 let invoke;
 const events = [];
@@ -86,14 +86,14 @@ try {
       '--disable-features=CalculateNativeWinOcclusion',
       '--disable-backgrounding-occluded-windows',
     ],
-    env: { ...process.env, HIRORA_USER_DATA: join(temp, 'profile'), HIRORA_BROWSER_PORT: '0' },
+    env: { ...process.env, DOING_USER_DATA: join(temp, 'profile'), DOING_BROWSER_PORT: '0' },
   });
   for (let i = 0; i < 100 && !dash; i++) {
     for (const win of app.windows()) if ((await win.title().catch(() => '')) === 'Doing') dash = win;
     if (!dash) await new Promise((r) => setTimeout(r, 200));
   }
   if (!dash) throw new Error('Installed app did not open');
-  invoke = (channel, payload) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [channel, payload]);
+  invoke = (channel, payload) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [channel, payload]);
   await dash.getByRole('dialog').getByRole('button', { name: 'Skip', exact: true }).click();
   const info = await invoke('app:info');
   console.log(JSON.stringify({ stage: 'installed-app', version: info.version, packaged: info.packaged }));
@@ -135,6 +135,15 @@ try {
     await invoke('local:undo');
     const restored = await readFile(join(allowed, 'notes.txt'), 'utf8');
     if (restored !== 'Original note: keep this line.\n') throw new Error('Undo did not restore original notes');
+    await mkdir(join(allowed, 'draft/nested'), { recursive: true });
+    await mkdir(join(allowed, 'archive'));
+    await writeFile(join(allowed, 'draft/nested/payload.bin'), Buffer.from([0,255,12]));
+    const move = await ask('Move the entire draft folder into archive and rename it finished. Keep everything inside it.');
+    if (!(await readFile(join(allowed, 'archive/finished/nested/payload.bin'))).equals(Buffer.from([0,255,12])))
+      throw new Error('Folder move did not preserve nested binary content');
+    await invoke('local:undo');
+    if (!(await readFile(join(allowed, 'draft/nested/payload.bin'))).equals(Buffer.from([0,255,12])))
+      throw new Error('Folder undo did not restore nested content');
     await invoke('local:revoke');
     const revoked = await invoke('local:status');
     if (revoked.folder !== null || revoked.messages.length || (await readFile(unrelated, 'utf8')) !== 'Untouched')
@@ -144,6 +153,8 @@ try {
       created,
       edited,
       undoRestored: true,
+      folderMovedAndUndone: true,
+      moveMs: move.ms,
       revoked: true,
       unrelatedUnchanged: true,
       createMs: create.ms,
@@ -255,7 +266,14 @@ try {
     await site.goto(origin + '/practice');
     await popup.getByRole('button', { name: 'New chat', exact: true }).click();
     await popup.getByText('Allowed pages are ready.', { exact: true }).waitFor();
-    await new Promise((r) => setTimeout(r, 1200));
+    // Wait for the desktop to receive the new page, rather than a stale panel poll.
+    let practiceReady = false;
+    for (let i = 0; i < 80; i++) {
+      const state = await invoke('browser:status');
+      if (state.pageReady && state.tab?.url === origin + '/practice') { practiceReady = true; break; }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    if (!practiceReady) throw new Error('Practice page did not reach the desktop observation');
     await popup
       .getByLabel('Message Doing')
       .fill(
@@ -318,5 +336,5 @@ try {
   await app?.close();
   server?.closeAllConnections();
   if (server) await new Promise((r) => server.close(r));
-  if (resolve(temp).startsWith(resolve(tmpdir()) + sep + 'hirora-real-typing-')) await rm(temp, { recursive: true, force: true });
+  if (resolve(temp).startsWith(resolve(tmpdir()) + sep + 'doing-real-typing-')) await rm(temp, { recursive: true, force: true });
 }

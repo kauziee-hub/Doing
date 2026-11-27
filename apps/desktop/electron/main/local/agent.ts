@@ -2,7 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { lstat, realpath, readdir, readFile, writeFile, mkdir, rename, unlink, rmdir } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, dirname, extname } from 'node:path';
 import { z } from 'zod';
-import type { LocalStatus, LocalMessage } from '@hirora/contracts';
+import type { LocalStatus, LocalMessage } from '@doing/contracts';
 
 export const FileActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('answer'), text: z.string().min(1).max(16000) }),
@@ -34,7 +34,7 @@ export type LocalPlanner = (
 ) => Promise<FileAction>;
 type Undo =
   | { kind: 'write'; path: string; before: string | null; after: string }
-  | { kind: 'move'; path: string; destination: string }
+  | { kind: 'move'; path: string; destination: string; identity: string }
   | { kind: 'mkdir'; path: string };
 const TEXT_EXTENSIONS = new Set([
   '.txt',
@@ -188,6 +188,9 @@ export class LocalAgent {
     } else if (entry.kind === 'move') {
       const original = await this.path(entry.path);
       const destination = await this.path(entry.destination);
+      const stat = await lstat(destination);
+      if (`${stat.dev}:${stat.ino}` !== entry.identity)
+        throw new Error('The moved item was replaced outside Doing. Undo was stopped to preserve it.');
       if (
         await lstat(original).then(
           () => true,
@@ -298,7 +301,11 @@ export class LocalAgent {
             this.state.changes.push({ path: action.path, kind: 'folder' });
           } else {
             const destination = await this.path(action.destination);
-            if ((await lstat(path)).isDirectory()) throw new Error('Move individual files; folder moves are not supported in this task.');
+            const stat = await lstat(path);
+            if (!stat.isFile() && !stat.isDirectory()) throw new Error('Choose a regular file or folder.');
+            const inside = relative(path, destination);
+            if (stat.isDirectory() && (!inside || (!inside.startsWith('..') && !isAbsolute(inside))))
+              throw new Error('A folder cannot be moved into itself. Choose a different destination.');
             if (
               await lstat(destination).then(
                 () => true,
@@ -314,6 +321,7 @@ export class LocalAgent {
               kind: 'move',
               path: action.path,
               destination: action.destination,
+              identity: `${stat.dev}:${stat.ino}`,
             });
             this.state.changes.push({
               path: `${action.path} → ${action.destination}`,

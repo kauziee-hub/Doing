@@ -1,6 +1,6 @@
-import type { AudioSource, PerfSample } from '@hirora/contracts';
-import { ProviderError } from '@hirora/providers';
-import type { SttOptions, SttSession, StreamingTranscriptionProvider } from '@hirora/providers';
+import type { AudioSource, PerfSample } from '@doing/contracts';
+import { ProviderError } from '@doing/providers';
+import type { SttOptions, SttSession, StreamingTranscriptionProvider } from '@doing/providers';
 import { EnergyVad } from './vad';
 
 export type SttConnState = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'error';

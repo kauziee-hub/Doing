@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderId, Usage } from '@hirora/contracts';
+import type { ModelInfo, ProviderId, Usage } from '@doing/contracts';
 
 export type ContentPart =
   | { type: 'text'; text: string }

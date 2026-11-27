@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Fresh-PC setup check: launches Hirora with a NEW profile and an EMPTY engine folder (no
+// Fresh-PC setup check: launches Doing with a NEW profile and an EMPTY engine folder (no
 // system Ollama, no models), presses "Set up" through the real IPC, and records every
 // download, checksum, unpack and model pull as it happens, then asks typed questions and
 // reports the answers and their first-token latency. Real network, real files.
 //   node tools/engine-setup-check.mjs <engineDir> [--tier cpu|gpu] [--exe <Doing.exe>] [--keep]
-// --tier cpu also sets HIRORA_ENGINE_FORCE_CPU=1 so the answer model stays off the GPU,
+// --tier cpu also sets DOING_ENGINE_FORCE_CPU=1 so the answer model stays off the GPU,
 // which is what a PC without an NVIDIA card gets.
 import { _electron as electron } from '@playwright/test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -12,21 +12,21 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
-const engineDir = resolve(args[0] ?? join(tmpdir(), 'hirora-engine-check'));
+const engineDir = resolve(args[0] ?? join(tmpdir(), 'doing-engine-check'));
 const tier = args.includes('--tier') ? args[args.indexOf('--tier') + 1] : 'cpu';
 const exeIdx = args.indexOf('--exe');
 const APP = resolve('apps/desktop');
 const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/dist/electron.exe');
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', ...(exeIdx >= 0 ? [] : [APP])];
 mkdirSync(engineDir, { recursive: true });
-const ud = mkdtempSync(join(tmpdir(), 'hirora-setup-profile-'));
+const ud = mkdtempSync(join(tmpdir(), 'doing-setup-profile-'));
 const env = {
   ...process.env,
-  HIRORA_USER_DATA: ud,
-  HIRORA_ENGINE_DIR: engineDir,
-  HIRORA_ENGINE_MODELS: join(engineDir, 'models-ollama'),
-  HIRORA_ENGINE_NO_SYSTEM_OLLAMA: '1',
-  ...(tier === 'cpu' ? { HIRORA_ENGINE_FORCE_CPU: '1' } : {}),
+  DOING_USER_DATA: ud,
+  DOING_ENGINE_DIR: engineDir,
+  DOING_ENGINE_MODELS: join(engineDir, 'models-ollama'),
+  DOING_ENGINE_NO_SYSTEM_OLLAMA: '1',
+  ...(tier === 'cpu' ? { DOING_ENGINE_FORCE_CPU: '1' } : {}),
 };
 const t0 = Date.now();
 const stamp = () => `${((Date.now() - t0) / 1000).toFixed(0).padStart(5)} s`;
@@ -36,7 +36,7 @@ for (let i = 0; i < 80 && !dash; i++) {
   for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await new Promise((r) => setTimeout(r, 250));
 }
-const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
+const call = (c, p) => dash.evaluate(([c, p]) => window.doing.invoke(c, p), [c, p]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 await call('settings:update', { engine: { tier }, onboardingComplete: true });
@@ -71,7 +71,7 @@ if (st.ready) {
   }
   await dash.evaluate(() => {
     window.__ans = {};
-    window.hirora.onLive((e) => {
+    window.doing.onLive((e) => {
       if (e.type === 'answer') window.__ans[e.answer.requestId] = e.answer;
     });
   });

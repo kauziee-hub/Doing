@@ -1,4 +1,4 @@
-import { ENGINE_OLLAMA_URL, ENGINE_WHISPER_URL } from '@hirora/contracts';
+import { ENGINE_OLLAMA_URL, ENGINE_WHISPER_URL } from '@doing/contracts';
 import { OllamaProvider, validateLocalBaseUrl } from './openaiCompatible';
 import { LocalWhisperTranscriber } from './whisper';
 import type { StreamingTranscriptionProvider } from './stt';

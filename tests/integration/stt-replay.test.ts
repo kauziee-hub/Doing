@@ -4,7 +4,7 @@
  * at a time, through LiveCapture (SAVA or the energy VAD) and whisper-server started exactly as
  * the app starts it. Checks that every question comes out word for word and when each turn ended.
  * Opt-in (needs the installed engine, ~40 s):
- *   HIRORA_STT_REPLAY=1 pnpm vitest run tests/integration/stt-replay.test.ts
+ *   DOING_STT_REPLAY=1 pnpm vitest run tests/integration/stt-replay.test.ts
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -17,13 +17,13 @@ import { thresholdsFor } from '../../packages/orchestration/src/turnDetector';
 import { WhisperLane } from '../../packages/orchestration/src/whisperLane';
 import { runWhisperInference } from '../../packages/providers/src/whisper';
 
-const ENGINE = join(process.env.LOCALAPPDATA ?? '', 'Hirora', 'whisper');
+const ENGINE = join(process.env.LOCALAPPDATA ?? '', 'Doing', 'whisper');
 const EXE = join(ENGINE, 'bin', 'Release', 'whisper-server.exe');
 const MODEL = ['ggml-large-v3-turbo-q5_0.bin', 'ggml-small-q5_1.bin'].map((m) => join(ENGINE, 'models', m)).find((m) => existsSync(m));
 const SAVA = resolve(__dirname, '../../apps/desktop/resources/sava/sava-int8.onnx');
 const PORT = 8193;
 const QUESTIONS = ['Please introduce yourself.', 'Can you tell me about a challenging project you worked on?', 'What is the difference between a process and a thread?'];
-const enabled = process.env.HIRORA_STT_REPLAY === '1' && process.platform === 'win32' && existsSync(EXE) && !!MODEL;
+const enabled = process.env.DOING_STT_REPLAY === '1' && process.platform === 'win32' && existsSync(EXE) && !!MODEL;
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, '').trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -34,7 +34,7 @@ describe.skipIf(!enabled)('live speech path, replayed against the real whisper-s
   let audio = Buffer.alloc(0);
 
   beforeAll(async () => {
-    dir = mkdtempSync(join(tmpdir(), 'hirora-replay-'));
+    dir = mkdtempSync(join(tmpdir(), 'doing-replay-'));
     const ps = QUESTIONS.map((q, i) => `$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.SetOutputToWaveFile('${join(dir, `q${i}.wav`)}', $f); $s.Speak('${q.replace(/'/g, "''")}'); $s.Dispose();`).join(' ');
     execFileSync('powershell', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Speech; $f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono); ${ps}`]);
     const wav = (i: number) => {

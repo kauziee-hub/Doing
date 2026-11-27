@@ -1,6 +1,6 @@
 import { Check, Cpu, Download, HardDrive, LoaderCircle, RotateCcw, X } from 'lucide-react';
-import type { EngineComponentStatus, EngineStatus } from '@hirora/contracts';
-import { Button, cx } from '@hirora/ui';
+import type { EngineComponentStatus, EngineStatus } from '@doing/contracts';
+import { Button, cx } from '@doing/ui';
 import { invoke } from '../shared/api';
 import { useLive } from '../shared/store';
 

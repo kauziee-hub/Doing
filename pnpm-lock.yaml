@@ -51,22 +51,22 @@ importers:
       '@fontsource-variable/outfit':
         specifier: ^5.3.0
         version: 5.3.0
-      '@hirora/contracts':
+      '@doing/contracts':
         specifier: workspace:^
         version: link:../../packages/contracts
-      '@hirora/knowledge':
+      '@doing/knowledge':
         specifier: workspace:^
         version: link:../../packages/knowledge
-      '@hirora/orchestration':
+      '@doing/orchestration':
         specifier: workspace:^
         version: link:../../packages/orchestration
-      '@hirora/providers':
+      '@doing/providers':
         specifier: workspace:^
         version: link:../../packages/providers
-      '@hirora/settings':
+      '@doing/settings':
         specifier: workspace:^
         version: link:../../packages/settings
-      '@hirora/ui':
+      '@doing/ui':
         specifier: workspace:^
         version: link:../../packages/ui
       '@types/react':
@@ -134,7 +134,7 @@ importers:
 
   packages/knowledge:
     dependencies:
-      '@hirora/contracts':
+      '@doing/contracts':
         specifier: workspace:^
         version: link:../contracts
       mammoth:
@@ -146,19 +146,19 @@ importers:
 
   packages/orchestration:
     dependencies:
-      '@hirora/contracts':
+      '@doing/contracts':
         specifier: workspace:^
         version: link:../contracts
-      '@hirora/knowledge':
+      '@doing/knowledge':
         specifier: workspace:^
         version: link:../knowledge
-      '@hirora/providers':
+      '@doing/providers':
         specifier: workspace:^
         version: link:../providers
 
   packages/providers:
     dependencies:
-      '@hirora/contracts':
+      '@doing/contracts':
         specifier: workspace:^
         version: link:../contracts
       zod:
@@ -167,7 +167,7 @@ importers:
 
   packages/settings:
     dependencies:
-      '@hirora/contracts':
+      '@doing/contracts':
         specifier: workspace:^
         version: link:../contracts
       zod:

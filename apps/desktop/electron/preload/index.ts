@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import { IPC_CHANNELS, LIVE_EVENT_CHANNEL } from '@hirora/contracts';
-import type { IpcChannel, LiveEvent } from '@hirora/contracts';
+import { IPC_CHANNELS, LIVE_EVENT_CHANNEL } from '@doing/contracts';
+import type { IpcChannel, LiveEvent } from '@doing/contracts';
 
 const allowed = new Set<string>(IPC_CHANNELS);
 
@@ -21,13 +21,16 @@ const api = {
     ipcRenderer.on(LIVE_EVENT_CHANNEL, listener);
     return () => ipcRenderer.removeListener(LIVE_EVENT_CHANNEL, listener);
   },
-  /** Resolve a dropped File to its path (Electron ≥32 replacement for File.path). */
+  /** Resolve a dropped File to its path (Electron â‰¥32 replacement for File.path). */
   pathForFile(file: File): string {
     return webUtils.getPathForFile(file);
   },
   platform: process.platform,
 };
 
+contextBridge.exposeInMainWorld('doing', api);
+
+// Compatibility for existing local integrations while clients adopt window.doing.
 contextBridge.exposeInMainWorld('hirora', api);
 
-export type HiroraApi = typeof api;
+export type DoingApi = typeof api;

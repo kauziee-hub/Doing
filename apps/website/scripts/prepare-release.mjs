@@ -3,7 +3,7 @@
 // writes src/release.json (version, size, SHA-256). Nothing here is invented:
 // if no installer exists, the site shows a "not built yet" state.
 //
-// HIRORA_DOWNLOAD_URL=https://.../Doing-Setup-x.y.z-x64-unsigned.exe points the
+// DOING_DOWNLOAD_URL=https://.../Doing-Setup-x.y.z-x64-unsigned.exe points the
 // download buttons at a release host (e.g. GitHub Releases) instead of bundling the
 // ~110 MB installer into the static site. Size and SHA-256 still come from the
 // local file, so the published checksum always matches what was built.
@@ -17,8 +17,8 @@ const site = resolve(here, '..');
 const root = resolve(site, '..', '..');
 const releaseDir = join(root, 'apps', 'desktop', 'release');
 const desktopPkg = JSON.parse(readFileSync(join(root, 'apps', 'desktop', 'package.json'), 'utf8'));
-const externalUrl = process.env.HIRORA_DOWNLOAD_URL?.trim() || null;
-if (externalUrl && !/^https:\/\//.test(externalUrl)) throw new Error('HIRORA_DOWNLOAD_URL must be an https:// URL');
+const externalUrl = process.env.DOING_DOWNLOAD_URL?.trim() || null;
+if (externalUrl && !/^https:\/\//.test(externalUrl)) throw new Error('DOING_DOWNLOAD_URL must be an https:// URL');
 
 const out = { version: desktopPkg.version, file: null, url: externalUrl, sizeBytes: null, sha256: null, builtAt: null, signed: false };
 const downloads = join(site, 'public', 'download');

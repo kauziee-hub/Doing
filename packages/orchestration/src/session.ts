@@ -10,8 +10,8 @@ import type {
   SourceStatus,
   SttProviderId,
   TranscriptSegment,
-} from '@hirora/contracts';
-import type { ProviderError, StreamingTranscriptionProvider, SttOptions } from '@hirora/providers';
+} from '@doing/contracts';
+import type { ProviderError, StreamingTranscriptionProvider, SttOptions } from '@doing/providers';
 import { pcmLevelDbfs } from './vad';
 import { SttStream } from './sttStream';
 import type { SttConnState } from './sttStream';

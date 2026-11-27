@@ -10,8 +10,8 @@ import type {
   PerfSample,
   ProviderId,
   RetrievedChunk,
-} from '@hirora/contracts';
-import { LIVE_EVENT_CHANNEL, LOCAL_ENGINE } from '@hirora/contracts';
+} from '@doing/contracts';
+import { LIVE_EVENT_CHANNEL, LOCAL_ENGINE } from '@doing/contracts';
 import {
   CaptureResultStore,
   HistoryStore,
@@ -20,13 +20,13 @@ import {
   PerfStore,
   UsageStore,
   migrate,
-} from '@hirora/knowledge';
-import type { SqlDatabase } from '@hirora/knowledge';
-import { AnswerEngine, SessionController, refersToScreen, runGate } from '@hirora/orchestration';
-import type { AudioInput } from '@hirora/orchestration';
-import { createAnswerProvider, createTranscriber, runWhisperInference, toProviderError } from '@hirora/providers';
-import type { FetchLike, TextModelProvider } from '@hirora/providers';
-import { SettingsStore } from '@hirora/settings';
+} from '@doing/knowledge';
+import type { SqlDatabase } from '@doing/knowledge';
+import { AnswerEngine, SessionController, refersToScreen, runGate } from '@doing/orchestration';
+import type { AudioInput } from '@doing/orchestration';
+import { createAnswerProvider, createTranscriber, runWhisperInference, toProviderError } from '@doing/providers';
+import type { FetchLike, TextModelProvider } from '@doing/providers';
+import { SettingsStore } from '@doing/settings';
 import { AudioHelper } from './audioHelper';
 import type { Logger } from './logger';
 import type { WindowManager } from './windows';
@@ -42,7 +42,7 @@ export const SCREEN_QUESTION =
 import { SavaOnnxEngine } from './stt/savaOnnx';
 
 export function resolveHelperPath(): string | null {
-  const exe = 'hirora-audio.exe';
+  const exe = 'doing-audio.exe';
   if (app.isPackaged) return join(process.resourcesPath, 'bin', exe);
   const repo = join(app.getAppPath(), '..', '..');
   const candidates = [
@@ -76,7 +76,7 @@ export class AppServices {
   constructor(readonly log: Logger) {
     const userData = app.getPath('userData');
     this.settings = new SettingsStore(join(userData, 'settings.json'));
-    this.db = new DatabaseSync(join(userData, 'hirora.db')) as unknown as SqlDatabase;
+    this.db = new DatabaseSync(join(userData, 'doing.db')) as unknown as SqlDatabase;
     migrate(this.db);
     this.knowledge = new KnowledgeStore(this.db);
     this.retriever = new HybridRetriever(this.knowledge);
@@ -169,7 +169,7 @@ export class AppServices {
         return this.sava.ready;
       },
       savaReset: (source) => this.sava.reset(source),
-      sttDebug: process.env.HIRORA_STT_DEBUG === '1' ? (line) => this.log.info('stt-debug', { line }) : undefined,
+      sttDebug: process.env.DOING_STT_DEBUG === '1' ? (line) => this.log.info('stt-debug', { line }) : undefined,
       profileVocabulary: () => {
         const p = this.knowledge.getProfile();
         const sp = this.knowledge.getSessionProfile(this.settings.get().activeProfileId);
@@ -203,7 +203,7 @@ export class AppServices {
     });
 
     this.settings.onChange((next, prev) => {
-      // Every window keeps its own store: tell them all to refresh (theme, mode, overlay options…).
+      // Every window keeps its own store: tell them all to refresh (theme, mode, overlay optionsâ€¦).
       this.emit({ type: 'command', command: 'settingsChanged' });
       if (JSON.stringify(next.audio) !== JSON.stringify(prev.audio)) void this.session.applyAudioSettings();
       if (next.engine.tier !== prev.engine.tier) {
@@ -217,12 +217,12 @@ export class AppServices {
     if (retention.saveHistory) this.history.applyRetention(retention.historyRetentionDays);
   }
 
-  /** The user's name for the question check: profile first, else the newest résumé's title ("Jane_Doe_Resume"). */
+  /** The user's name for the question check: profile first, else the newest rÃ©sumÃ©'s title ("Jane_Doe_Resume"). */
   candidateName(): string | null {
     const fromProfile = this.knowledge.getProfile().fullName?.trim();
     if (fromProfile) return fromProfile;
     const resume = this.knowledge.listDocuments().find((d) => d.kind === 'resume');
-    const guess = resume?.title.replace(/[_\-.]+/g, ' ').replace(/\b(resume|résumé|cv|final|updated|new|\d{4})\b/gi, '').replace(/\s+/g, ' ').trim();
+    const guess = resume?.title.replace(/[_\-.]+/g, ' ').replace(/\b(resume|rÃ©sumÃ©|cv|final|updated|new|\d{4})\b/gi, '').replace(/\s+/g, ' ').trim();
     return guess && guess.split(' ').length <= 5 ? guess : null;
   }
 
@@ -277,7 +277,7 @@ export class AppServices {
   }
 
   /**
-   * The newest résumé in reading order, capped so prompt + answer fit a 4K local context with up
+   * The newest rÃ©sumÃ© in reading order, capped so prompt + answer fit a 4K local context with up
    * to three other passages and the profile (the answer engine's EVIDENCE_PROMPT_CHARS budget).
    */
   stableResume(): RetrievedChunk[] {
@@ -295,7 +295,7 @@ export class AppServices {
 
   /**
    * Gets the engine ready for questions: starts speech recognition and the answer engine,
-   * loads the answer model into memory and has it pre-read the résumé. Measured.
+   * loads the answer model into memory and has it pre-read the rÃ©sumÃ©. Measured.
    */
   warmUp(): Promise<void> {
     this.warming ??= this.doWarmUp().finally(() => {
@@ -310,7 +310,7 @@ export class AppServices {
     const problem = await this.engine.start();
     if (problem) {
       this.log.warn('engine start problem', { error: problem });
-      this.emit({ type: 'toast', level: 'error', message: `${problem} Restart Doing; if it keeps happening, Settings → Engine shows what is missing.` });
+      this.emit({ type: 'toast', level: 'error', message: `${problem} Restart Doing; if it keeps happening, Settings â†’ Engine shows what is missing.` });
     }
     const r = this.resolveProvider(LOCAL_ENGINE);
     if (!r) return;
@@ -349,7 +349,7 @@ export class AppServices {
    */
   async askFromScreen(): Promise<{ requestId: string | null; error: string | null }> {
     if (!this.engine.answerModelReadsImages) {
-      return { requestId: null, error: 'The answer model on this PC can’t read the screen (it needs the NVIDIA GPU setup).' };
+      return { requestId: null, error: 'The answer model on this PC canâ€™t read the screen (it needs the NVIDIA GPU setup).' };
     }
     const t0 = performance.now();
     const shot = await captureScreen(this.windows);
@@ -375,7 +375,7 @@ export class AppServices {
   async retrieve(question: string, _signal: AbortSignal, opts?: { compact?: boolean; wide?: boolean }): Promise<{ chunks: RetrievedChunk[]; ms: number; usedVectors: boolean }> {
     const t0 = performance.now();
     const s = this.settings.get();
-    // Compact prompts carry the résumé themselves (stableResume), so its chunks here only take
+    // Compact prompts carry the rÃ©sumÃ© themselves (stableResume), so its chunks here only take
     // places: ask for that many more, so other documents still get topK (+3 when wide).
     const topK = opts?.compact ? s.knowledge.topK + 6 + (opts.wide ? 3 : 0) : s.knowledge.topK;
     const chunks = this.retriever.retrieve(question, { topK, queryVector: null, embeddingModel: null, maxResumeChunks: opts?.compact ? 6 : undefined, perDocument: opts?.wide ? 5 : 3 });
