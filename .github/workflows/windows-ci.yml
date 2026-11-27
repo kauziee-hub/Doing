@@ -28,6 +28,7 @@ jobs:
       - run: pnpm build
       # App + hardware-free e2e (CI runners have no audio devices; hardware.e2e.ts is local-only).
       - run: npx playwright test -c tests/e2e/playwright.config.ts app.e2e.ts
+      - run: node tools/fetch-sava-onnx.mjs
       - run: pnpm --filter @doing/desktop package:win
       - uses: actions/upload-artifact@v4
         with:

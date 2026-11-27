@@ -8,7 +8,7 @@
     "dev": "node scripts/prepare-release.mjs && vite",
     "build": "node scripts/prepare-release.mjs && vite build",
     "preview": "vite preview --port 4317 --strictPort",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "node scripts/prepare-release.mjs --if-missing --types-only && tsc --noEmit -p ."
   },
   "devDependencies": {
     "@fontsource-variable/outfit": "^5.3.0",

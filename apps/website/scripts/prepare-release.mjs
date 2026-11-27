@@ -17,10 +17,19 @@ const site = resolve(here, '..');
 const root = resolve(site, '..', '..');
 const releaseDir = join(root, 'apps', 'desktop', 'release');
 const desktopPkg = JSON.parse(readFileSync(join(root, 'apps', 'desktop', 'package.json'), 'utf8'));
+const metadataFile = join(site, 'src', 'release.json');
+if (process.argv.includes('--if-missing') && existsSync(metadataFile)) process.exit(0);
 const externalUrl = process.env.DOING_DOWNLOAD_URL?.trim() || null;
 if (externalUrl && !/^https:\/\//.test(externalUrl)) throw new Error('DOING_DOWNLOAD_URL must be an https:// URL');
 
 const out = { version: desktopPkg.version, file: null, url: externalUrl, sizeBytes: null, sha256: null, builtAt: null, signed: false };
+// Fresh checkouts have no generated release.json. Type checking needs only its shape;
+// the website build always replaces this unavailable-download state with real metadata.
+if (process.argv.includes('--types-only')) {
+  out.url = null;
+  writeFileSync(metadataFile, JSON.stringify(out, null, 2));
+  process.exit(0);
+}
 const downloads = join(site, 'public', 'download');
 // Never ship a stale or differently-named installer next to the current one.
 rmSync(downloads, { recursive: true, force: true });
