@@ -31,7 +31,7 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
 
         {step === 0 ? (
           <>
-            <p>Doing transcribes the calls and meetings you approve and answers questions as they come up, from your own documents, in a small overlay.</p>
+            <p>Doing writes down the calls and meetings you approve, answers questions from your own documents as they come up, and reads your screen when you ask.</p>
             <div className="ob-points">
               <div><Zap size={16} /><span><strong>Fast.</strong> Answers usually start within half a second of the question ending.</span></div>
               <div><Lock size={16} /><span><strong>Private.</strong> Everything runs on this PC. No account, no keys, nothing you say is sent anywhere.</span></div>

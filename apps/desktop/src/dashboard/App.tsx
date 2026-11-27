@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AudioLines, BookUser, History as HistoryIcon, Info, Settings as SettingsIcon, Compass } from 'lucide-react';
+import { AudioLines, BookUser, History as HistoryIcon, Info, Settings as SettingsIcon } from 'lucide-react';
 import { cx } from '@hirora/ui';
 import { useLive } from '../shared/store';
 import { useTheme } from '../shared/theme';
@@ -58,9 +58,6 @@ export function App() {
             </button>
           ))}
           <div className="dash-rail__spacer" />
-          <button type="button" data-tip="Setup guide" aria-label="Setup guide" className="dash-rail__item" onClick={() => setOnboardingOpen(true)}>
-            <Compass size={19} strokeWidth={1.8} aria-hidden="true" />
-          </button>
           {foot.map((p) => (
             <button key={p.id} type="button" data-tip={p.label} aria-label={p.label} className={cx('dash-rail__item', page === p.id && 'is-active')} aria-current={page === p.id ? 'page' : undefined} onClick={() => setPage(p.id)}>
               <p.icon size={19} strokeWidth={1.8} aria-hidden="true" />
@@ -74,7 +71,7 @@ export function App() {
         {page === 'prep' && <Prep />}
         {page === 'history' && <HistoryPage />}
         {page === 'settings' && <SettingsPage />}
-        {page === 'about' && <About />}
+        {page === 'about' && <About onGuide={() => setOnboardingOpen(true)} />}
       </main>
       {onboardingOpen ? <Onboarding onClose={() => setOnboardingOpen(false)} go={(p) => setPage(pageFor(p) ?? 'home')} /> : null}
       <Toasts />
