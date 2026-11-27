@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="What's new in each Hirora release." />
+    <meta name="description" content="What's new in each Doing release." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Changelog — Hirora" />
-    <meta property="og:description" content="What's new in each Hirora release." />
+    <meta property="og:title" content="Changelog — Doing" />
+    <meta property="og:description" content="What's new in each Doing release." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Changelog — Hirora</title>
+    <title>Changelog — Doing</title>
   </head>
   <body>
     <!--@header-->
@@ -22,17 +22,26 @@
         <div class="wrap">
           <p class="eyebrow">Changelog</p>
           <h1>What's new</h1>
-          <p class="lede">Every release of Hirora, newest first. The full technical log is in the <a href="https://github.com/kauziee-hub/hirora/blob/main/CHANGELOG.md" rel="noopener">repository</a>.</p>
+          <p class="lede">Every release of Doing, newest first. The full technical log is in the <a href="https://github.com/kauziee-hub/hirora/blob/main/CHANGELOG.md" rel="noopener">repository</a>.</p>
         </div>
       </header>
 
       <div class="page-body">
         <div class="wrap">
           <section class="release">
-            <div><h2>0.3.7</h2><time datetime="2026-11-27">27 November 2026</time><span class="badge">Latest</span></div>
+            <div><h2>0.4.0</h2><time datetime="2026-11-27">27 November 2026</time><span class="badge">Latest</span></div>
+            <ul>
+              <li><strong>Hirora is now Doing</strong>, with a new logo. Your settings, documents and downloaded models stay where they are.</li>
+              <li>Clearer sections: Meetings, Prep (your profile and documents), History and Settings.</li>
+              <li>Shorter texts everywhere.</li>
+              <li><strong>Updates from inside the app:</strong> Settings → Updates checks for a new version and installs it in one click.</li>
+            </ul>
+          </section>
+          <section class="release">
+            <div><h2>0.3.7</h2><time datetime="2026-11-27">27 November 2026</time></div>
             <ul>
               <li><strong>Answer from the screen in one key.</strong> Ctrl+Shift+O (or the camera button on the overlay) reads the question on your screen and answers it, with nothing to type or paste. For a coding problem: the approach, the code and the complexity.</li>
-              <li>“Can you solve this?”, “here’s the problem” or “open the link I sent” now make Hirora look at your screen.</li>
+              <li>“Can you solve this?”, “here’s the problem” or “open the link I sent” now make Doing look at your screen.</li>
               <li>Sharper screen captures, so small text on high-resolution laptops is read correctly.</li>
               <li>Answers no longer show source markers like [S1] or the list of sources under them.</li>
             </ul>
@@ -48,23 +57,23 @@
           <section class="release">
             <div><h2>0.3.5</h2><time datetime="2026-11-26">26 November 2026</time></div>
             <ul>
-              <li>A follow-up about one thing you’ve used (“random forest? what did you do with it?”) is answered from your own documents only; an example in Hirora’s instructions could slip into answers.</li>
+              <li>A follow-up about one thing you’ve used (“random forest? what did you do with it?”) is answered from your own documents only; an example in Doing’s instructions could slip into answers.</li>
               <li>“What do you know in ML?” lists methods and models, not web frameworks or cloud services.</li>
             </ul>
           </section>
           <section class="release">
             <div><h2>0.3.4</h2><time datetime="2026-11-26">26 November 2026</time></div>
             <ul>
-              <li><strong>Answers that sound like you talking.</strong> Asked “what do you know in ML?”, Hirora now gives the plain list, and a follow-up like “random forest? what did you do with it?” gets one or two sentences, not a story. Short answers are one to three spoken sentences, medium two to five; Expand still gives the long version.</li>
+              <li><strong>Answers that sound like you talking.</strong> Asked “what do you know in ML?”, Doing now gives the plain list, and a follow-up like “random forest? what did you do with it?” gets one or two sentences, not a story. Short answers are one to three spoken sentences, medium two to five; Expand still gives the long version.</li>
               <li>On NVIDIA graphics cards, answers no longer stop mid-sentence when you’ve added a full résumé: the answer engine now has twice the room.</li>
-              <li>Fixed: after one over-long question, later answers could come back slow or empty until Hirora was restarted.</li>
+              <li>Fixed: after one over-long question, later answers could come back slow or empty until Doing was restarted.</li>
               <li>Questions about your own work (“Did you write all this code yourself?”) no longer read the screen.</li>
             </ul>
           </section>
           <section class="release">
             <div><h2>0.3.3</h2><time datetime="2026-11-26">26 November 2026</time></div>
             <ul>
-              <li><strong>More documents, still answers.</strong> Adding several documents next to a résumé could make every answer fail, because the prompt no longer fitted the local model. Hirora now keeps the material it sends within the model's limit, résumé first, and retries with less if it ever overflows.</li>
+              <li><strong>More documents, still answers.</strong> Adding several documents next to a résumé could make every answer fail, because the prompt no longer fitted the local model. Doing now keeps the material it sends within the model's limit, résumé first, and retries with less if it ever overflows.</li>
               <li>Screen reading no longer starts on everyday phrases like “Where do you see yourself in five years?” or “How would you improve it?”. It looks at the screen only when a question points at something shown.</li>
               <li>Numbers in long document paragraphs stay intact (“0.25 s” was being split at the decimal point).</li>
             </ul>
@@ -73,7 +82,7 @@
             <div><h2>0.3.2</h2><time datetime="2026-11-24">24 November 2026</time></div>
             <ul>
               <li><strong>In a room, too.</strong> Settings → Engine → <em>Where the conversation is</em>: on a call (as before), or in a room, where one microphone hears everyone and the questions it hears are answered as well.</li>
-              <li>Without headphones your microphone picks up the call; Hirora no longer reads that copy as something you said.</li>
+              <li>Without headphones your microphone picks up the call; Doing no longer reads that copy as something you said.</li>
               <li>Answers know which lines of the transcript are yours and which are the other side's.</li>
               <li>An experimental live speech path with an end-of-turn model is included but switched off: in our tests it was accurate but not yet faster. It makes the installer about 28 MB larger.</li>
             </ul>
@@ -81,8 +90,8 @@
           <section class="release">
             <div><h2>0.3.1</h2><time datetime="2026-11-22">22 November 2026</time></div>
             <ul>
-              <li><strong>One assistant.</strong> The six modes are gone. Ask anything in your own words; Hirora answers about you, writes code with tests, explains, or summarises the call as the question needs.</li>
-              <li><strong>Reads the shared screen.</strong> When a question refers to something shown (“add RBAC to this”, “which of these routes…”), Hirora looks at the monitor you're using and answers about what's on it. The picture stays in memory and goes only to the model on your PC.</li>
+              <li><strong>One assistant.</strong> The six modes are gone. Ask anything in your own words; Doing answers about you, writes code with tests, explains, or summarises the call as the question needs.</li>
+              <li><strong>Reads the shared screen.</strong> When a question refers to something shown (“add RBAC to this”, “which of these routes…”), Doing looks at the monitor you're using and answers about what's on it. The picture stays in memory and goes only to the model on your PC.</li>
               <li>Settings → Answers is down to length, language, tone and when to use the screen.</li>
             </ul>
           </section>
@@ -90,7 +99,7 @@
             <div><h2>0.3.0</h2><time datetime="2026-11-22">22 November 2026</time></div>
             <ul>
               <li><strong>Everything runs on your PC.</strong> Speech recognition and answers now always run locally. Cloud services, API keys and provider settings are gone.</li>
-              <li><strong>One-click setup.</strong> On first launch Hirora checks your hardware and downloads the right models, verifying every file. Interrupted downloads resume.</li>
+              <li><strong>One-click setup.</strong> On first launch Doing checks your hardware and downloads the right models, verifying every file. Interrupted downloads resume.</li>
               <li><strong>Sized to your PC.</strong> NVIDIA graphics cards with 6 GB or more get the fast setup; other PCs get smaller models that run on the processor.</li>
               <li>Questions asked right after starting wait for the engine instead of failing.</li>
               <li>A cleaner app: a shorter first-run guide and simpler settings.</li>
@@ -127,7 +136,7 @@
           <section class="release">
             <div><h2>0.2.0</h2><time datetime="2026-11-21">21 November 2026</time></div>
             <ul>
-              <li>New name and look: VeyraCue became Hirora. Existing settings and documents carry over.</li>
+              <li>New name and look: VeyraCue became Doing. Existing settings and documents carry over.</li>
             </ul>
           </section>
           <section class="release">

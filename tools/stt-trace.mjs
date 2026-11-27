@@ -3,7 +3,7 @@
 // question through the default output with Windows SAPI (labelled TTS fixture) and records when it
 // played, the system-audio level, every live transcript update (interim and final), the speech
 // timings (perf, no text) and when the answer started. Answer text is not printed.
-//   node tools/stt-trace.mjs [profileDir] [--exe <Hirora.exe>] [--live on|off] [--detector sava|energy]
+//   node tools/stt-trace.mjs [profileDir] [--exe <Doing.exe>] [--live on|off] [--detector sava|energy]
 // Plays sound: run it on AC power, when speaking aloud is fine.
 import { _electron as electron } from '@playwright/test';
 import { execFile } from 'node:child_process';
@@ -28,7 +28,7 @@ cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud, HIRORA_STT_DEBUG: '1' } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

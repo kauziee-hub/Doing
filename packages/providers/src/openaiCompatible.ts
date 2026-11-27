@@ -13,7 +13,7 @@ interface Flavor {
   sendsTemperature: boolean;
 }
 
-/** Hirora's answer engine: Ollama's OpenAI-compatible API on loopback. */
+/** Doing's answer engine: Ollama's OpenAI-compatible API on loopback. */
 const OLLAMA_FLAVOR: Flavor = {
   // Ollama lists every pulled model, embeddings included.
   isChatModel: (id) => !/embed|bge|minilm|rerank/i.test(id),

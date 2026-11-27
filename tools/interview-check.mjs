@@ -4,7 +4,7 @@
 // listens with the profile's own mic + system settings, and reports transcripts, whether
 // each question was auto-answered and the latency, using the engine on this PC. The real
 // profile is never modified; the copy is deleted afterwards.
-//   node tools/interview-check.mjs [profileDir] [--exe <Hirora.exe>] [--system all|default|keep]
+//   node tools/interview-check.mjs [profileDir] [--exe <Doing.exe>] [--system all|default|keep]
 //     [--tier auto|gpu|cpu] [--script questions|chatter]
 // HIRORA_ENGINE_FORCE_CPU=1 keeps the answer engine off the GPU (measures a PC without one).
 import { _electron as electron } from '@playwright/test';
@@ -49,7 +49,7 @@ cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await new Promise((r) => setTimeout(r, 250));
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

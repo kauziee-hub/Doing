@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Renders the Hirora mark (same geometry as apps/desktop/src/shared/Logo.tsx)
+// Renders the Doing mark (same geometry as brand/doing-mark.svg and apps/desktop/src/shared/Logo.tsx)
 // to PNGs with a tiny dependency-free encoder + 4x4 supersampling.
 //   node tools/make-icons.mjs
 import { deflateSync } from 'node:zlib';
@@ -61,22 +61,20 @@ function roundedRect(x, y, w, h, r) {
   const qy = Math.abs(y - h / 2) - (h / 2 - r);
   return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
 }
-function segment(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+// Same as brand/doing-mark.svg: the wordmark's D (stroke 22, miter corners) at translate(13 15)
+// scale(0.34) on the ink squircle, and the blush dot the ı gave up at (48.5, 17) r 5.6.
+function inD(x, y) {
+  const u = (x - 13) / 0.34;
+  const v = (y - 15) / 0.34;
+  if (u < 0 || v < 0 || v > 100) return false;
+  if (u <= 22) return true; // stem
+  if (u <= 40) return v <= 22 || v >= 78; // top and bottom bars
+  return Math.abs(Math.hypot(u - 40, v - 50) - 39) <= 11; // bowl
 }
-// Upper half of a circle (the "h" shoulder / aurora arch).
-function upperArc(px, py, cx, cy, r) {
-  if (py <= cy) return Math.abs(Math.hypot(px - cx, py - cy) - r);
-  return Math.min(Math.hypot(px - (cx - r), py - cy), Math.hypot(px - (cx + r), py - cy));
-}
-// Same as Logo.tsx: M20 16.5 V49 M20 36.5 A10 10 0 0 1 40 36.5 V49, dot (45,16) r 5.4.
 function mark(x, y) {
   if (roundedRect(x, y, 64, 64, 19) > 0) return [0, 0, 0, 0];
-  if (Math.hypot(x - 45, y - 16) <= 5.4) return [...BLUSH, 1];
-  const h = Math.min(segment(x, y, 20, 16.5, 20, 49), upperArc(x, y, 30, 36.5, 10), segment(x, y, 40, 36.5, 40, 49));
-  if (h <= 3.6) return [...WHITE, 1];
+  if (Math.hypot(x - 48.5, y - 17) <= 5.6) return [...BLUSH, 1];
+  if (inD(x, y)) return [...WHITE, 1];
   return [...INK, 1];
 }
 

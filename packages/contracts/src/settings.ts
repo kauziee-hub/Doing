@@ -1,22 +1,22 @@
 import { z } from 'zod';
 
 /**
- * Hirora runs one engine, entirely on this PC (ADR 0012): whisper.cpp for live
- * transcription and an Ollama runtime that Hirora installs and manages for answers.
+ * Doing runs one engine, entirely on this PC (ADR 0012): whisper.cpp for live
+ * transcription and an Ollama runtime that Doing installs and manages for answers.
  * The ids below name those two pieces inside the app; users never pick a provider.
  */
 export const PROVIDER_IDS = ['ollama'] as const;
 export const ProviderIdSchema = z.enum(PROVIDER_IDS);
 export type ProviderId = z.infer<typeof ProviderIdSchema>;
-/** The answer engine (Hirora's own Ollama runtime on loopback). */
+/** The answer engine (Doing's own Ollama runtime on loopback). */
 export const LOCAL_ENGINE: ProviderId = 'ollama';
 
 /** `audio.systemDeviceId` value meaning "every output device, mixed". */
 export const SYSTEM_ALL_OUTPUTS = 'all';
-/** Hirora's private Ollama server. A separate port from a user's own Ollama (11434), so the two never collide. */
+/** Doing's private Ollama server. A separate port from a user's own Ollama (11434), so the two never collide. */
 export const ENGINE_OLLAMA_PORT = 11435;
 export const ENGINE_OLLAMA_URL = `http://127.0.0.1:${ENGINE_OLLAMA_PORT}/v1`;
-/** whisper.cpp server started by Hirora (loopback only). */
+/** whisper.cpp server started by Doing (loopback only). */
 export const ENGINE_WHISPER_URL = 'http://127.0.0.1:8178';
 
 export const STT_PROVIDER_IDS = ['local-whisper'] as const;
@@ -226,7 +226,7 @@ export const AppSettingsSchema = z.object({
     .prefault({}),
   updates: z
     .object({
-      /** Ask GitHub once a day whether a newer Hirora is out, and say so (it never installs on its own). */
+      /** Ask GitHub once a day whether a newer Doing is out, and say so (it never installs on its own). */
       checkAutomatically: z.boolean().default(true),
     })
     .prefault({}),

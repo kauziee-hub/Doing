@@ -56,7 +56,7 @@ export class UpdateManager {
     this.s = { ...this.s, phase: 'checking', error: null };
     try {
       const res = await this.deps.fetchImpl(LATEST_RELEASE_API, {
-        headers: { accept: 'application/vnd.github+json', 'user-agent': `Hirora/${this.deps.current}` },
+        headers: { accept: 'application/vnd.github+json', 'user-agent': `Doing/${this.deps.current}` },
         signal: AbortSignal.timeout(15_000),
       });
       if (res.status === 404) throw new Error('No release is published on GitHub yet.');
@@ -66,7 +66,7 @@ export class UpdateManager {
       this.s = { ...this.s, phase: info.newer ? 'available' : 'up-to-date', latest: info.latest, notes: info.notes, pageUrl: info.pageUrl, bytes: info.bytes, done: null, checkedAt: Date.now() };
       if (!byUser && info.newer && this.notified !== info.latest) {
         this.notified = info.latest;
-        this.deps.notify(`Hirora ${info.latest} is available. Settings → Updates installs it.`);
+        this.deps.notify(`Doing ${info.latest} is available. Settings → Updates installs it.`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

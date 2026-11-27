@@ -2,7 +2,7 @@
 // Real screenshots of the app for the website, taken from a FRESH profile (no personal
 // data) using the engine already installed on this PC. Writes test-results/screenshots/
 // local-home-light.png, local-home-dark.png, local-engine.png and local-overlay.png.
-//   node tools/site-shots.mjs [--exe <Hirora.exe>]
+//   node tools/site-shots.mjs [--exe <Doing.exe>]
 import { _electron as electron } from '@playwright/test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,7 +25,7 @@ const byTitle = async (t) => {
   }
   throw new Error(`no window ${t}`);
 };
-const dash = await byTitle('Hirora');
+const dash = await byTitle('Doing');
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);
 await call('settings:update', { onboardingComplete: true });
 // Settings changes re-apply screen-capture protection, and a window behind others stops
@@ -47,30 +47,30 @@ const ready = (title) =>
     w.showInactive();
     w.moveTop();
   }, title);
-await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora').setSize(1280, 860));
+await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing').setSize(1280, 860));
 const st = await call('engine:status');
 if (!st.ready) throw new Error('engine not installed on this PC');
 for (const theme of ['light', 'dark']) {
   await call('settings:update', { appearance: { theme } });
   await dash.reload();
   await dash.getByRole('heading', { name: /Ready when/ }).waitFor();
-  await ready('Hirora');
+  await ready('Doing');
   await sleep(800);
-  await shot('Hirora', `local-home-${theme}.png`);
+  await shot('Doing', `local-home-${theme}.png`);
 }
 await call('settings:update', { appearance: { theme: 'light' } });
 await dash.reload();
 await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Settings' }).click();
 await dash.getByRole('tab', { name: 'Engine' }).click();
-await ready('Hirora');
+await ready('Doing');
 await sleep(600);
-await shot('Hirora', 'local-engine.png');
+await shot('Doing', 'local-engine.png');
 
 // Overlay with a real answer from the local model.
 await call('overlay:toggle');
-await byTitle('Hirora Overlay');
+await byTitle('Doing Overlay');
 await app.evaluate(({ BrowserWindow }) => {
-  const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora Overlay');
+  const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing Overlay');
   w.setContentProtection(false);
   w.setBounds({ x: 60, y: 60, width: 460, height: 640 });
 });
@@ -89,9 +89,9 @@ await dash.evaluate((id) => new Promise((res) => {
     }
   });
 }), r.requestId);
-await ready('Hirora Overlay');
+await ready('Doing Overlay');
 await sleep(800);
-await shot('Hirora Overlay', 'local-overlay.png');
+await shot('Doing Overlay', 'local-overlay.png');
 await app.close();
 rmSync(ud, { recursive: true, force: true });
 console.log('saved', ['local-home-light.png', 'local-home-dark.png', 'local-engine.png', 'local-overlay.png'].map((f) => join(out, f)).join('\n'));

@@ -31,7 +31,7 @@ export function ConsentModal({ onCancel }: { onCancel: () => void }) {
     <div className="ov-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
       <div className="ov-modal__box">
         <h2 id="consent-title"><ShieldAlert size={16} /> Start listening?</h2>
-        <p>Hirora will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>{settings.answer.screen !== 'off' ? <>; when a question refers to something shown, it also looks at <strong>your screen</strong></> : null}. Nothing is sent anywhere, and audio and screen captures are never saved.</p>
+        <p>Doing will capture <strong>{sources.join(' and ') || 'no sources (enable one in Settings → Audio)'}</strong> and transcribe it <strong>on this PC</strong>{settings.answer.screen !== 'off' ? <>; when a question refers to something shown, it also looks at <strong>your screen</strong></> : null}. Nothing is sent anywhere, and audio and screen captures are never saved.</p>
         <p className="ov-muted">Only continue if everyone in the conversation has agreed to be recorded/transcribed and AI assistance is allowed in this setting (many interviews and assessments forbid it).</p>
         {err ? <p className="ov-error">{err}</p> : null}
         <div className="vc-row" style={{ justifyContent: 'flex-end' }}>
@@ -290,7 +290,7 @@ export function Overlay() {
 
       {!providerReady ? (
         <div className="ov-setup">
-          {engine?.setup === 'running' ? 'Hirora is still setting up on this PC.' : 'Hirora isn’t set up on this PC yet.'} <button type="button" className="ov-link" onClick={() => void invoke('dashboard:show', { page: 'home' })}>{engine?.setup === 'running' ? 'See progress' : 'Set up now'}</button>
+          {engine?.setup === 'running' ? 'Doing is still setting up on this PC.' : 'Doing isn’t set up on this PC yet.'} <button type="button" className="ov-link" onClick={() => void invoke('dashboard:show', { page: 'home' })}>{engine?.setup === 'running' ? 'See progress' : 'Set up now'}</button>
         </div>
       ) : null}
 

@@ -8,8 +8,9 @@ import { PageHeader } from '../App';
 import { useLive } from '../../shared/store';
 import { EngineSetup } from '../EngineSetup';
 import { Markdown } from '../../shared/Markdown';
+import { Performance } from './Performance';
 
-const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates'] as const;
+const TABS = ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates', 'Performance'] as const;
 type Tab = (typeof TABS)[number];
 
 export function usePatch() {
@@ -34,11 +35,11 @@ function EngineTab() {
   return (
     <>
       <Card title="On this PC">
-        <p className="dash-small" style={{ marginTop: 0 }}>Speech recognition (whisper.cpp) and the answer model (Ollama runtime) run only on this computer, on 127.0.0.1. No account or key is involved and nothing you say is sent anywhere.</p>
+        <p className="dash-small" style={{ marginTop: 0 }}>Speech recognition and answers run only on this PC. Nothing you say is sent anywhere.</p>
         <EngineSetup />
       </Card>
       <Card title="Hardware">
-        <Field label="Run the engine on" hint="Automatic uses the graphics card when it is an NVIDIA GPU with at least 6 GB, otherwise the processor. Switching downloads the matching models.">
+        <Field label="Run the engine on" hint="Automatic uses an NVIDIA card with 6 GB or more, otherwise the processor. Switching downloads other models.">
           <select className="vc-select" value={s.engine.tier} disabled={engine?.setup === 'running'} onChange={(e) => void patch({ engine: { tier: e.target.value } })}>
             <option value="auto">Automatic (recommended)</option>
             <option value="gpu">NVIDIA graphics card — large Whisper + Qwen 3.5 4B</option>
@@ -52,10 +53,10 @@ function EngineTab() {
             <input className="vc-input" value={s.stt.language} onChange={(e) => void patch({ stt: { language: e.target.value.trim() } })} />
           </Field>
         </div>
-        <Field label="Custom vocabulary" hint="Names, products, acronyms Whisper should expect (one per line, up to 100). Skills and the company from your profile are added automatically.">
+        <Field label="Custom vocabulary" hint="Names and terms to expect, one per line. Your profile's skills and company are added automatically.">
           <textarea className="vc-textarea" defaultValue={s.stt.customVocabulary.join('\n')} onBlur={(e) => void patch({ stt: { customVocabulary: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 100) } })} />
         </Field>
-        <Field label="Where the conversation is" hint="On a call, the other side comes through system audio and your microphone is you. In a room, one microphone hears everyone, so every question it hears can be answered.">
+        <Field label="Where the conversation is" hint="On a call, the other side is system audio. In a room, one microphone hears everyone.">
           <select className="vc-select" value={s.stt.captureMode} onChange={(e) => void patch({ stt: { captureMode: e.target.value } })}>
             <option value="two-stream">On a call (system audio is the other side)</option>
             <option value="single-mic">In a room (one microphone for everyone)</option>
@@ -105,7 +106,7 @@ function AudioTab() {
         <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '14px 0' }} />
         <Toggle checked={s.audio.systemEnabled} label="Capture system audio (WASAPI loopback)" description="What plays through your speakers/headphones, e.g. the other meeting participants (labelled “System”)." onChange={(v) => void patch({ audio: { systemEnabled: v } })} />
         <div className="vc-grid2">
-          <Field label="Output device to capture" hint="“All” hears the other side wherever the call app plays it, even when a Bluetooth headset switches to its hands-free mode.">
+          <Field label="Output device to capture" hint="“All” hears the call on any output, including Bluetooth hands-free.">
             <select className="vc-select" value={s.audio.systemDeviceId ?? ''} onChange={(e) => void patch({ audio: { systemDeviceId: e.target.value || null } })}>
               <option value="all">All speakers & headphones (recommended)</option>
               <option value="">Windows default only{devices?.render.find((d) => d.isDefault) ? ` (${devices.render.find((d) => d.isDefault)!.name})` : ''}</option>
@@ -132,10 +133,10 @@ function AudioTab() {
         {testRes ? <div className="dash-small" style={{ marginTop: 8 }}>{testRes}</div> : null}
       </Card>
       <Card title="Noise handling">
-        <Field label={`Noise gate: ${s.audio.noiseGateDbfs <= -89 ? 'off (stream everything)' : `${s.audio.noiseGateDbfs} dBFS`}`} hint="Sound below this level is ignored (an adaptive voice detector with 300 ms pre-roll opens the gate). Lower = more sensitive; leftmost = off.">
+        <Field label={`Noise gate: ${s.audio.noiseGateDbfs <= -89 ? 'off (stream everything)' : `${s.audio.noiseGateDbfs} dBFS`}`} hint="Quieter sound is ignored. Lower is more sensitive; leftmost is off.">
           <input type="range" min={-90} max={-30} step={1} value={s.audio.noiseGateDbfs} onChange={(e) => void patch({ audio: { noiseGateDbfs: Number(e.target.value) } })} />
         </Field>
-        <p className="dash-small" style={{ margin: 0 }}>Device changes (headset plugged in, Bluetooth reconnect, new default device) are picked up automatically within about a second. Capture pauses on sleep; resume from the overlay.</p>
+        <p className="dash-small" style={{ margin: 0 }}>Device changes are picked up within a second. Listening pauses when the PC sleeps.</p>
       </Card>
     </>
   );
@@ -161,7 +162,7 @@ function AnswersTab() {
       <Card title="Your screen">
         <Field
           label="Look at the screen with a question"
-          hint={engine?.tier === 'cpu' ? 'Needs the NVIDIA graphics-card setup: the processor model can’t read images.' : 'Captures the monitor you’re using, in memory only, and sends it to the answer model on this PC. Hirora’s own windows are left out.'}
+          hint={engine?.tier === 'cpu' ? 'Needs the NVIDIA graphics-card setup: the processor model can’t read images.' : 'Captures the monitor you’re using, in memory only, and sends it to the answer model on this PC. Doing’s own windows are left out.'}
         >
           <select className="vc-select" value={a.screen} disabled={engine?.tier === 'cpu'} onChange={(e) => void patch({ answer: { screen: e.target.value } })}>
             <option value="auto">When the question refers to it (recommended)</option>
@@ -172,7 +173,7 @@ function AnswersTab() {
       </Card>
       <Card title="Automatic answering">
         <Toggle checked={a.autoAnswer} label="Answer detected questions automatically" description="Otherwise press Ctrl+Shift+Enter (or the Answer button)." onChange={(v) => void patch({ answer: { autoAnswer: v } })} />
-        <div className="dash-small">Hirora only knows which device audio came from, not who spoke. Choose which sources may trigger automatic answers:</div>
+        <div className="dash-small">Doing only knows which device audio came from, not who spoke. Choose which sources may trigger automatic answers:</div>
         {(['system', 'app', 'mic'] as const).map((src) => (
           <Toggle key={src} checked={a.autoAnswerSources.includes(src)} label={src === 'mic' ? 'Microphone' : src === 'system' ? 'System audio' : 'Selected application audio'} onChange={(v) => void patch({ answer: { autoAnswerSources: v ? [...new Set([...a.autoAnswerSources, src])] : a.autoAnswerSources.filter((x) => x !== src) } })} />
         ))}
@@ -216,8 +217,8 @@ function OverlayTab() {
       <Card title="Screen-capture privacy (best-effort)">
         <Toggle
           checked={o.contentProtection}
-          label="Hide Hirora from screen sharing and screenshots"
-          description="On by default. Covers the overlay and this main window. You still see them; Windows leaves them out of screen captures (SetWindowDisplayAffinity via Electron setContentProtection), so your own screenshots and recordings won't show it either. Not every capture method honours it (cameras, some remote-desktop and hardware capture never will). This is a privacy convenience — Hirora does not claim the overlay is undetectable and does not try to evade monitoring or proctoring software."
+          label="Hide Doing from screen sharing and screenshots"
+          description="On by default for the overlay and this window; your own screenshots leave them out too. Cameras and some remote-desktop tools ignore it. A privacy convenience, not a way to hide AI use from anyone entitled to know."
           onChange={(v) => void patch({ overlay: { contentProtection: v } })}
         />
         <div className="vc-row">
@@ -287,13 +288,13 @@ function updateLine(u: UpdateStatus): string {
     case 'up-to-date':
       return 'This is the latest version.';
     case 'available':
-      return `Hirora ${u.latest} is available.`;
+      return `Doing ${u.latest} is available.`;
     case 'downloading':
       return `Downloading ${u.latest}: ${mb(u.done)} of ${mb(u.bytes)}…`;
     case 'verifying':
       return 'Checking the download’s SHA-256…';
     case 'installing':
-      return 'Installing. Hirora closes now and opens again when the update is done.';
+      return 'Installing. Doing closes now and opens again when the update is done.';
     case 'error':
       return u.error ?? 'Something went wrong.';
   }
@@ -317,7 +318,7 @@ function UpdatesTab() {
   const pct = u?.bytes ? Math.min(100, ((u.done ?? 0) / u.bytes) * 100) : 0;
   return (
     <>
-      <Card title="Hirora version" actions={<Button size="sm" icon={<RefreshCw size={12} />} disabled={busy} onClick={async () => setU(await invoke('update:check'))}>Check for updates</Button>}>
+      <Card title="Doing version" actions={<Button size="sm" icon={<RefreshCw size={12} />} disabled={busy} onClick={async () => setU(await invoke('update:check'))}>Check for updates</Button>}>
         <p className="dash-small" style={{ marginTop: 0 }}>
           You have <strong>{u?.current ?? '…'}</strong>. {u ? updateLine(u) : null}
         </p>
@@ -345,7 +346,7 @@ function UpdatesTab() {
             </div>
             <p className="dash-small">
               {u.canInstall
-                ? `The installer (${Math.round((u.bytes ?? 0) / 1048576)} MB) comes from Hirora's GitHub releases and must match its published SHA-256 before it runs. Hirora closes, installs the update and opens again; your settings, documents and engine stay as they are.`
+                ? `The installer (${Math.round((u.bytes ?? 0) / 1048576)} MB) comes from Doing's GitHub releases and must match its published SHA-256 before it runs. Doing closes, installs the update and opens again; your settings, documents and engine stay as they are.`
                 : 'This is a development build: it can check for updates but not install them.'}
             </p>
           </>
@@ -353,7 +354,7 @@ function UpdatesTab() {
       </Card>
       <Card title="Automatic check">
         <Toggle checked={s.updates.checkAutomatically} label="Check for a new version once a day" onChange={(v) => void patch({ updates: { checkAutomatically: v } })} />
-        <p className="dash-small">Hirora asks GitHub which version is the latest and tells you when there is a newer one. Nothing about you, your calls or your documents is sent, and nothing installs until you press the button.</p>
+        <p className="dash-small">Asks GitHub for the latest version number. Nothing about you is sent, and nothing installs until you press the button.</p>
       </Card>
     </>
   );
@@ -372,7 +373,7 @@ function PrivacyTab() {
           <li>Answers: the question, a few passages from your documents, your profile summary (if allowed below) and the recent transcript go to the answer model on this PC.</li>
           <li>Clipboard: used only after you preview and press Send. Possible secrets are flagged and can be redacted.</li>
           <li>Screen: looked at when a question points at it or you press Ctrl+Shift+O; the picture stays in memory and only the model on this PC reads it.</li>
-          <li>Internet: the one-time engine download (GitHub, Hugging Face and the Ollama model library) and, unless you turn it off in Updates, a daily check on GitHub for a newer Hirora.</li>
+          <li>Internet: the one-time engine download (GitHub, Hugging Face and the Ollama model library) and, unless you turn it off in Updates, a daily check on GitHub for a newer Doing.</li>
         </ul>
         <Toggle checked={p.includeProfileInPrompts} label="Include personal profile summary in prompts" onChange={(v) => void patch({ privacy: { includeProfileInPrompts: v } })} />
         <Toggle checked={p.includeDocumentsInPrompts} label="Include retrieved document passages in prompts" onChange={(v) => void patch({ privacy: { includeDocumentsInPrompts: v } })} />
@@ -387,11 +388,11 @@ function PrivacyTab() {
             variant="danger"
             icon={<Trash2 size={13} />}
             onClick={async () => {
-              const typed = prompt('This deletes ALL Hirora data on this computer: documents, profiles, history, timings and settings (the downloaded engine stays). Type DELETE to confirm.');
+              const typed = prompt('This deletes ALL Doing data on this computer: documents, profiles, history, timings and settings (the downloaded engine stays). Type DELETE to confirm.');
               if (typed === 'DELETE') {
                 await invoke('data:deleteAll', { confirm: 'DELETE' });
                 await useLive.getState().refreshSettings();
-                toast('info', 'All Hirora data deleted.');
+                toast('info', 'All Doing data deleted.');
               }
             }}
           >
@@ -441,6 +442,7 @@ export function SettingsPage() {
       {tab === 'Hotkeys' && <HotkeysTab />}
       {tab === 'Privacy & data' && <PrivacyTab />}
       {tab === 'Updates' && <UpdatesTab />}
+      {tab === 'Performance' && <Performance bare />}
     </>
   );
 }

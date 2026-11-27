@@ -25,7 +25,7 @@ export class TrayController {
   create(): void {
     const img = nativeImage.createFromPath(iconPath('tray.png'));
     this.tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img);
-    this.tray.setToolTip('Hirora');
+    this.tray.setToolTip('Doing');
     this.tray.on('click', () => this.actions.showDashboard());
     this.refresh();
   }
@@ -33,7 +33,7 @@ export class TrayController {
   refresh(): void {
     if (!this.tray) return;
     const listening = this.actions.isListening();
-    this.tray.setToolTip(listening ? 'Hirora — LISTENING (audio is being transcribed)' : 'Hirora — idle');
+    this.tray.setToolTip(listening ? 'Doing — LISTENING (audio is being transcribed)' : 'Doing — idle');
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: listening ? '● Listening — stop' : 'Start listening…', click: () => this.actions.toggleListening() },
@@ -41,7 +41,7 @@ export class TrayController {
         { label: 'Show dashboard', click: () => this.actions.showDashboard() },
         { label: 'Show / hide overlay', click: () => this.actions.toggleOverlay() },
         { type: 'separator' },
-        { label: 'Quit Hirora', click: () => this.actions.quit() },
+        { label: 'Quit Doing', click: () => this.actions.quit() },
       ]),
     );
   }

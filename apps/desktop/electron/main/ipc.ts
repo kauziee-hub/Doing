@@ -162,7 +162,7 @@ export function registerIpc(ctx: IpcContext): void {
     'session:start': async (p) => {
       IpcRequestSchemas['session:start'].parse(p);
       if (!svc.engine.status().ready) {
-        svc.emit({ type: 'toast', level: 'warn', message: 'Finish setting up Hirora first: open Home and press Set up.' });
+        svc.emit({ type: 'toast', level: 'warn', message: 'Finish setting up Doing first: open Home and press Set up.' });
         windows.showDashboard();
         return svc.session.snapshot();
       }
@@ -261,7 +261,7 @@ export function registerIpc(ctx: IpcContext): void {
       const { displayId } = IpcRequestSchemas['context:captureScreen'].parse(p);
       const display = displayId !== undefined ? screen.getAllDisplays().find((d) => d.id === displayId) ?? screen.getPrimaryDisplay() : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
       const overlayVisible = windows.overlay?.isVisible() ?? false;
-      // Keep Hirora's own overlay out of the screenshot.
+      // Keep Doing's own overlay out of the screenshot.
       if (overlayVisible) windows.overlay?.hide();
       await new Promise((r) => setTimeout(r, 180));
       try {
@@ -297,7 +297,7 @@ export function registerIpc(ctx: IpcContext): void {
       const { kind } = IpcRequestSchemas['knowledge:pickFiles'].parse(p);
       const parent = windows.dashboard ?? undefined;
       const opts = {
-        title: 'Add documents to Hirora',
+        title: 'Add documents to Doing',
         properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
         filters: [
           { name: 'Documents', extensions: ['pdf', 'docx', 'txt', 'md', 'markdown', 'csv', 'json', 'jsonl'] },
@@ -413,7 +413,7 @@ export function registerIpc(ctx: IpcContext): void {
         method: `manual:${tool}`,
         description: `Manual test with ${tool}${notes ? ` — ${notes}` : ''}`,
         result,
-        detail: 'Recorded by the user; not measured by Hirora.',
+        detail: 'Recorded by the user; not measured by Doing.',
         contentProtectionEnabled: svc.settings.get().overlay.contentProtection,
         testedAt: Date.now(),
         osRelease: `Windows ${release()}`,
@@ -431,7 +431,7 @@ export function registerIpc(ctx: IpcContext): void {
       for (const sp of svc.knowledge.listSessionProfiles()) svc.knowledge.deleteSessionProfile(sp.id);
       svc.db.exec("DELETE FROM kv; DELETE FROM perf_events; DELETE FROM usage_events; DELETE FROM capture_results; DELETE FROM embeddings;");
       svc.db.exec('VACUUM;');
-      // API keys saved by Hirora 0.2.x (encrypted) are removed too.
+      // API keys saved by Doing 0.2.x (encrypted) are removed too.
       await rm(join(app.getPath('userData'), 'secrets.json'), { force: true });
       svc.settings.replace(defaultSettings());
       ctx.hotkeys.registerAll();

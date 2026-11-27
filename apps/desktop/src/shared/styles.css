@@ -1,4 +1,4 @@
-/* Hirora design system
+/* Doing design system
    Light: warm paper canvas, white cards, ink-navy anchors, pastel tiles, ink pill buttons.
    Dark: deep ink canvas, raised slate cards, the same pastels as tinted accents. */
 @import '@fontsource-variable/outfit';
@@ -107,8 +107,7 @@ code { font-family: var(--mono); font-size: 0.88em; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Wordmark */
-.vc-wordmark { font-weight: 600; letter-spacing: -0.02em; color: var(--text); line-height: 1; }
-.vc-wordmark__b { font-weight: 300; }
+.vc-wordmark { display: block; color: var(--text); flex: none; }
 
 /* ── Buttons: ink pills ── */
 .vc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 18px; border-radius: 999px;

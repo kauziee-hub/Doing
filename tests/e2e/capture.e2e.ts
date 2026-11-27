@@ -93,7 +93,7 @@ async function windowByTitle(title: string): Promise<Page> {
   }
   throw new Error(`window "${title}" not found`);
 }
-const dashboard = () => windowByTitle('Hirora');
+const dashboard = () => windowByTitle('Doing');
 
 test('the overlay is left out of a real browser screen share, on by default', async () => {
   const dash = await dashboard();
@@ -102,16 +102,16 @@ test('the overlay is left out of a real browser screen share, on by default', as
 
   // Show the overlay the way the hotkey does, then paint the probe (as the in-app check does).
   await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle'));
-  const overlay = await windowByTitle('Hirora Overlay');
+  const overlay = await windowByTitle('Doing Overlay');
   await overlay.waitForSelector('.ov-input, textarea, input', { timeout: 15_000 }); // renderer is up
   await app.evaluate(({ BrowserWindow }) => {
-    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora Overlay')!;
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing Overlay')!;
     w.setOpacity(1);
     w.webContents.send('hirora:live', { type: 'command', command: 'captureProbe', arg: true });
   });
   await overlay.waitForSelector('.ov-probe', { timeout: 5_000 });
   const geo = await app.evaluate(({ BrowserWindow, screen }) => {
-    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora Overlay')!;
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing Overlay')!;
     const b = w.getBounds();
     const d = screen.getDisplayMatching(b);
     return { b, d: d.bounds, primary: d.id === screen.getPrimaryDisplay().id, displays: screen.getAllDisplays().length };
@@ -168,7 +168,7 @@ test('the overlay is left out of a real browser screen share, on by default', as
   // The main window follows the same setting (it can show the résumé, transcript and answers).
   await dash.evaluate(() => (window as unknown as Bridge).hirora.invoke('overlay:toggle')); // hide the overlay
   const dashGeo = await app.evaluate(({ BrowserWindow, screen }) => {
-    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Hirora')!;
+    const w = BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Doing')!;
     const d = screen.getPrimaryDisplay().bounds;
     w.setBounds({ x: d.x + Math.round(d.width * 0.45), y: d.y + Math.round(d.height * 0.2), width: 920, height: 620 });
     w.setAlwaysOnTop(true, 'screen-saver');

@@ -49,7 +49,7 @@ test.beforeAll(async () => {
   userData = mkdtempSync(join(tmpdir(), 'hirora-hw-'));
   app = await electron.launch({ executablePath: ELECTRON, args: LAUNCH_ARGS, env: { ...process.env, HIRORA_USER_DATA: userData, HIRORA_ENGINE_WHISPER_PORT: '8189', HIRORA_ENGINE_OLLAMA_PORT: '11445' } });
   for (let i = 0; i < 60 && !dash; i++) {
-    for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+    for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
     if (!dash) await new Promise((r) => setTimeout(r, 250));
   }
   await call(dash, 'settings:update', { onboardingComplete: true });

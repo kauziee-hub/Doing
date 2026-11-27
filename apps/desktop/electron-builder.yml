@@ -1,8 +1,8 @@
 # All runtime code is bundled by electron-vite. The one runtime dependency is onnxruntime-node
 # (native, for the SAVA turn model): only its Windows x64 CPU build is packaged.
 appId: app.hirora.desktop
-productName: Hirora
-copyright: Copyright © 2026 Hirora contributors
+productName: Doing
+copyright: Copyright © 2026 Doing contributors
 directories:
   output: release
   buildResources: resources
@@ -34,7 +34,7 @@ win:
     - target: nsis
       arch: [x64]
   icon: resources/icon.png
-  executableName: Hirora
+  executableName: Doing
   requestedExecutionLevel: asInvoker
 nsis:
   oneClick: false
@@ -43,9 +43,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Hirora
-  uninstallDisplayName: Hirora
+  shortcutName: Doing
+  uninstallDisplayName: Doing
   deleteAppDataOnUninstall: false
-  artifactName: Hirora-Setup-${version}-x64-unsigned.${ext}
+  artifactName: Doing-Setup-${version}-x64-unsigned.${ext}
 electronLanguages: [en-US]
 publish: null

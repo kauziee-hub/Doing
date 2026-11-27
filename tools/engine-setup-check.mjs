@@ -3,7 +3,7 @@
 // system Ollama, no models), presses "Set up" through the real IPC, and records every
 // download, checksum, unpack and model pull as it happens, then asks typed questions and
 // reports the answers and their first-token latency. Real network, real files.
-//   node tools/engine-setup-check.mjs <engineDir> [--tier cpu|gpu] [--exe <Hirora.exe>] [--keep]
+//   node tools/engine-setup-check.mjs <engineDir> [--tier cpu|gpu] [--exe <Doing.exe>] [--keep]
 // --tier cpu also sets HIRORA_ENGINE_FORCE_CPU=1 so the answer model stays off the GPU,
 // which is what a PC without an NVIDIA card gets.
 import { _electron as electron } from '@playwright/test';
@@ -33,7 +33,7 @@ const stamp = () => `${((Date.now() - t0) / 1000).toFixed(0).padStart(5)} s`;
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await new Promise((r) => setTimeout(r, 250));
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

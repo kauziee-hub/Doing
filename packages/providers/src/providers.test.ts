@@ -1,6 +1,6 @@
 /**
  * FIXTURE TESTS: a local HTTP server speaks the OpenAI-compatible chat SSE format
- * that Hirora's Ollama runtime serves. They verify our parsing, error mapping and
+ * that Doing's Ollama runtime serves. They verify our parsing, error mapping and
  * retries; they are not evidence that a real model answers well. Fixtures are
  * never used by the app at runtime.
  */

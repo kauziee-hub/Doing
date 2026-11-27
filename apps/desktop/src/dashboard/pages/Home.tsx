@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowUp, BookOpen, Check, Code2, Eye, Headphones, Lightbulb, MessagesSquare, Mic, MonitorUp, NotebookPen, Pause, Play, Sparkles, Square, UserRound, Waves,
+  ArrowUp, BookOpen, Check, Eye, Headphones, Mic, Pause, Play, Sparkles, Square, UserRound, Waves,
 } from 'lucide-react';
 import type { DocumentSummary } from '@hirora/contracts';
 import { Button, Card, LevelMeter, cx } from '@hirora/ui';
@@ -9,16 +9,6 @@ import { useLive } from '../../shared/store';
 import { AnswerView, ConsentModal, TranscriptLine } from '../../overlay/Overlay';
 import { PageHeader } from '../App';
 import { EngineSetup } from '../EngineSetup';
-
-/** What the one assistant does; information only (there is nothing to pick). */
-const ABILITIES: Array<{ icon: typeof Mic; label: string; hint: string }> = [
-  { icon: MessagesSquare, label: 'Answers as they ask', hint: 'Questions about you, concepts, anything' },
-  { icon: MonitorUp, label: 'Reads the shared screen', hint: '“Add RBAC to this code”' },
-  { icon: Code2, label: 'Writes and fixes code', hint: 'Code, complexity, tests' },
-  { icon: BookOpen, label: 'Uses your documents', hint: 'Résumé, notes, job description' },
-  { icon: NotebookPen, label: 'Summarises on request', hint: 'Decisions and action items' },
-  { icon: Lightbulb, label: 'Explains simply', hint: 'One click: simpler, shorter, deeper' },
-];
 
 function stateText(s: string | undefined): string {
   if (!s || s === 'off') return 'Off';
@@ -49,15 +39,15 @@ export function Home({ go }: { go: (page: string) => void }) {
   const src = (s: 'mic' | 'system' | 'app') => snapshot?.sources.find((x) => x.source === s);
   const sys = src('system') ?? src('app');
   const mic = src('mic');
-  const checks = [{ ok: docs.length > 0, title: 'Add your résumé (optional)', desc: 'Grounds answers about you in your real experience.', page: 'knowledge' }];
+  const checks = [{ ok: docs.length > 0, title: 'Add your résumé', desc: 'So answers about you use your real experience.', page: 'prep' }];
   const pending = checks.filter((c) => !c.ok);
 
   return (
     <>
       <PageHeader
-        light="Ready when"
-        bold="you are."
-        sub="Start listening and ask anything. Answers appear here and in the floating overlay."
+        light="Your"
+        bold="meetings"
+        sub="Listen, transcribe and answer, all on this PC."
         right={
           <span className="dash-status-pill">
             <span className={cx('dot', state === 'listening' && 'is-live', state === 'paused' && 'is-paused')} />
@@ -67,24 +57,15 @@ export function Home({ go }: { go: (page: string) => void }) {
       />
       {!ready ? (
         <Card>
-          <h2 className="dash-section-title">Set up Hirora</h2>
-          <p className="dash-section-sub">One-time download of the speech and answer engine. After this, Hirora works offline and nothing you say leaves this PC.</p>
+          <h2 className="dash-section-title">Set up Doing</h2>
+          <p className="dash-section-sub">A one-time download. After that, everything runs offline.</p>
           <EngineSetup />
         </Card>
       ) : null}
       <div className="dash-cols">
         <Card>
-          <h2 className="dash-section-title">Ask anything</h2>
-          <p className="dash-section-sub">One assistant for the whole call. It works out what each question needs, and looks at your screen when someone shows something and asks about it.</p>
-          <div className="dash-modes" aria-label="What Hirora does">
-            {ABILITIES.map(({ icon: Icon, label, hint }) => (
-              <div key={label} className="dash-mode is-static">
-                <span className="dash-mode__icon"><Icon size={22} strokeWidth={1.6} /></span>
-                <span className="dash-mode__label">{label}</span>
-                <span className="dash-mode__hint">{hint}</span>
-              </div>
-            ))}
-          </div>
+          <h2 className="dash-section-title">Session</h2>
+          <p className="dash-section-sub">Answers appear here and in the overlay. <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>O</kbd> answers whatever is on your screen.</p>
           <div className="dash-start">
             {!active ? (
               <Button variant="primary" icon={<Mic size={17} />} disabled={!ready} onClick={() => setConsent(true)}>{ready ? 'Start listening' : 'Finish setup to start'}</Button>
@@ -95,7 +76,7 @@ export function Home({ go }: { go: (page: string) => void }) {
               </>
             )}
             <Button icon={<Eye size={16} />} onClick={() => void invoke('overlay:toggle')}>Overlay</Button>
-            <span className="dash-start__note"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Space</kbd> shows it anywhere</span>
+            <span className="dash-start__note"><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Space</kbd> toggles it</span>
           </div>
         </Card>
 
@@ -125,12 +106,12 @@ export function Home({ go }: { go: (page: string) => void }) {
               <span className="dash-tile__label">Answer model</span>
               <span className="dash-tile__value">{engine?.answerModel ?? '…'} · on this PC</span>
             </button>
-            <button type="button" className="dash-tile t-blush" onClick={() => go('knowledge')}>
+            <button type="button" className="dash-tile t-blush" onClick={() => go('prep')}>
               <div className="dash-tile__row"><span className="dash-tile__icon"><BookOpen size={17} /></span><span className="dash-tile__state">{docs.length ? 'Indexed' : 'Empty'}</span></div>
-              <span className="dash-tile__label">Knowledge</span>
+              <span className="dash-tile__label">Documents</span>
               <span className="dash-tile__value">{docs.length} document{docs.length === 1 ? '' : 's'}</span>
             </button>
-            <button type="button" className="dash-tile t-sand" onClick={() => go('profiles')}>
+            <button type="button" className="dash-tile t-sand" onClick={() => go('prep')}>
               <div className="dash-tile__row"><span className="dash-tile__icon"><UserRound size={17} /></span><span className="dash-tile__state">{snapshot?.activeProfileName ? 'Active' : 'None'}</span></div>
               <span className="dash-tile__label">Profile</span>
               <span className="dash-tile__value">{snapshot?.activeProfileName ?? 'Generic answers'}</span>
@@ -161,7 +142,7 @@ export function Home({ go }: { go: (page: string) => void }) {
             <div className="ov-error">{snapshot.sources.filter((s) => s.sttError).map((s) => `${s.source}: ${s.sttError}`).join(' · ')}</div>
           ) : null}
           <div className="dash-transcript" aria-label="Transcript">
-            {segments.length === 0 ? <span className="dash-small">Transcript appears here once you start listening. Typing works any time.</span> : segments.slice(-30).map((s) => <TranscriptLine key={s.id} seg={s} />)}
+            {segments.length === 0 ? <span className="dash-small">The transcript appears here when you start listening.</span> : segments.slice(-30).map((s) => <TranscriptLine key={s.id} seg={s} />)}
           </div>
           <form
             className="dash-ask"
@@ -175,7 +156,7 @@ export function Home({ go }: { go: (page: string) => void }) {
               setQ('');
             }}
           >
-            <input placeholder="Type a question — or press Enter on empty to answer the latest one" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Type a question" />
+            <input placeholder="Ask anything, or press Enter to answer the last question" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Type a question" />
             <Button variant="primary" type="submit" icon={<ArrowUp size={16} />} aria-label="Ask">Ask</Button>
           </form>
           {answer ? <div className="dash-answer"><AnswerView a={answer} compact={false} /></div> : null}

@@ -1,10 +1,14 @@
-# Hirora
+# Doing
 
-**A free assistant for your calls, running on your PC.** Hirora for Windows 11 transcribes the call you approve, answers questions as they come up (about you from your résumé, code with tests, explanations, summaries of the call) and, when someone asks about what they are sharing, reads the screen too. Answers stream into a quiet translucent overlay. Useful for meetings, lectures, technical discussions and interview practice. **Everything runs on your PC**: speech recognition (whisper.cpp) and the answer model (Qwen, in a Hirora-managed Ollama runtime). No account, no keys, no server, no telemetry. On first launch the app checks the hardware and installs its engine with one click.
+<img src="brand/doing-wordmark.svg" alt="Doing" height="48">
+
+*Formerly Hirora (and VeyraCue).*
+
+**A free assistant for your calls, running on your PC.** Doing for Windows 11 transcribes the call you approve, answers questions as they come up (about you from your résumé, code with tests, explanations, summaries of the call) and, when someone asks about what they are sharing, reads the screen too. Answers stream into a quiet translucent overlay. Useful for meetings, lectures, technical discussions and interview practice. **Everything runs on your PC**: speech recognition (whisper.cpp) and the answer model (Qwen, in a Doing-managed Ollama runtime). No account, no keys, no server, no telemetry. On first launch the app checks the hardware and installs its engine with one click.
 
 **Download:** https://hirora-one.vercel.app
 
-> Formerly **VeyraCue** (renamed in 0.2.0; an existing `%APPDATA%\VeyraCue` profile is migrated on first launch). 0.3.0 removed Hirora Cloud and every bring-your-own-key provider ([ADR 0012](docs/ADR/0012-local-only-engine.md)); 0.3.1 merged the six modes into one assistant that can read the shared screen ([ADR 0013](docs/ADR/0013-one-assistant-screen.md)). Use Hirora only where AI assistance and transcription are allowed, with everyone's consent.
+> Formerly **VeyraCue** (renamed in 0.2.0; an existing `%APPDATA%\VeyraCue` profile is migrated on first launch). 0.3.0 removed Doing Cloud and every bring-your-own-key provider ([ADR 0012](docs/ADR/0012-local-only-engine.md)); 0.3.1 merged the six modes into one assistant that can read the shared screen ([ADR 0013](docs/ADR/0013-one-assistant-screen.md)). Use Doing only where AI assistance and transcription are allowed, with everyone's consent.
 
 ## What works today (verified on a Windows 11 laptop, Nov 2026)
 
@@ -36,7 +40,7 @@ pnpm dev                # builds the native helper (debug) and runs Electron wit
 ```bash
 pnpm lint && pnpm typecheck && pnpm test     # ESLint + tsc + Vitest + cargo test
 pnpm test:e2e                                # Playwright-for-Electron against the built app (empty engine folder, real hardware)
-pnpm package:win                             # → apps/desktop/release/Hirora-Setup-<version>-x64-unsigned.exe
+pnpm package:win                             # → apps/desktop/release/Doing-Setup-<version>-x64-unsigned.exe
 node tools/interview-check.mjs --system keep # speaks questions, measures transcript + answer latency on a profile copy
 node tools/engine-setup-check.mjs <emptyDir> --tier cpu   # a fresh PC's first-run setup, with real downloads
 ```
@@ -45,7 +49,7 @@ Release and deploy steps are in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLI
 
 ## Using it
 
-1. **Install** from the website and open Hirora. Press **Set up Hirora**: it shows your hardware, what it will download (about 6.2 GB with an NVIDIA GPU of 6 GB or more, 3.2 GB otherwise) and installs it. You can keep working; setup resumes if interrupted.
+1. **Install** from the website and open Doing. Press **Set up Doing**: it shows your hardware, what it will download (about 6.2 GB with an NVIDIA GPU of 6 GB or more, 3.2 GB otherwise) and installs it. You can keep working; setup resumes if interrupted.
 2. **Knowledge**: add your résumé and project notes (and a job description under **Profiles**).
 3. **Home**: press **Start listening** and confirm consent. There are no modes: ask anything, and questions about something on screen ("fix this", "which of these…") include a picture of the monitor you're using. The overlay (`Ctrl+Shift+Space`) shows the labelled transcript and streams answers. `Ctrl+Shift+Enter` answers the latest question; `Ctrl+Shift+K` lets you type; `Ctrl+Shift+X` cancels. Keep a laptop plugged in: on battery the GPU slows down a lot.
 

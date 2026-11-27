@@ -1,29 +1,28 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Gauge, History as HistoryIcon, LayoutGrid, Info, Settings as SettingsIcon, UserRound, Compass } from 'lucide-react';
+import { AudioLines, BookUser, History as HistoryIcon, Info, Settings as SettingsIcon, Compass } from 'lucide-react';
 import { cx } from '@hirora/ui';
 import { useLive } from '../shared/store';
 import { useTheme } from '../shared/theme';
 import { LogoMark } from '../shared/Logo';
 import { Toasts } from '../overlay/Overlay';
 import { Home } from './pages/Home';
-import { Knowledge } from './pages/Knowledge';
-import { Profiles } from './pages/Profiles';
+import { Prep } from './pages/Prep';
 import { HistoryPage } from './pages/History';
-import { Performance } from './pages/Performance';
 import { SettingsPage } from './pages/Settings';
 import { About } from './pages/About';
 import { Onboarding } from './pages/Onboarding';
 
 const PAGES = [
-  { id: 'home', label: 'Home', icon: LayoutGrid },
-  { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
-  { id: 'profiles', label: 'Profiles', icon: UserRound },
+  { id: 'home', label: 'Meetings', icon: AudioLines },
+  { id: 'prep', label: 'Prep: profile and documents', icon: BookUser },
   { id: 'history', label: 'History', icon: HistoryIcon },
-  { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
   { id: 'about', label: 'About & privacy', icon: Info },
 ] as const;
 type PageId = (typeof PAGES)[number]['id'];
+/** Page names from before 0.4.0 (links in the overlay, tray and onboarding). */
+const MOVED: Record<string, PageId> = { knowledge: 'prep', profiles: 'prep', performance: 'settings' };
+const pageFor = (id: string): PageId | null => (PAGES.some((p) => p.id === id) ? (id as PageId) : (MOVED[id] ?? null));
 
 export function App() {
   const [page, setPage] = useState<PageId>('home');
@@ -40,14 +39,14 @@ export function App() {
 
   useEffect(() => {
     for (const c of commands) {
-      if (c.command === 'navigate' && typeof c.arg === 'string' && PAGES.some((p) => p.id === c.arg)) setPage(c.arg as PageId);
+      if (c.command === 'navigate' && typeof c.arg === 'string' && pageFor(c.arg)) setPage(pageFor(c.arg)!);
       if (c.command === 'navigate' || c.command === 'devicesChanged') consume(c.id);
     }
   }, [commands, consume]);
 
   const listening = snapshot?.session === 'listening';
-  const main = PAGES.slice(0, 5);
-  const foot = PAGES.slice(5);
+  const main = PAGES.slice(0, 3);
+  const foot = PAGES.slice(3);
   return (
     <div className="dash">
       <nav className="dash-rail" aria-label="Main">
@@ -71,15 +70,13 @@ export function App() {
         </div>
       </nav>
       <main className="dash-main">
-        {page === 'home' && <Home go={(p) => setPage(p as PageId)} />}
-        {page === 'knowledge' && <Knowledge />}
-        {page === 'profiles' && <Profiles />}
+        {page === 'home' && <Home go={(p) => setPage(pageFor(p) ?? 'home')} />}
+        {page === 'prep' && <Prep />}
         {page === 'history' && <HistoryPage />}
-        {page === 'performance' && <Performance />}
         {page === 'settings' && <SettingsPage />}
         {page === 'about' && <About />}
       </main>
-      {onboardingOpen ? <Onboarding onClose={() => setOnboardingOpen(false)} go={(p) => setPage(p as PageId)} /> : null}
+      {onboardingOpen ? <Onboarding onClose={() => setOnboardingOpen(false)} go={(p) => setPage(pageFor(p) ?? 'home')} /> : null}
       <Toasts />
     </div>
   );

@@ -72,7 +72,7 @@ test.afterAll(async () => {
 });
 
 test('fresh install opens on a one-click setup with no keys anywhere', async () => {
-  const dash = await windowByTitle('Hirora');
+  const dash = await windowByTitle('Doing');
   await expect(dash.getByRole('dialog')).toBeVisible();
   await expect(dash.getByRole('heading', { name: 'Welcome' })).toBeVisible();
   await expect(dash.getByText(/Everything runs on this PC/)).toBeVisible();
@@ -83,19 +83,19 @@ test('fresh install opens on a one-click setup with no keys anywhere', async () 
   const dlg = dash.getByRole('dialog');
   for (const label of ['Answer engine', 'Speech recognition', 'Speech model', 'Answer model']) await expect(dlg.getByText(label, { exact: true })).toBeVisible();
   await expect(dlg.getByText(/One-time download of \d/)).toBeVisible();
-  await expect(dlg.getByRole('button', { name: 'Set up Hirora' })).toBeEnabled();
+  await expect(dlg.getByRole('button', { name: 'Set up Doing' })).toBeEnabled();
   await expect(dash.getByText(/api key|access code/i)).toHaveCount(0);
   await snap(dash, '02-onboarding-setup.png');
   await dash.getByRole('button', { name: 'Skip' }).click();
-  await expect(dash.getByRole('heading', { name: /Ready when/ })).toBeVisible();
-  await expect(dash.getByRole('heading', { name: 'Set up Hirora' })).toBeVisible();
+  await expect(dash.getByRole('heading', { name: /Your meetings/ })).toBeVisible();
+  await expect(dash.getByRole('heading', { name: 'Set up Doing' })).toBeVisible();
   await expect(dash.getByRole('button', { name: 'Finish setup to start' })).toBeDisabled();
   await snap(dash, '03-home-setup.png');
 });
 
 test('every page is navigable without keys', async () => {
-  const dash = await windowByTitle('Hirora');
-  const titles: Record<string, RegExp> = { Knowledge: /knowledge/i, Profiles: /profiles/i, History: /history/i, Performance: /performance/i, Settings: /settings/i, 'About & privacy': /privacy/i, Home: /ready when/i };
+  const dash = await windowByTitle('Doing');
+  const titles: Record<string, RegExp> = { 'Prep: profile and documents': /prep/i, History: /history/i, Settings: /settings/i, 'About & privacy': /privacy/i, Meetings: /meetings/i };
   for (const [page, title] of Object.entries(titles)) {
     const btn = dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: page, exact: true });
     await btn.click();
@@ -103,7 +103,7 @@ test('every page is navigable without keys', async () => {
     await expect(dash.locator('h1.dash-page-title')).toHaveText(title);
   }
   await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Settings' }).click();
-  for (const tab of ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data']) {
+  for (const tab of ['Engine', 'Audio', 'Answers', 'Overlay & capture', 'Hotkeys', 'Privacy & data', 'Updates', 'Performance']) {
     await dash.getByRole('tab', { name: tab }).click();
     await expect(dash.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
   }
@@ -118,14 +118,14 @@ test('every page is navigable without keys', async () => {
 });
 
 test('light and dark themes render', async () => {
-  const dash = await windowByTitle('Hirora');
+  const dash = await windowByTitle('Doing');
   type B = { hirora: { invoke: (c: string, p?: unknown) => Promise<unknown> } };
   for (const theme of ['light', 'dark'] as const) {
     await dash.evaluate((t) => (window as unknown as B).hirora.invoke('settings:update', { appearance: { theme: t } }), theme);
     await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:get')).then(() => undefined);
     await dash.reload();
     await expect(dash.locator('html')).toHaveAttribute('data-theme', theme);
-    await expect(dash.getByRole('heading', { name: /Ready when/ })).toBeVisible();
+    await expect(dash.getByRole('heading', { name: /Your meetings/ })).toBeVisible();
     await snap(dash, `08-home-${theme}.png`);
   }
   await dash.evaluate(() => (window as unknown as B).hirora.invoke('settings:update', { appearance: { theme: 'system' } }));
@@ -133,11 +133,11 @@ test('light and dark themes render', async () => {
 });
 
 test('a typed question before setup fails gracefully and says how to fix it', async () => {
-  const dash = await windowByTitle('Hirora');
+  const dash = await windowByTitle('Doing');
   // Independent of earlier tests: a restarted worker starts on the onboarding dialog.
   const skip = dash.getByRole('button', { name: 'Skip' });
   if (await skip.isVisible().catch(() => false)) await skip.click();
-  await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Home' }).click();
+  await dash.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Meetings' }).click();
   await dash.getByLabel('Type a question').fill('What is a hash map?');
   await dash.getByRole('button', { name: 'Ask', exact: true }).click();
   await expect(dash.getByText(/not set up yet/).first()).toBeVisible({ timeout: 10_000 });
@@ -145,7 +145,7 @@ test('a typed question before setup fails gracefully and says how to fix it', as
 });
 
 test('renderer has no access to Node, secrets or raw IPC', async () => {
-  const dash = await windowByTitle('Hirora');
+  const dash = await windowByTitle('Doing');
   const probe = await dash.evaluate(() => ({
     require: typeof (globalThis as { require?: unknown }).require,
     process: typeof (globalThis as { process?: unknown }).process,
@@ -176,9 +176,9 @@ test('renderer has no access to Node, secrets or raw IPC', async () => {
 });
 
 test('overlay window exists, toggles and paints transcript area', async () => {
-  const dash = await windowByTitle('Hirora');
+  const dash = await windowByTitle('Doing');
   await dash.evaluate(() => (window as unknown as { hirora: { invoke: (c: string) => Promise<unknown> } }).hirora.invoke('overlay:toggle'));
-  const overlay = await windowByTitle('Hirora Overlay');
+  const overlay = await windowByTitle('Doing Overlay');
   await expect(overlay.getByLabel('Ask a question')).toBeVisible();
   await expect(overlay.getByText(/isn’t set up on this PC yet/)).toBeVisible();
   await snap(overlay, '06-overlay.png');
@@ -186,11 +186,11 @@ test('overlay window exists, toggles and paints transcript area', async () => {
   const flags = await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().map((w) => ({ title: w.getTitle(), onTop: w.isAlwaysOnTop(), visible: w.isVisible() })),
   );
-  expect(flags.find((f) => f.title === 'Hirora Overlay')?.onTop).toBe(true);
+  expect(flags.find((f) => f.title === 'Doing Overlay')?.onTop).toBe(true);
 });
 
 test('consent is required before capture starts', async () => {
-  const overlay = await windowByTitle('Hirora Overlay');
+  const overlay = await windowByTitle('Doing Overlay');
   await overlay.getByRole('button', { name: 'Start listening' }).click();
   await expect(overlay.getByRole('dialog')).toBeVisible();
   await expect(overlay.getByText(/everyone in the conversation has agreed/)).toBeVisible();

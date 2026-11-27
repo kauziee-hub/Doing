@@ -31,11 +31,11 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
 
         {step === 0 ? (
           <>
-            <p>Hirora listens to the call you approve, writes down the question as it is asked, and shows you a short answer grounded in your own résumé, in a floating overlay only you can see.</p>
+            <p>Doing transcribes the calls and meetings you approve and answers questions as they come up, from your own documents, in a small overlay.</p>
             <div className="ob-points">
               <div><Zap size={16} /><span><strong>Fast.</strong> Answers usually start within half a second of the question ending.</span></div>
               <div><Lock size={16} /><span><strong>Private.</strong> Everything runs on this PC. No account, no keys, nothing you say is sent anywhere.</span></div>
-              <div><MonitorUp size={16} /><span><strong>Sees what's shared.</strong> When someone shows code or a slide and asks about it, Hirora looks at your screen too.</span></div>
+              <div><MonitorUp size={16} /><span><strong>Sees what's shared.</strong> When someone shows code or a slide and asks about it, Doing looks at your screen too.</span></div>
               <div><Mic size={16} /><span><strong>Only when you say so.</strong> Nothing is captured until you press Start and confirm. Audio and screen captures are never saved.</span></div>
             </div>
             <p className="dash-small">Use it for practice and for calls where it is allowed. Respect the rules of any interview or assessment, and other people’s consent.</p>
@@ -44,14 +44,14 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
 
         {step === 1 ? (
           <>
-            <p className="dash-small" style={{ marginTop: 0 }}>Hirora installs its speech recognition and answer model once. It picks the right size for this PC and checks every download.</p>
+            <p className="dash-small" style={{ marginTop: 0 }}>Doing installs its speech recognition and answer model once. It picks the right size for this PC and checks every download.</p>
             <EngineSetup onReady={() => setStep(2)} />
           </>
         ) : null}
 
         {step === 2 ? (
           <>
-            <p>Add your résumé so answers about <em>you</em> use your real experience. If something isn’t in it, Hirora says so instead of making it up.</p>
+            <p>Add your résumé so answers about <em>you</em> use your real experience. If something isn’t in it, Doing says so instead of making it up.</p>
             <div className="vc-row">
               <Button
                 variant="primary"
@@ -68,13 +68,13 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
               <Button onClick={async () => { await invoke('knowledge:pickFiles', { kind: 'project' }); }}>Add project notes</Button>
             </div>
             {added.length ? <p className="dash-small"><Check size={13} color="var(--ok)" /> Added: {added.join(', ')}</p> : null}
-            <p className="dash-small">You can add or replace documents later in Knowledge, or <button type="button" className="ob-link" onClick={() => { void finish(); go('profiles'); }}>fill in a profile</button> instead.</p>
+            <p className="dash-small">You can change documents later in Prep, or <button type="button" className="ob-link" onClick={() => { void finish(); go('prep'); }}>fill in a profile</button> instead.</p>
           </>
         ) : null}
 
         {step === 3 ? (
           <>
-            <p><Check size={16} color="var(--ok)" /> {engine?.ready ? 'Hirora is ready.' : 'Setup is still running. You can close this window; it carries on in the background.'} Shortcuts that work anywhere:</p>
+            <p><Check size={16} color="var(--ok)" /> {engine?.ready ? 'Doing is ready.' : 'Setup is still running. You can close this window; it carries on in the background.'} Shortcuts that work anywhere:</p>
             <table className="dash-table">
               <tbody>
                 <tr><td>Show / hide overlay</td><td className="dash-mono">{settings.hotkeys.toggleOverlay}</td></tr>
@@ -95,7 +95,7 @@ export function Onboarding({ onClose, go }: { onClose: () => void; go: (p: strin
             {step < STEPS.length - 1 ? (
               <Button variant="primary" icon={<ArrowRight size={14} />} onClick={() => setStep(step + 1)}>{step === 1 && !engine?.ready ? 'Later' : 'Next'}</Button>
             ) : (
-              <Button variant="primary" onClick={() => void finish()}>Start using Hirora</Button>
+              <Button variant="primary" onClick={() => void finish()}>Start using Doing</Button>
             )}
           </div>
         </div>

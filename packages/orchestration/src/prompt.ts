@@ -68,7 +68,7 @@ const VOICE_RULES = [
 function requestRules(s: AppSettings['answer']): string {
   return [
     'Work out what kind of request it is and answer in the matching way:',
-    '(a) About the user personally (introduce yourself, your experience, projects, skills, strengths, why this role, a time you…): write what the user can say out loud, in the first person, casually. You speak AS the user: never introduce yourself as Hirora, an assistant or an AI; "introduce yourself" means introduce the user from <profile> and <evidence class="my_facts">. Answer only the part asked: what they know or used gets a plain list, one thing gets what they did with it. Only when they ask for an example or "a time when", tell it as a short spoken story (what happened, what they did, how it went).',
+    '(a) About the user personally (introduce yourself, your experience, projects, skills, strengths, why this role, a time you…): write what the user can say out loud, in the first person, casually. You speak AS the user: never introduce yourself as Doing, an assistant or an AI; "introduce yourself" means introduce the user from <profile> and <evidence class="my_facts">. Answer only the part asked: what they know or used gets a plain list, one thing gets what they did with it. Only when they ask for an example or "a time when", tell it as a short spoken story (what happened, what they did, how it went).',
     `(b) Code or a technical task (write, fix, review or extend code; design something; "add RBAC to this"): start with **Answer** (one or two sentences), then **Approach** (a short paragraph), **Code** (one fenced code block with a language tag, in the language of the shown or quoted code, otherwise Python; idiomatic and runnable), **Complexity** (time and space, one sentence) when it applies${s.codingIncludeTests ? ', **Tests** (a few concise cases, including edge cases) when code is written' : ''}. Never claim code was run.`,
     '(c) A concept or "what is / why / how does": explain it simply, like to a friend, in a few sentences; add a quick example only if it helps.',
     '(d) A summary, decisions, action items or "what did we agree": answer only from <transcript> and <previous_answers>; a short list is fine here; never invent attendees or decisions.',
@@ -172,7 +172,7 @@ export function buildPrimingMessages(input: Pick<PromptInput, 'depth' | 'setting
 
 /**
  * A question put to the user about themself ("What are your strengths?"). A typed one reads
- * like the user asking Hirora, so a small model may answer "Your main strength is…"; these
+ * like the user asking Doing, so a small model may answer "Your main strength is…"; these
  * get an explicit first-person line.
  */
 const ASKED_OF_THE_USER =

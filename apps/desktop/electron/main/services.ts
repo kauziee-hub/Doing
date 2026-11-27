@@ -176,7 +176,7 @@ export class AppServices {
         return [...p.skills, sp?.company ?? '', sp?.role ?? ''].map((x) => x.trim()).filter(Boolean);
       },
       // Same local model as answers: one fast one-word call for lines that might be questions.
-      // Hirora's Ollama serves two requests at once, so the check never waits behind an answer.
+      // Doing's Ollama serves two requests at once, so the check never waits behind an answer.
       gate: async (utterance, recent, signal) => {
         const r = this.resolveProvider(LOCAL_ENGINE);
         if (!r) return null;
@@ -310,7 +310,7 @@ export class AppServices {
     const problem = await this.engine.start();
     if (problem) {
       this.log.warn('engine start problem', { error: problem });
-      this.emit({ type: 'toast', level: 'error', message: `${problem} Restart Hirora; if it keeps happening, Settings → Engine shows what is missing.` });
+      this.emit({ type: 'toast', level: 'error', message: `${problem} Restart Doing; if it keeps happening, Settings → Engine shows what is missing.` });
     }
     const r = this.resolveProvider(LOCAL_ENGINE);
     if (!r) return;

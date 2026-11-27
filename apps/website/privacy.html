@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Hirora's privacy policy: no account, no server, no telemetry. What is stored on your PC and what the one-time setup downloads." />
+    <meta name="description" content="Doing's privacy policy: no account, no server, no telemetry. What is stored on your PC and what the one-time setup downloads." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Privacy — Hirora" />
+    <meta property="og:title" content="Privacy — Doing" />
     <meta property="og:description" content="No account, no server, no telemetry. Everything runs on your PC." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Privacy — Hirora</title>
+    <title>Privacy — Doing</title>
   </head>
   <body>
     <!--@header-->
@@ -22,7 +22,7 @@
         <div class="wrap">
           <p class="eyebrow">Privacy</p>
           <h1>Your calls stay on your PC.</h1>
-          <p class="lede">Hirora has no account system, no server and no analytics. Speech recognition and answers run on your computer, so nothing you say, type or add is sent anywhere.</p>
+          <p class="lede">Doing has no account system, no server and no analytics. Speech recognition and answers run on your computer, so nothing you say, type or add is sent anywhere.</p>
         </div>
       </header>
 
@@ -40,7 +40,7 @@
           </nav>
           <article class="prose">
             <h2 id="collect">What we collect</h2>
-            <p>Nothing. Hirora doesn't have accounts, keys, telemetry, crash reporting or usage analytics. There is no Hirora server that your audio, transcripts, documents or questions could reach.</p>
+            <p>Nothing. Doing doesn't have accounts, keys, telemetry, crash reporting or usage analytics. There is no Doing server that your audio, transcripts, documents or questions could reach.</p>
 
             <h2 id="stored">What is stored on your PC</h2>
             <div class="table-wrap">
@@ -66,14 +66,14 @@
               <li>the Whisper speech model from Hugging Face,</li>
               <li>the Qwen answer model from the Ollama library.</li>
             </ul>
-            <p>These are ordinary file downloads: no account, key or personal data is involved, and each file is checked against its published SHA-256. Hirora's speech and answer engines then run on <code>127.0.0.1</code> and accept no connections from other computers.</p>
-            <p>From version 0.3.8, Hirora also asks GitHub once a day which version is the latest (<code>api.github.com</code>), so it can tell you about updates. The request carries only Hirora's version number; nothing about you, your calls or your documents. Turn it off in Settings → Updates. An update downloads only when you press <em>Download and install</em>, from Hirora's GitHub releases, and is checked against its SHA-256 before it runs.</p>
+            <p>These are ordinary file downloads: no account, key or personal data is involved, and each file is checked against its published SHA-256. Doing's speech and answer engines then run on <code>127.0.0.1</code> and accept no connections from other computers.</p>
+            <p>From version 0.4.0, Doing also asks GitHub once a day which version is the latest (<code>api.github.com</code>), so it can tell you about updates. The request carries only Doing's version number; nothing about you, your calls or your documents. Turn it off in Settings → Updates. An update downloads only when you press <em>Download and install</em>, from Doing's GitHub releases, and is checked against its SHA-256 before it runs.</p>
 
             <h2 id="capture">Audio and screen</h2>
             <ul>
               <li>Nothing is captured until you press Start and confirm the consent prompt. A “Listening” badge shows while capture is on.</li>
               <li>Your microphone and the call's audio are captured as separate streams and transcribed in memory.</li>
-              <li>When a question refers to something on screen (“this code”, “which of these”), Hirora takes one picture of the monitor you're using, with its own windows left out. That happens only for a question you typed or one spoken during a session you started. The picture goes to the answer model on <code>127.0.0.1</code> and is dropped when the answer is done. Turn it off, or use it with every question, in Settings → Answers → Your screen.</li>
+              <li>When a question refers to something on screen (“this code”, “which of these”), Doing takes one picture of the monitor you're using, with its own windows left out. That happens only for a question you typed or one spoken during a session you started. The picture goes to the answer model on <code>127.0.0.1</code> and is dropped when the answer is done. Turn it off, or use it with every question, in Settings → Answers → Your screen.</li>
               <li>Clipboard text and screenshots you take yourself are used only after you preview them and press Send. Likely passwords and keys are flagged so you can redact them.</li>
             </ul>
             <p>A shared screen can show other people's information. Only ask about it where everyone on the call is fine with that.</p>
@@ -90,7 +90,7 @@
             <p>This site is a set of static pages hosted on Vercel, with no cookies, analytics or third-party scripts. The installer is downloaded from the project’s GitHub Releases page. Like any web host, Vercel and GitHub process standard request data (such as IP addresses) to deliver pages and files.</p>
 
             <h2 id="consent">Consent and acceptable use</h2>
-            <p>Transcribing other people requires their consent in many places. Many interviews and assessments forbid AI assistance. Hirora's option to stay out of screen shares is a privacy convenience that some capture methods ignore; it is not a way to hide the use of AI from anyone entitled to know.</p>
+            <p>Transcribing other people requires their consent in many places. Many interviews and assessments forbid AI assistance. Doing's option to stay out of screen shares is a privacy convenience that some capture methods ignore; it is not a way to hide the use of AI from anyone entitled to know.</p>
           </article>
         </div>
       </div>

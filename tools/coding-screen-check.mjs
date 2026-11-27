@@ -8,7 +8,7 @@
 // Reports whether the screen was used, whether the answer read the problem (title and exact
 // signature), the latency and the start of the answer. Fresh profile; covers the screen for about
 // a minute, so run it when the PC isn't in use.
-//   node tools/coding-screen-check.mjs [--exe <Hirora.exe>]
+//   node tools/coding-screen-check.mjs [--exe <Doing.exe>]
 import { _electron as electron, chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -21,7 +21,7 @@ const APP = resolve('apps/desktop');
 const exe = exeIdx >= 0 ? args[exeIdx + 1] : join(APP, 'node_modules/electron/dist/electron.exe');
 const launchArgs = ['--disable-features=CalculateNativeWinOcclusion', ...(exeIdx >= 0 ? [] : [APP])];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const TITLE = 'Hirora coding check';
+const TITLE = 'Doing coding check';
 // Windows keeps the window that was active in front; pin the test page topmost and maximised.
 const pinOnTop = (title) => {
   const ps = `Add-Type -Name W -Namespace H -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetWindowPos(System.IntPtr h, System.IntPtr a, int x, int y, int cx, int cy, uint f); [DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h);'
@@ -58,7 +58,7 @@ const ud = mkdtempSync(join(tmpdir(), 'hirora-coding-'));
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

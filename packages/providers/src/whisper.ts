@@ -173,7 +173,7 @@ export async function runWhisperInference(
   return parseWhisperResponse(j);
 }
 
-/** Default address of the whisper.cpp server Hirora starts (loopback only). */
+/** Default address of the whisper.cpp server Doing starts (loopback only). */
 export const LOCAL_WHISPER_DEFAULT_URL = 'http://127.0.0.1:8178';
 
 /**
@@ -202,7 +202,7 @@ export class LocalWhisperTranscriber implements StreamingTranscriptionProvider {
       await res.text();
     } catch (err) {
       const pe = toProviderError('local-whisper', err);
-      throw new ProviderError('local-whisper', 'network', `Speech recognition isn't running (${pe.message}). Hirora starts it automatically once setup is complete.`);
+      throw new ProviderError('local-whisper', 'network', `Speech recognition isn't running (${pe.message}). Doing starts it automatically once setup is complete.`);
     }
     const endpoint: WhisperEndpoint = {
       providerId: 'local-whisper',

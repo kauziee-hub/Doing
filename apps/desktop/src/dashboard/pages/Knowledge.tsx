@@ -22,7 +22,7 @@ function fmtBytes(n: number) {
   return n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
-export function Knowledge() {
+export function Knowledge({ bare = false }: { bare?: boolean } = {}) {
   const toast = useLive((s) => s.toast);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [kind, setKind] = useState<DocKind>('resume');
@@ -60,7 +60,7 @@ export function Knowledge() {
 
   return (
     <>
-      <PageHeader light="Your" bold="knowledge" sub="Parsed and indexed on this PC. The passages relevant to a question go to the answer model on this PC — as data, never as instructions. Deleting removes the text and its index." />
+      {bare ? null : <PageHeader light="Your" bold="documents" sub="Indexed on this PC and used in answers." />}
       <Card title="Add documents">
         <div className="vc-row" style={{ marginBottom: 12 }}>
           <label className="vc-field__label" htmlFor="kind">This upload is</label>
@@ -85,7 +85,7 @@ export function Knowledge() {
 
       <Card title={`Documents (${docs.length})`}>
         {docs.length === 0 ? (
-          <EmptyState icon={<FileText size={28} />} title="No documents yet">Add your resume first: Hirora then refuses to invent personal facts that are not in it.</EmptyState>
+          <EmptyState icon={<FileText size={28} />} title="No documents yet">Add your resume first: Doing then refuses to invent personal facts that are not in it.</EmptyState>
         ) : (
           <table className="dash-table">
             <thead><tr><th>Document</th><th>Type</th><th className="dash-num">Pages</th><th className="dash-num">Chunks</th><th className="dash-num">Size</th><th>Index</th><th /></tr></thead>

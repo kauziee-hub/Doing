@@ -18,7 +18,7 @@ const app = await _electron.launch({
 });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await new Promise((r) => setTimeout(r, 250));
 }
 const results = await dash.evaluate(() => window.hirora.invoke('perf:runLocalBench'));

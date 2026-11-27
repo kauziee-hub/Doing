@@ -34,7 +34,7 @@ const emptySession = (): SessionProfile => ({
   updatedAt: 0,
 });
 
-export function Profiles() {
+export function Profiles({ bare = false }: { bare?: boolean } = {}) {
   const toast = useLive((s) => s.toast);
   const refreshSettings = useLive((s) => s.refreshSettings);
   const [profile, setProfile] = useState<PersonalProfile | null>(null);
@@ -51,7 +51,7 @@ export function Profiles() {
 
   return (
     <>
-      <PageHeader light="Your" bold="profiles" sub="Your personal facts ground first-person answers. Company/job profiles tailor tone and context per interview or meeting. Everything stays in the local database." />
+      {bare ? null : <PageHeader light="Your" bold="profiles" sub="Used for answers about you and for each company or meeting." />}
       <div className="dash-cols">
         <div>
           <Card title="Personal profile" actions={<Button variant="primary" size="sm" icon={<Save size={13} />} onClick={async () => { if (profile) { setProfile(await invoke('profile:set', profile)); toast('info', 'Profile saved and indexed'); } }}>Save</Button>}>
@@ -138,7 +138,7 @@ export function Profiles() {
                 <Field label="Allowed resources / rules"><input className="vc-input" value={session.allowedResources} placeholder="e.g. practice only; notes allowed" onChange={(e) => setSession({ ...session, allowedResources: e.target.value })} /></Field>
               </div>
               <Field label="Job description" hint="Indexed as company/job evidence."><textarea className="vc-textarea" value={session.jobDescription} onChange={(e) => setSession({ ...session, jobDescription: e.target.value })} /></Field>
-              <Field label="Company notes" hint="Your own research. Hirora will not invent company facts."><textarea className="vc-textarea" value={session.companyNotes} onChange={(e) => setSession({ ...session, companyNotes: e.target.value })} /></Field>
+              <Field label="Company notes" hint="Your own research. Doing will not invent company facts."><textarea className="vc-textarea" value={session.companyNotes} onChange={(e) => setSession({ ...session, companyNotes: e.target.value })} /></Field>
               <div className="vc-row">
                 <Button variant="primary" disabled={!session.name.trim()} onClick={async () => { setSessions(await invoke('sessionProfiles:upsert', session)); setSession(null); }}>Save profile</Button>
                 <Button variant="ghost" onClick={() => setSession(null)}>Cancel</Button>

@@ -12,6 +12,9 @@ import { UpdateManager } from './updates';
 const processStart = performance.timeOrigin;
 
 if (process.env.HIRORA_USER_DATA) app.setPath('userData', process.env.HIRORA_USER_DATA);
+// The app is called Doing since 0.4.0, but its settings, documents and history stay in the
+// folder they have always been in (Electron would otherwise switch to %APPDATA%\Doing).
+else app.setPath('userData', join(app.getPath('appData'), 'Hirora'));
 app.setAppUserModelId('app.hirora.desktop');
 
 // Carry a pre-rename (VeyraCue) profile over before Chromium loads `Local State`.
@@ -66,7 +69,7 @@ async function main(): Promise<void> {
     services = new AppServices(log);
   } catch (err) {
     log.error('fatal init error', { error: (err as Error).message });
-    dialog.showErrorBox('Hirora failed to start', (err as Error).message);
+    dialog.showErrorBox('Doing failed to start', (err as Error).message);
     app.exit(1);
     return;
   }

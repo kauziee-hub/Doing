@@ -1,10 +1,10 @@
 {
   "name": "@hirora/desktop",
-  "productName": "Hirora",
-  "version": "0.3.8",
+  "productName": "Doing",
+  "version": "0.4.0",
   "private": true,
-  "description": "Hirora — local-first real-time AI desktop copilot (BYOK)",
-  "author": "Hirora contributors",
+  "description": "Doing — a private assistant for calls and meetings that runs on your PC",
+  "author": "Doing contributors",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

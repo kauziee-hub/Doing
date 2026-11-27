@@ -33,7 +33,7 @@ async function alive(url: string, timeoutMs = 1500): Promise<boolean> {
   }
 }
 
-/** A child process Hirora owns, started on demand and stopped with the app. Never listens beyond 127.0.0.1. */
+/** A child process Doing owns, started on demand and stopped with the app. Never listens beyond 127.0.0.1. */
 abstract class ManagedServer {
   protected child: ChildProcess | null = null;
   private starting: Promise<{ ok: boolean; error: string | null }> | null = null;
@@ -122,13 +122,13 @@ export class WhisperServer extends ManagedServer {
 }
 
 /**
- * Hirora's own Ollama server on a private loopback port. Two parallel slots let the short
+ * Doing's own Ollama server on a private loopback port. Two parallel slots let the short
  * "is this a question for me?" check run while an answer is being written.
  */
 export class OllamaServer extends ManagedServer {
   exe: string | null = null;
   logFile: string | null = null;
-  /** Always passed explicitly, so Hirora's server and a user's own Ollama agree on where models are. */
+  /** Always passed explicitly, so Doing's server and a user's own Ollama agree on where models are. */
   modelsDir: string | null = null;
   /** Tokens per answer slot; null leaves Ollama's default (4K). */
   contextLength: number | null = null;

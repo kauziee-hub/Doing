@@ -19,7 +19,7 @@ export function HistoryPage() {
 
   return (
     <>
-      <PageHeader light="Session" bold="history" sub="History is opt-in. When off, transcripts and answers live only in memory and disappear when you stop the session." />
+      <PageHeader light="Session" bold="history" sub="Past transcripts and answers. Saving is off unless you turn it on in Settings → Privacy & data." />
       <Card>
         {settings ? (
           <Toggle

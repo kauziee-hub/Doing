@@ -74,7 +74,7 @@ export class WindowManager {
       minWidth: 920,
       minHeight: 620,
       show: false,
-      title: 'Hirora',
+      title: 'Doing',
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0f14' : '#f6f7fb',
       autoHideMenuBar: true,
       webPreferences: {
@@ -125,7 +125,7 @@ export class WindowManager {
       skipTaskbar: true,
       hasShadow: false,
       alwaysOnTop: s.alwaysOnTop,
-      title: 'Hirora Overlay',
+      title: 'Doing Overlay',
       backgroundColor: '#00000000',
       webPreferences: {
         preload: preloadPath(),
@@ -176,7 +176,7 @@ export class WindowManager {
     }
   }
 
-  /** Puts the user's screen-share setting back on every Hirora window. */
+  /** Puts the user's screen-share setting back on every Doing window. */
   restoreContentProtection(): void {
     const on = this.settings.get().overlay.contentProtection;
     for (const w of this.all()) this.applyContentProtection(w, on);

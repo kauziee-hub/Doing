@@ -3,7 +3,7 @@
 // then (1) asks typed questions and records the first-token time of each answer, and (2) has
 // Windows SAPI speak questions into WAV FILES and times whisper.cpp transcribing them through
 // the app's own speech server. The real profile is never modified.
-//   node tools/quiet-check.mjs [profileDir] [--exe <Hirora.exe>] [--tier auto|gpu|cpu]
+//   node tools/quiet-check.mjs [profileDir] [--exe <Doing.exe>] [--tier auto|gpu|cpu]
 import { _electron as electron } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
@@ -25,7 +25,7 @@ cpSync(profile, ud, { recursive: true, filter: (s) => s === profile || (dirname(
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

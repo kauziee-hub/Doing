@@ -93,7 +93,7 @@ export class AudioHelper extends EventEmitter {
   start(): boolean {
     if (this.running) return true;
     if (!this.exePath || !existsSync(this.exePath)) {
-      this.lastError = 'Native audio helper not found. Run `pnpm native:build` (development) or reinstall Hirora.';
+      this.lastError = 'Native audio helper not found. Run `pnpm native:build` (development) or reinstall Doing.';
       this.log.error('audio helper missing', { path: this.exePath });
       return false;
     }

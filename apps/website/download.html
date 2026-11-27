@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Download Hirora for Windows 11. Free installer, system requirements, install steps and checksum." />
+    <meta name="description" content="Download Doing for Windows 11. Free installer, system requirements, install steps and checksum." />
     <meta name="theme-color" content="#ffffff" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Download Hirora for Windows" />
-    <meta property="og:description" content="Free installer, requirements and setup steps for Hirora, the meeting assistant that runs on your PC." />
+    <meta property="og:title" content="Download Doing for Windows" />
+    <meta property="og:description" content="Free installer, requirements and setup steps for Doing, the meeting assistant that runs on your PC." />
     <meta property="og:image" content="/img/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Download Hirora for Windows</title>
+    <title>Download Doing for Windows</title>
   </head>
   <body>
     <!--@header-->
@@ -21,7 +21,7 @@
       <header class="page-head">
         <div class="wrap">
           <p class="eyebrow">Download</p>
-          <h1>Get Hirora for Windows</h1>
+          <h1>Get Doing for Windows</h1>
           <p class="lede">One installer, then a one-time setup inside the app that downloads the speech and answer models for your PC.</p>
         </div>
       </header>
@@ -30,7 +30,7 @@
         <div class="wrap">
           <section class="dl" aria-label="Download">
             <div class="dl__main">
-              <h2>Hirora for Windows</h2>
+              <h2>Doing for Windows</h2>
               <p class="muted" style="margin: 8px 0 24px" data-release-detail>Windows 11 · 64-bit</p>
               <a class="btn btn--primary btn--lg" href="#" data-download-link>Download installer</a>
               <p class="small muted" style="margin-top: 18px">The installer isn't code-signed yet, so Windows SmartScreen may show “Windows protected your PC”. Choose <strong>More info → Run anyway</strong>, but only after the checksum on this page matches your file.</p>
@@ -58,7 +58,7 @@
             </nav>
             <article class="prose">
               <h2 id="requirements">Requirements</h2>
-              <p>Hirora runs its AI on your computer, so the hardware decides how fast it is. It picks one of two setups automatically, and you can switch in Settings → Engine.</p>
+              <p>Doing runs its AI on your computer, so the hardware decides how fast it is. It picks one of two setups automatically, and you can switch in Settings → Engine.</p>
               <div class="table-wrap">
                 <table class="table">
                   <thead><tr><th></th><th>Fast setup</th><th>Processor setup</th></tr></thead>
@@ -75,7 +75,7 @@
               <ul>
                 <li><strong>Windows 11, 64-bit.</strong> Other versions haven't been tested.</li>
                 <li><strong>Memory:</strong> tested with 16 GB of RAM.</li>
-                <li><strong>Internet</strong> for the one-time setup and, if you leave it on, a daily update check. Hirora works offline after setup.</li>
+                <li><strong>Internet</strong> for the one-time setup and, if you leave it on, a daily update check. Doing works offline after setup.</li>
                 <li><strong>Audio:</strong> a microphone and speakers or headphones. Headphones keep your mic from picking up the other side.</li>
                 <li><strong>Laptops:</strong> keep it plugged in during calls. On battery the graphics card slows down a lot.</li>
               </ul>
@@ -83,8 +83,8 @@
               <h2 id="install">Install</h2>
               <ol class="numbered">
                 <li><div><h3>Download the installer</h3><p>Use the button above. It's about 136 MB.</p></div></li>
-                <li><div><h3>Run it</h3><p>Double-click <code>Hirora-Setup-…-x64-unsigned.exe</code>. If SmartScreen appears, check the file (next section), then choose <strong>More info → Run anyway</strong>. It installs for your user only; no admin rights are needed.</p></div></li>
-                <li><div><h3>Open Hirora and press Set up</h3><p>The first screen shows your hardware and what will be downloaded. Press <strong>Set up Hirora</strong>; progress is shown for each part and interrupted downloads resume.</p></div></li>
+                <li><div><h3>Run it</h3><p>Double-click <code>Doing-Setup-…-x64-unsigned.exe</code>. If SmartScreen appears, check the file (next section), then choose <strong>More info → Run anyway</strong>. It installs for your user only; no admin rights are needed.</p></div></li>
+                <li><div><h3>Open Doing and press Set up</h3><p>The first screen shows your hardware and what will be downloaded. Press <strong>Set up Doing</strong>; progress is shown for each part and interrupted downloads resume.</p></div></li>
                 <li><div><h3>Add your documents (optional)</h3><p>Notes, specs, a job description or your résumé make answers specific to you. They are indexed on your PC.</p></div></li>
                 <li><div><h3>Start listening</h3><p>Press Start (or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>L</kbd>) and confirm everyone has agreed to be transcribed.</p></div></li>
               </ol>
@@ -93,14 +93,14 @@
               <p>Compare the file's SHA-256 with the one shown above. In PowerShell:</p>
               <ol class="numbered">
                 <li><div><h3>Open PowerShell in your Downloads folder</h3><pre>cd $env:USERPROFILE\Downloads
-Get-FileHash .\Hirora-Setup-*.exe -Algorithm SHA256</pre></div></li>
+Get-FileHash .\Doing-Setup-*.exe -Algorithm SHA256</pre></div></li>
                 <li><div><h3>Compare</h3><p>The <code>Hash</code> value must match the SHA-256 above exactly. If it doesn't, delete the file and download it again.</p></div></li>
               </ol>
 
               <h2 id="first-run">What the first run downloads</h2>
               <p>Everything comes from the projects' official sources and is checked against a published SHA-256 before it is used:</p>
               <ul>
-                <li><strong>Answer engine</strong>: the Ollama runtime (1.6 GB) from GitHub. If you already have Ollama installed, Hirora reuses it and its models.</li>
+                <li><strong>Answer engine</strong>: the Ollama runtime (1.6 GB) from GitHub. If you already have Ollama installed, Doing reuses it and its models.</li>
                 <li><strong>Speech recognition</strong>: whisper.cpp from GitHub (685 MB with NVIDIA CUDA, 9 MB for the processor).</li>
                 <li><strong>Speech model</strong>: Whisper from Hugging Face (574 MB or 190 MB).</li>
                 <li><strong>Answer model</strong>: Qwen from the Ollama library (3.3 GB or 1.4 GB).</li>
@@ -108,12 +108,12 @@ Get-FileHash .\Hirora-Setup-*.exe -Algorithm SHA256</pre></div></li>
               <p>On a home connection the processor setup took about 17 minutes in our test.</p>
 
               <h2 id="update">Update</h2>
-              <p><strong>Hirora 0.3.8 and later update themselves.</strong> Hirora checks once a day and tells you when a new version is out. Open <strong>Settings → Updates</strong> and press <strong>Download and install</strong>: the installer comes from Hirora's GitHub releases, is checked against its SHA-256, and Hirora closes, updates and opens again. You can also press <strong>Check for updates</strong> there at any time.</p>
-              <p><strong>On 0.3.7 or older:</strong> close Hirora (right-click the tray icon → Quit), download the new installer above and run it once. It installs over the old version; your settings, documents and the downloaded models are kept. From then on, updates come from inside the app.</p>
+              <p><strong>Doing 0.4.0 and later update themselves.</strong> Doing checks once a day and tells you when a new version is out. Open <strong>Settings → Updates</strong> and press <strong>Download and install</strong>: the installer comes from Doing's GitHub releases, is checked against its SHA-256, and Doing closes, updates and opens again. You can also press <strong>Check for updates</strong> there at any time.</p>
+              <p><strong>Coming from Hirora (0.3.7 or older):</strong> quit Hirora (right-click the tray icon → Quit), download the installer above and run it once. It installs over the old version; your settings, documents and the downloaded models are kept. From then on, updates come from inside the app.</p>
               <p>Release notes are in the <a href="/changelog">changelog</a>.</p>
 
               <h2 id="uninstall">Uninstall</h2>
-              <p>Windows Settings → Apps → Installed apps → Hirora → Uninstall. Your data stays so a reinstall keeps your setup. To remove everything, also delete <code>%APPDATA%\Hirora</code> (settings, documents, history) and <code>%LOCALAPPDATA%\Hirora</code> (speech and answer models).</p>
+              <p>Windows Settings → Apps → Installed apps → Doing → Uninstall. Your data stays so a reinstall keeps your setup. To remove everything, also delete <code>%APPDATA%\Hirora</code> (settings, documents, history) and <code>%LOCALAPPDATA%\Hirora</code> (speech and answer models).</p>
             </article>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import type { EngineTier } from '@hirora/contracts';
 
 /**
- * Everything Hirora downloads on first run, pinned to exact files. SHA-256 values come
+ * Everything Doing downloads on first run, pinned to exact files. SHA-256 values come
  * from the publishers (GitHub release asset digests, Hugging Face LFS ids), checked
  * 2026-11-22. Ollama models are fetched by Ollama itself, which verifies their digests.
  */

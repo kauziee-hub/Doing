@@ -346,7 +346,7 @@ export class AnswerEngine {
     const one = this.deps.resolveProvider(LOCAL_ENGINE);
     const resolved = one ? [{ id: LOCAL_ENGINE, r: one }] : [];
     if (resolved.length === 0) {
-      this.fail(f, new ProviderError('engine', 'not_configured', 'Hirora is not set up yet: open Home and press Set up.'));
+      this.fail(f, new ProviderError('engine', 'not_configured', 'Doing is not set up yet: open Home and press Set up.'));
       return;
     }
 

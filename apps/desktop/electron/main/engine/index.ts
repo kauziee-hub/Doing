@@ -55,7 +55,7 @@ export interface EngineDeps {
 }
 
 /**
- * Hirora's on-PC engine (ADR 0012): checks the hardware, installs the speech and answer
+ * Doing's on-PC engine (ADR 0012): checks the hardware, installs the speech and answer
  * runtimes and models on first run (verified downloads), and runs both servers on loopback.
  */
 export class EngineManager {
@@ -119,15 +119,15 @@ export class EngineManager {
     return this.catalog.interimEveryMs;
   }
 
-  /** Hirora's own Ollama copy, if it downloaded one. */
+  /** Doing's own Ollama copy, if it downloaded one. */
   private get ownOllama(): string {
     return join(this.runtimeDir, 'ollama.exe');
   }
 
   /**
    * Where the answer model lives. With an Ollama the user installed themselves, its model folder
-   * is shared (nothing downloaded twice). Otherwise models stay under Hirora's own folder, so
-   * removing %LOCALAPPDATA%\Hirora removes everything Hirora downloaded.
+   * is shared (nothing downloaded twice). Otherwise models stay under Doing's own folder, so
+   * removing %LOCALAPPDATA%\Hirora removes everything Doing downloaded.
    */
   modelsDir(): string {
     if (process.env.HIRORA_ENGINE_MODELS) return process.env.HIRORA_ENGINE_MODELS;

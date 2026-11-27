@@ -13,7 +13,7 @@ export function formatBytes(n: number): string {
 export function hardwareLine(e: EngineStatus): string {
   if (e.tier === 'gpu') return `${e.gpu?.name ?? 'NVIDIA GPU'} · ${Math.round((e.gpu?.vramMb ?? 0) / 1024)} GB — fastest setup`;
   if (e.gpu) return `${e.gpu.name} has too little memory for the large models — using the processor (answers take longer)`;
-  return 'No NVIDIA graphics card found — Hirora runs on the processor (answers take longer)';
+  return 'No NVIDIA graphics card found — Doing runs on the processor (answers take longer)';
 }
 
 function stateLabel(c: EngineComponentStatus): string {
@@ -95,7 +95,7 @@ export function EngineSetup({ onReady }: { onReady?: () => void }) {
               {lowDisk ? <strong style={{ color: 'var(--error)' }}> — not enough space</strong> : null}
             </span>
             <Button variant="primary" icon={engine.setup === 'error' || engine.setup === 'cancelled' ? <RotateCcw size={14} /> : <Download size={14} />} onClick={() => void invoke('engine:setup').then((s) => useLive.setState({ engine: s }))}>
-              {engine.setup === 'error' || engine.setup === 'cancelled' ? 'Resume setup' : 'Set up Hirora'}
+              {engine.setup === 'error' || engine.setup === 'cancelled' ? 'Resume setup' : 'Set up Doing'}
             </Button>
           </>
         )}

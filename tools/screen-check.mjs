@@ -2,7 +2,7 @@
 // Screen-reading check with the real engine: shows a code snippet full-screen in Edge (like a
 // colleague's shared screen in a call), then asks Hirora about "this code" and about something
 // unrelated, and reports whether the screen was used, the latency and the answer. Fresh profile.
-//   node tools/screen-check.mjs [--exe <Hirora.exe>]
+//   node tools/screen-check.mjs [--exe <Doing.exe>]
 import { _electron as electron, chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -24,7 +24,7 @@ $p = Get-Process msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWi
 if ($p) { [void][H.W]::ShowWindow($p.MainWindowHandle, 3); [void][H.W]::SetWindowPos($p.MainWindowHandle, [System.IntPtr](-1), 0, 0, 0, 0, 3); [void][H.W]::SetForegroundWindow($p.MainWindowHandle); 'pinned' } else { 'not found' }`;
   return execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' }).trim() === 'pinned';
 };
-const TITLE = 'Hirora screen check';
+const TITLE = 'Doing screen check';
 
 const CODE = `// orders-service/routes.js
 const express = require('express');
@@ -48,7 +48,7 @@ const ud = mkdtempSync(join(tmpdir(), 'hirora-screen-'));
 const app = await electron.launch({ executablePath: exe, args: launchArgs, env: { ...process.env, HIRORA_USER_DATA: ud } });
 let dash;
 for (let i = 0; i < 80 && !dash; i++) {
-  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Hirora') dash = w;
+  for (const w of app.windows()) if ((await w.title().catch(() => '')) === 'Doing') dash = w;
   if (!dash) await sleep(250);
 }
 const call = (c, p) => dash.evaluate(([c, p]) => window.hirora.invoke(c, p), [c, p]);

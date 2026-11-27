@@ -11,7 +11,7 @@ export function About() {
   }, []);
   return (
     <>
-      <PageHeader light="About &" bold="privacy" sub="Hirora is an independent desktop copilot with no accounts, keys, analytics or telemetry. Transcription and answers run on this PC; nothing you say is sent anywhere." />
+      <PageHeader light="About &" bold="privacy" sub="No account, analytics or telemetry. Transcription and answers run on this PC." />
       <Card title="Build">
         {info ? (
           <dl className="dash-kv">
@@ -31,7 +31,7 @@ export function About() {
           <li>Documents: parsed locally; extracted text and a search index are stored in a local SQLite database. Relevant passages go to the answer model on this PC.</li>
           <li>History: off by default. When on, kept locally for your retention period; deletable per session or all at once.</li>
           <li>Screenshots and clipboard: never captured silently; always previewed and confirmed; possible secrets are flagged.</li>
-          <li>Screen-capture exclusion is a best-effort OS setting. Hirora never claims to be undetectable and does not evade monitoring, proctoring or security software.</li>
+          <li>Screen-capture exclusion is a best-effort OS setting. Doing never claims to be undetectable and does not evade monitoring, proctoring or security software.</li>
         </ul>
       </Card>
     </>

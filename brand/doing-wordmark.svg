@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 367 141" role="img" aria-label="Doing">
+  <!-- "Doıng": geometric strokes (cap 100, x-height 76, stroke 22, descender to 141). The ı gives its dot to the mark. -->
+  <g fill="none" stroke="#1d1c35" stroke-width="22" stroke-linejoin="miter" stroke-linecap="butt">
+    <path d="M11 11 H40 A39 39 0 0 1 40 89 H11 Z"/>
+    <circle cx="135" cy="62" r="27"/>
+    <path d="M192 24 V100"/>
+    <path d="M222 24 V100 M222 59 A24 24 0 0 1 270 59 V100"/>
+    <circle cx="329" cy="62" r="27"/>
+    <path d="M356 24 V106 A24 24 0 0 1 332 130 H311"/>
+  </g>
+</svg>

@@ -54,6 +54,8 @@ kbd { background: #fff; border: 1px solid var(--line-2); border-bottom-width: 2p
 .nav.is-scrolled { border-bottom-color: var(--line); }
 .nav__inner { width: min(var(--max), 100% - 2 * var(--gutter)); margin-inline: auto; height: 68px; display: flex; align-items: center; gap: 28px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 650; font-size: 19px; letter-spacing: -0.02em; }
+.brand__word { display: block; width: auto; color: var(--ink, #1d1c35); }
+.brand__mark { display: block; flex: none; }
 .nav__links { display: flex; gap: 26px; margin-left: auto; font-size: 15px; }
 .nav__links a { text-decoration: none; color: var(--muted); padding: 6px 0; border-bottom: 1.5px solid transparent; }
 .nav__links a:hover { color: var(--ink); }

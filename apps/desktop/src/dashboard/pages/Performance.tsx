@@ -24,7 +24,7 @@ const STAGE_INFO: Record<string, { label: string; target?: number; p: 50 | 95 }>
   app_cold_start: { label: 'App launch → dashboard ready', p: 50 },
 };
 
-export function Performance() {
+export function Performance({ bare = false }: { bare?: boolean } = {}) {
   const [data, setData] = useState<{ rows: PerfSummaryRow[]; recent: PerfSample[]; total: number } | null>(null);
   const [bench, setBench] = useState<LocalBenchResult[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +35,7 @@ export function Performance() {
 
   return (
     <>
-      <PageHeader light="Measured" bold="performance" sub="Every number here was measured on this PC from real events — nothing estimated or pre-filled. Targets are goals, not guarantees. A laptop on battery is much slower: keep it plugged in." />
+      {bare ? null : <PageHeader light="Measured" bold="performance" sub="Measured on this PC. Keep a laptop plugged in: on battery it is much slower." />}
       <div className="vc-row" style={{ marginBottom: 14 }}>
         <Button icon={<RefreshCw size={13} />} onClick={() => void refresh()}>Refresh</Button>
         <Button icon={<Timer size={13} />} disabled={busy} onClick={async () => { setBusy(true); setBench(await invoke('perf:runLocalBench')); setBusy(false); }}>{busy ? 'Running…' : 'Run local benchmarks'}</Button>
