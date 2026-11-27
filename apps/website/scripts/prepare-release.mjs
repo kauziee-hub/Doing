@@ -3,7 +3,7 @@
 // writes src/release.json (version, size, SHA-256). Nothing here is invented:
 // if no installer exists, the site shows a "not built yet" state.
 //
-// HIRORA_DOWNLOAD_URL=https://.../Hirora-Setup-x.y.z-x64-unsigned.exe points the
+// HIRORA_DOWNLOAD_URL=https://.../Doing-Setup-x.y.z-x64-unsigned.exe points the
 // download buttons at a release host (e.g. GitHub Releases) instead of bundling the
 // ~110 MB installer into the static site. Size and SHA-256 still come from the
 // local file, so the published checksum always matches what was built.
@@ -27,7 +27,7 @@ rmSync(downloads, { recursive: true, force: true });
 
 if (existsSync(releaseDir)) {
   const exe = readdirSync(releaseDir)
-    .filter((f) => f === `Hirora-Setup-${desktopPkg.version}-x64-unsigned.exe`)
+    .filter((f) => f === `Doing-Setup-${desktopPkg.version}-x64-unsigned.exe` || f === `Hirora-Setup-${desktopPkg.version}-x64-unsigned.exe`)
     .map((f) => ({ f, t: statSync(join(releaseDir, f)).mtimeMs }))[0];
   if (exe) {
     const src = join(releaseDir, exe.f);
