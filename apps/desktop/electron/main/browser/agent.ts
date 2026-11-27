@@ -464,7 +464,7 @@ export class BrowserAgent {
       if (issued.action.kind === 'click') {
         const target = issued.action.target;
         const choice = previousPage?.elements.find(el => el.id === target && ['radio','checkbox'].includes(el.kind));
-        if (body.receipt?.ok && choice?.context && body.snapshot?.elements.some(el => el.context === choice.context && el.label === choice.label && el.checked)) this.reviewedQuestions.add(choice.context);
+        if (body.receipt?.ok && choice?.kind === 'radio' && choice?.context && body.snapshot?.elements.some(el => el.context === choice.context && el.label === choice.label && el.checked)) this.reviewedQuestions.add(choice.context);
       }
       this.inFlight = null;
       if (!body.receipt.ok) {
