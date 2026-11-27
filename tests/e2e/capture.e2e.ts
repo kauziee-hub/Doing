@@ -1,3 +1,4 @@
+import { electronExecutable } from '../fixtures/electron';
 /**
  * Screen-share check against a REAL browser share: Microsoft Edge's getDisplayMedia
  * ("Entire screen"), the path Google Meet and other browser meetings use.
@@ -21,7 +22,7 @@ import { join, resolve } from 'node:path';
 const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
 const INSTALLED = process.env.DOING_E2E_EXE;
-const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
+const ELECTRON = INSTALLED ?? electronExecutable();
 const PAINT_FLAGS = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows'];
 const LAUNCH_ARGS = INSTALLED ? PAINT_FLAGS : [...PAINT_FLAGS, APP_DIR];
 /** Must match PROBE_RGB in apps/desktop/electron/main/capture.ts (the overlay's captureProbe colour). */

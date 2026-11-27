@@ -1,3 +1,4 @@
+import { electronExecutable } from '../fixtures/electron';
 /**
  * End-to-end tests against the REAL built Electron app (pnpm build first).
  * Each run uses a brand-new temporary profile AND an empty engine folder (no Ollama, no
@@ -14,7 +15,7 @@ const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
 // DOING_E2E_EXE=<path to installed Doing.exe> runs the suite against an installed build.
 const INSTALLED = process.env.DOING_E2E_EXE;
-const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
+const ELECTRON = INSTALLED ?? electronExecutable();
 // Keep painting even when other windows cover the app (Chromium's native occlusion
 // tracking otherwise stops frames, and page.screenshot() waits forever).
 const PAINT_FLAGS = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows'];

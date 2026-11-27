@@ -1,3 +1,4 @@
+import { electronExecutable } from '../fixtures/electron';
 /**
  * REAL-HARDWARE end-to-end checks on the machine running the tests:
  *  - WASAPI mic + loopback capture through the full app pipeline (helper → main → levels)
@@ -17,7 +18,7 @@ const ROOT = resolve(__dirname, '..', '..');
 const APP_DIR = join(ROOT, 'apps', 'desktop');
 // DOING_E2E_EXE=<path to installed Doing.exe> runs the suite against an installed build.
 const INSTALLED = process.env.DOING_E2E_EXE;
-const ELECTRON = INSTALLED ?? join(APP_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
+const ELECTRON = INSTALLED ?? electronExecutable();
 // Keep painting even when other windows cover the app (Chromium's native occlusion
 // tracking otherwise stops frames, and page.screenshot() waits forever).
 const PAINT_FLAGS = ['--disable-features=CalculateNativeWinOcclusion', '--disable-backgrounding-occluded-windows'];
