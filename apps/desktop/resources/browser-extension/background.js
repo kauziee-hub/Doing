@@ -127,7 +127,7 @@ async function removeTab(tabId, message = 'Tab access removed.') {
 
 async function execute(current, command, mine) {
   const valid = () => session === current && generation === mine;
-  if (!valid() || command.origin !== current.origin || !['click', 'type', 'select', 'switch'].includes(command.action.kind))
+  if (!valid() || command.origin !== current.origin || !['click', 'type', 'select', 'switch', 'scroll'].includes(command.action.kind))
     throw new Error('Action permission revoked.');
   // Re-observe after model latency; IDs from a stale page must never reach a different question.
   const fresh = await observe(current);
@@ -266,7 +266,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (restoring) throw new Error('Browser companion is starting. Try again in a moment.');
     if (message.type === 'status' || message.type === 'panelStatus')
       return {
-        protocol: 5,
+        protocol: 6,
         connected: !!session,
         connecting,
         remembered: !!(await chrome.storage.local.get('trustedDoing')).trustedDoing,
@@ -289,6 +289,16 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
       return { message: 'Tab access removed.' };
     }
     if (message.type === 'chat' || message.type === 'chat-stop' || message.type === 'chat-clear') {
+      if (message.type === 'chat') {
+        const current = session;
+        for (let i=0;i<30;i++) {
+          if (!current || session !== current) throw new Error('Tab permission revoked.');
+          const ready = await request('/chat/status',{clientId:current.clientId},current);
+          if (ready.pageReady) break;
+          if (i===29) throw new Error('The page is still loading. Try again when it is ready.');
+          await sleep(200);
+        }
+      }
       const path = message.type === 'chat' ? '/chat/send' : message.type === 'chat-stop' ? '/chat/stop' : '/chat/clear';
       const state = await request(path, { clientId: session?.clientId, id: message.id, text: message.text });
       return { state, message: state.message };

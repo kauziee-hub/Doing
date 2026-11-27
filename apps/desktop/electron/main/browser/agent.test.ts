@@ -134,9 +134,9 @@ describe('browser task permissions and lifecycle', () => {
     expect(histories).toEqual([0]);
     expect(agent.status().autoSubmit).toBe(false); // Reject the fixture model's excessive permission.
     await tick({ snapshot: page() });
-    expect(agent.status().phase).toBe('review');
-    expect(agent.status().messages.at(-1)?.text).toContain('Tell me');
-    await agent.chat('31c72f5e-4b18-40e2-a880-2c51fd1492a7', 'Yes, submit.');
+    expect(agent.status().phase).toBe('error');
+    expect(agent.status().messages.at(-1)?.text).toContain('not to submit');
+    await agent.chat('31c72f5e-4b18-40e2-a880-2c51fd1492a7', 'Fill the answers and submit.');
     const command = await tick({ snapshot: page() });
     await tick({
       snapshot: page({ text: 'Results', revision: 'results' }),

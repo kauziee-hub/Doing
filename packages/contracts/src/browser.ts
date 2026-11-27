@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 export const BrowserElementSchema = z.object({
   id: z.string().max(80),
-  kind: z.enum(['button', 'link', 'text', 'checkbox', 'radio', 'select', 'code']),
+  kind: z.enum(['button', 'link', 'text', 'checkbox', 'radio', 'select', 'code', 'scroll']),
+  scroll: z.object({ top: z.number().nonnegative(), max: z.number().nonnegative(), height: z.number().positive() }).optional(),
   label: z.string().max(600),
   value: z.string().max(12_000).default(''),
   checked: z.boolean().optional(),
   group: z.string().max(80).optional(),
+  context: z.string().max(1600).optional(),
   options: z
     .array(z.object({ value: z.string().max(300), label: z.string().max(300) }))
     .max(100)
@@ -19,6 +21,7 @@ export const BrowserSnapshotSchema = z.object({
   title: z.string().max(300),
   text: z.string().max(18_000),
   elements: z.array(BrowserElementSchema).max(180),
+  scroll: z.object({ top: z.number().nonnegative(), max: z.number().nonnegative(), height: z.number().positive() }).optional(),
   tabId: z.string().max(80).optional(),
   tabs: z
     .array(z.object({ id: z.string().max(80), url: z.string().url().max(2048), title: z.string().max(300), text: z.string().max(2500) }))
@@ -26,6 +29,7 @@ export const BrowserSnapshotSchema = z.object({
     .optional(),
 });
 export const BrowserActionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('scroll'), target: z.string().max(80).default('page'), direction: z.enum(['up', 'down']), reason: z.string().min(1).max(500) }),
   z.object({ kind: z.literal('click'), reason: z.string().min(1).max(500), target: z.string().max(80) }),
   z.object({ kind: z.literal('type'), target: z.string().max(80), text: z.string().max(12_000), reason: z.string().min(1).max(500) }),
   z.object({ kind: z.literal('select'), target: z.string().max(80), value: z.string().max(300), reason: z.string().min(1).max(500) }),
@@ -71,6 +75,7 @@ export interface BrowserStatus {
   log: Array<{ at: number; message: string }>;
 }
 export interface BrowserChatMessage {
+  tabId?: string;
   id: string;
   role: 'user' | 'assistant';
   text: string;

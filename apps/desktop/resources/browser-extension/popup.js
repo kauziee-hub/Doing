@@ -5,8 +5,8 @@ async function send(message) {
     const reply = await chrome.runtime.sendMessage(message);
     status.textContent = reply.error || reply.message;
     if (message.type === 'status') {
-      document.getElementById('reload').hidden = reply.protocol === 5;
-      allow.disabled = !!reply.connecting || reply.protocol !== 5;
+      document.getElementById('reload').hidden = reply.protocol === 6;
+      allow.disabled = !!reply.connecting || reply.protocol !== 6;
     }
   } catch (error) {
     status.textContent = error.message;

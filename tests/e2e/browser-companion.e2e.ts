@@ -43,9 +43,10 @@ render();
 </script></body></html>`;
 
 test('real Chromium extension selects MCQs, types multiline code, submits ten pages and observes results', async ({ browserName: _browserName }, testInfo) => {
-  test.setTimeout(90000);
+  test.setTimeout(360000);
   folder = await mkdtemp(join(tmpdir(), 'doing-browser-fixture-'));
-  server = createServer((req, res) => { res.setHeader('Content-Type', 'text/html'); res.end(req.url === '/reference' ? '<!doctype html><title>Group reference FIXTURE</title><h1>Reference value: 7</h1><label>Result<input id="result"></label>' : FIXTURE); });
+  const longPage = (nested=false) => `<!doctype html><title>Long questions FIXTURE</title><style>body{margin:0;font:16px system-ui}main{${nested?'height:600px;overflow-y:auto;':''}}section{padding:30px;height:240px}section:nth-of-type(5n){height:1200px}label{display:block}button{margin-top:10px}</style><main aria-label="Questions"><h1>50 practice questions FIXTURE</h1>${Array.from({length:50},(_,i)=>`<section><h2>Question ${i+1}: choose the correct option</h2><label><input type="radio" name="q${i}">Wrong ${i+1}</label><label><input type="radio" name="q${i}">Correct ${i+1}</label><button onclick="window.submitted++">Check Answer</button></section>`).join('')}<p>End of all fifty questions.</p></main><script>window.submitted=0;</script>`;
+  server = createServer((req, res) => { res.setHeader('Content-Type', 'text/html'); res.end(req.url?.startsWith('/long') ? longPage(req.url.includes('nested')) : req.url === '/reference' ? '<!doctype html><title>Group reference FIXTURE</title><h1>Reference value: 7</h1><label>Result<input id="result"></label>' : FIXTURE); });
   await new Promise<void>((r) => server!.listen(0, '127.0.0.1', r));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Fixture server failed');
@@ -57,6 +58,13 @@ test('real Chromium extension selects MCQs, types multiline code, submits ten pa
   manifest.host_permissions.push(`${origin}/*`);
   await writeFile(join(extension, 'manifest.json'), JSON.stringify(manifest));
   agent = new BrowserAgent(async (_task, page) => {
+    if (page.title === 'Long questions FIXTURE') {
+      const choice=page.elements.find(e=>e.kind==='radio' && e.label.startsWith('Correct') && !e.checked);
+      if(choice) return {kind:'click',target:choice.id,reason:'Choose fixture answer'};
+      const region=page.scroll?.max ? {id:'page',scroll:page.scroll} : page.elements.find(e=>e.kind==='scroll');
+      if(region?.scroll && region.scroll.top<region.scroll.max-2) return {kind:'scroll',target:region.id,direction:'down',reason:'Read following questions'};
+      return {kind:'done',reason:'All fifty fixture answers selected without checking or submitting.'};
+    }
     if (_task.startsWith('Use group FIXTURE')) {
       if (!page.title.includes('Group reference')) return { kind: 'switch', tab: page.tabs!.find((t) => t.title.includes('Group reference'))!.id, reason: 'Use the allowed reference tab' };
       const field = page.elements.find((e) => e.kind === 'text')!;
@@ -203,6 +211,16 @@ test('real Chromium extension selects MCQs, types multiline code, submits ten pa
   await restartedSite.waitForTimeout(1200);
   expect(await restartedSite.locator('input:checked').count()).toBe(0);
   await expect.poll(() => agent!.status().pageReady).toBe(true);
+  for (const path of ['/long','/long-nested']) {
+    await restartedSite.goto(origin+path);
+    await expect.poll(()=>agent!.status().tab?.url).toBe(origin+path);
+    await expect.poll(()=>agent!.status().pageReady).toBe(true);
+    agent.start({task:'Select the correct option for all 50 questions. Scroll if needed and do not submit.',consent:true,autoSubmit:false,maxSteps:180});
+    await expect.poll(()=>agent!.status().phase,{timeout:170000}).toBe('done');
+    expect(await restartedSite.locator('input:checked').count()).toBe(50);
+    expect(await restartedSite.evaluate(()=>(window as unknown as {submitted:number}).submitted)).toBe(0);
+    expect(agent.status().steps).toBeGreaterThan(50);
+  }
   await restartedPopup.evaluate(async () => {
     const api = (globalThis as unknown as { chrome: { runtime: { sendMessage: (x: unknown) => Promise<unknown> } } }).chrome;
     return api.runtime.sendMessage({ type: 'stop' });

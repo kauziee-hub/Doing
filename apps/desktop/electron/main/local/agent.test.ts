@@ -202,3 +202,30 @@ it("does not undo a move over an item replaced outside Doing", async () => {
   await expect(agent.undo()).rejects.toThrow("replaced outside");
   expect((await lstat(join(root, "renamed"))).isDirectory()).toBe(true);
 });
+
+it('never reports deletion when the model returns only an unsupported completion claim', async () => {
+ const root=await folder(); await mkdir(join(root,'Blackmagic Design'));
+ const agent=new LocalAgent(async()=>({kind:'done',text:'Deleted the Blackmagic Design folder.'}));
+ await agent.allow(root);agent.send('delete Blackmagic Design');await finished(agent);
+ expect(agent.status().messages.at(-1)?.text).toContain('No files were changed');
+ expect((await lstat(join(root,'Blackmagic Design'))).isDirectory()).toBe(true);
+});
+it('asks before substituting a similar name, then verifies the requested Recycle Bin operation', async () => {
+ const root=await folder(), trash=await folder();await mkdir(join(root,'Blackmagic Design'));await writeFile(join(root,'Blackmagic Design/keep.bin'),Buffer.from([1,2,3]));
+ const agent=new LocalAgent(async(_text,ctx)=>ctx.recent.length?{kind:'done',text:'Deleted everything.'}:{kind:'delete',path:'Blackmagic Design'},async(path)=>rename(path,join(trash,'Blackmagic Design')));
+ await agent.allow(root);agent.send('delete blackbox magic folder');await finished(agent);
+ expect(agent.status().messages.at(-1)?.text).toContain('Move this folder to the Recycle Bin?');
+ expect((await lstat(join(root,'Blackmagic Design'))).isDirectory()).toBe(true);
+ agent.send('yes delete it');await finished(agent);
+ await expect(lstat(join(root,'Blackmagic Design'))).rejects.toThrow();
+ expect(await readFile(join(trash,'Blackmagic Design/keep.bin'))).toEqual(Buffer.from([1,2,3]));
+ expect(agent.status().messages.at(-1)?.text).toBe('Moved to Recycle Bin: Blackmagic Design.');
+ expect(agent.status().canUndo).toBe(false);
+});
+it('does not report success when the trash adapter is a no-op or the item is missing',async()=>{
+ const root=await folder();await mkdir(join(root,'keep'));
+ const agent=new LocalAgent(async()=>({kind:'delete',path:'keep'}),async()=>{});await agent.allow(root);agent.send('delete keep');await finished(agent);
+ expect(agent.status().messages.at(-1)?.text).toContain('did not move');expect(agent.status().changes).toEqual([]);
+ const missing=new LocalAgent(async()=>({kind:'delete',path:'missing'}),async()=>{});await missing.allow(root);missing.send('delete missing');await finished(missing);
+ expect(missing.status().messages.at(-1)?.text).toContain('Could not find');
+});

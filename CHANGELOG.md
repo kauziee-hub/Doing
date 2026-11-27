@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — 2026-11-27
+
+- Browser tasks read long pages by screen, scroll the page or nested regions, and focus one MCQ at a time.
+- Track confirmed question selections across scrolling and keep unrelated tab conversations out of model context.
+- Explicit do-not-submit requests also block Check Answer/Verify controls.
+- File deletion uses Windows Recycle Bin, checks that the source is absent, and reports only confirmed operations. Similar names require confirmation; model-only completion claims cannot report deletion.
+
 ## 0.5.0 — 2026-11-27
 
 - Renamed the GitHub repository and Vercel project to Doing, with new release and website links.

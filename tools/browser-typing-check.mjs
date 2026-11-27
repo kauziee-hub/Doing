@@ -7,7 +7,7 @@
 //   node tools/browser-typing-check.mjs --exe <installed Doing.exe>
 import { chromium, _electron as electron } from '@playwright/test';
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, cp, copyFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, cp, copyFile, mkdtemp, rm, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, extname, sep } from 'node:path';
 import vm from 'node:vm';
@@ -16,6 +16,8 @@ const exeIndex = process.argv.indexOf('--exe');
 if (exeIndex < 0) throw new Error('Pass the installed Doing.exe with --exe');
 const exe = resolve(process.argv[exeIndex + 1]);
 const full = process.argv.includes('--full');
+const long = process.argv.includes('--long');
+const count = long ? 50 : 10;
 const browserOnly = process.argv.includes('--browser-only');
 const dev = process.argv.includes('--dev');
 const monaco = resolve('test-results/monaco-0.58.0/package/min');
@@ -47,6 +49,7 @@ const questions = [
  ['What is 100 divided by 4?', ['20','25','40'], '25'],
  ['Which type represents true or false?', ['String','Boolean','Number'], 'Boolean']
 ];let index=0;window.submissions=[];const root=document.getElementById('question');function render(){if(index===questions.length){root.innerHTML='<h2>Results: all 10 completed</h2><p>Score '+window.submissions.filter(s=>s.correct).length+'/10</p>';return;}const q=questions[index];root.innerHTML='<h2>Question '+(index+1)+' of 10</h2><p>'+q[0]+'</p>'+q[1].map(v=>'<label><input type="radio" name="answer" value="'+v+'">'+v+'</label>').join('')+'<button id="submit">Submit and next</button>';document.getElementById('submit').onclick=()=>{const value=root.querySelector('input:checked')?.value;if(!value)return;window.submissions.push({question:q[0],value,correct:value===q[2]});index++;render();};}render();</script></body></html>`;
+const longPractice = `<!doctype html><title>Fifty questions local test</title><style>body{font:17px system-ui;margin:20px auto;max-width:800px}section{height:350px;padding:25px}section:nth-of-type(5n){height:1100px}label{display:block;padding:7px}</style><h1>50 practice questions</h1>${Array.from({length:50},(_,i)=>`<section><h2>Question ${i+1}</h2><p>What is ${i+3} plus 7?</p>${[i+9,i+10,i+11].map(v=>`<label><input type="radio" name="q${i}" value="${v}" onchange="window.answers[${i}]={question:${i+1},value:${v},correct:${v===i+10}};window.submissions=Object.values(window.answers)">${v}</label>`).join('')}<button onclick="window.checkedAnswers++">Check Answer</button></section>`).join('')}<h2>End of all 50 questions</h2><script>window.answers={};window.submissions=[];window.checkedAnswers=0;</script>`;
 let localReport = null,
   practiceReport = null;
 try {
@@ -54,7 +57,7 @@ try {
     try {
       if (req.url === '/practice') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.end(practice);
+        res.end(long ? longPractice : practice);
         return;
       }
       if (req.url === '/') {
@@ -144,6 +147,18 @@ try {
     await invoke('local:undo');
     if (!(await readFile(join(allowed, 'draft/nested/payload.bin'))).equals(Buffer.from([0,255,12])))
       throw new Error('Folder undo did not restore nested content');
+    const trashName = 'Doing deletion test ' + Date.now();
+    await mkdir(join(allowed, trashName));
+    await writeFile(join(allowed, trashName, 'fixture.txt'), 'Only a temporary Doing test fixture.');
+    await app.evaluate(({shell})=>{
+      const original=shell.trashItem.bind(shell);
+      globalThis.doingTrashCalls=[];
+      shell.trashItem=async(path)=>{await original(path);globalThis.doingTrashCalls.push(path);};
+    });
+    const deletion=await ask('Delete the folder "'+trashName+'".');
+    const remains=await lstat(join(allowed,trashName)).then(()=>true,()=>false);
+    const nativeTrashCalls=await app.evaluate(()=>globalThis.doingTrashCalls.length);
+    if(remains || nativeTrashCalls!==1 || !deletion.status.messages.at(-1)?.text.includes('Moved to Recycle Bin:')) throw new Error('Native deletion did not match confirmed completion');
     await invoke('local:revoke');
     const revoked = await invoke('local:status');
     if (revoked.folder !== null || revoked.messages.length || (await readFile(unrelated, 'utf8')) !== 'Untouched')
@@ -154,6 +169,8 @@ try {
       edited,
       undoRestored: true,
       folderMovedAndUndone: true,
+      nativeRecycleBinVerified: true,
+      nativeTrashCalls,
       moveMs: move.ms,
       revoked: true,
       unrelatedUnchanged: true,
@@ -220,7 +237,7 @@ try {
   const start = performance.now();
   await popup.getByRole('button', { name: 'Send message', exact: true }).click();
   let final;
-  for (let i = 0; i < 360; i++) {
+  for (let i = 0; i < 1200; i++) {
     const s = await invoke('browser:status');
     const last = s.message;
     if (events.at(-1)?.message !== last) {
@@ -277,13 +294,13 @@ try {
     await popup
       .getByLabel('Message Doing')
       .fill(
-        'Answer all ten practice questions correctly. Select the correct option, click Submit and next on each question, and continue until the final results page. Submit all remaining pages without asking again.',
+        long ? 'Answer all 50 practice questions. Select the correct option for each question, scroll down when needed, and continue until all 50 have answers. Do not submit or click Check Answer.' : 'Answer all ten practice questions correctly. Select the correct option, click Submit and next on each question, and continue until the final results page. Submit all remaining pages without asking again.',
       );
     await popup.getByRole('button', { name: 'Send message', exact: true }).click();
     const began = performance.now();
     let current;
     let lastProgress = '';
-    for (let i = 0; i < 360; i++) {
+    for (let i = 0; i < 1200; i++) {
       current = await invoke('browser:status');
       if (current.message !== lastProgress) {
         lastProgress = current.message;
@@ -306,7 +323,8 @@ try {
     await popup.screenshot({ path: join(out, 'ten-chat.png') });
     await writeFile(join(out, 'full-workflow.json'), JSON.stringify({ localReport, practiceReport }, null, 2));
     console.log(JSON.stringify({ stage: 'ten-real-model', ...practiceReport }));
-    if (current?.phase !== 'done' || submissions.length !== 10 || !submissions.every((s) => s.correct))
+    if (long && await site.evaluate(() => window.checkedAnswers) !== 0) throw new Error('Do-not-submit was violated');
+    if (current?.phase !== 'done' || submissions.length !== count || (!long && !submissions.every((s) => s.correct)))
       throw new Error('Real-model ten-question task failed');
   }
   const report = {

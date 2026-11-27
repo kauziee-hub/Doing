@@ -1,3 +1,4 @@
+import { usesOtherTabs } from './context';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { Server, IncomingMessage, ServerResponse } from 'node:http';
@@ -21,9 +22,18 @@ const LOST_MS = 30_000;
 
 /** Validate every action against the current observed controls, never against model-supplied selectors. */
 export function checkAction(action: BrowserAction, page: BrowserSnapshot, task = ''): string | null {
+  if (action.kind === 'scroll') {
+    const region = action.target === 'page' ? page.scroll : page.elements.find((el) => el.id === action.target && el.kind === 'scroll')?.scroll;
+    if (!region) return 'The requested scroll region is unavailable.';
+    if (action.direction === 'down' ? region.top >= region.max - 2 : region.top <= 0) return 'This scroll region has reached its boundary.';
+    return null;
+  }
   if (!('target' in action)) return null;
   const el = page.elements.find((e) => e.id === action.target);
   if (!el) return 'The requested control is no longer on this page.';
+  if (action.kind === 'click' && /\b(?:do not submit|don't submit|dont submit|never submit|without submitting)\b/i.test(task) &&
+      el.kind === 'button' && (el.advances || /check.?answer|verify|grade|submit/i.test(el.label)))
+    return 'Your request says not to submit or check answers. Only answer selection is allowed.';
   if (action.kind === 'type' && !['text', 'code'].includes(el.kind)) return 'This control does not accept text.';
   if (action.kind === 'type' && el.kind === 'code' && /\b(?:preserv\w*|signature|solve|coding|solution)\b/i.test(task)) {
     const signature = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(|\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?function\s*\(/.exec(el.value);
@@ -72,6 +82,7 @@ export class BrowserAgent {
   private lastSignature = '';
   private repeats = 0;
   private waits = 0;
+  private reviewedQuestions = new Set<string>();
   private watchdog: ReturnType<typeof setInterval> | null = null;
   private state: BrowserStatus;
   private trustedExtensionId: string | null = null;
@@ -247,6 +258,7 @@ export class BrowserAgent {
     this.lastSignature = '';
     this.repeats = 0;
     this.waits = 0;
+    this.reviewedQuestions.clear();
     this.note('Permission granted for this task on the connected site. Reading the tab…');
     return this.status();
   }
@@ -270,7 +282,7 @@ export class BrowserAgent {
   }
 
   private reply(text: string): void {
-    this.state.messages = [...this.state.messages.slice(-59), { id: randomUUID(), role: 'assistant', text }];
+    this.state.messages = [...this.state.messages.slice(-59), { id: randomUUID(), role: 'assistant', text, tabId: this.selectedTabId ?? undefined }];
   }
 
   private finishChatTask(text: string): void {
@@ -291,10 +303,10 @@ export class BrowserAgent {
     const page = this.observation.page;
     const controller = new AbortController();
     this.reading = controller;
-    const history = this.state.messages.slice();
+    const history = this.state.messages.filter((message) => usesOtherTabs(text) || message.tabId === (this.selectedTabId ?? undefined));
     this.seenMessages.add(id);
     if (this.seenMessages.size > 100) this.seenMessages.delete(this.seenMessages.values().next().value!);
-    this.state.messages = [...history.slice(-59), { id, role: 'user', text }];
+    this.state.messages = [...this.state.messages.slice(-59), { id, role: 'user', text, tabId: this.selectedTabId ?? undefined }];
     try {
       const result = await this.converse(text, page, history, this.state.pending?.label ?? null, controller.signal);
       controller.signal.throwIfAborted();
@@ -449,6 +461,11 @@ export class BrowserAgent {
         return { phase: 'error', observe: false };
       }
       const issued = this.inFlight;
+      if (issued.action.kind === 'click') {
+        const target = issued.action.target;
+        const choice = previousPage?.elements.find(el => el.id === target && ['radio','checkbox'].includes(el.kind));
+        if (body.receipt?.ok && choice?.context && body.snapshot?.elements.some(el => el.context === choice.context && el.label === choice.label && el.checked)) this.reviewedQuestions.add(choice.context);
+      }
       this.inFlight = null;
       if (!body.receipt.ok) {
         this.state.phase = 'error';
@@ -471,9 +488,16 @@ export class BrowserAgent {
     }
     const page = body.snapshot;
     if (!page) return { phase: 'running', observe: true, runId: run };
+    const questionContexts = [...new Set(page.elements.filter(el => ['radio','checkbox'].includes(el.kind) && el.context).map(el => el.context!))];
+    const question = /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)
+      ? questionContexts.find(context => !this.reviewedQuestions.has(context)) : undefined;
+    const planningPage = question ? {...page,text:question,elements:page.elements.filter(el => el.context === question || el.kind === 'scroll')} : page;
     this.planning = true;
     try {
       let action: BrowserAction;
+      const region = page.scroll && page.scroll.max > 2 ? {id:'page',scroll:page.scroll} : page.elements.filter(el=>el.kind==='scroll' && el.scroll).sort((a,b)=>b.scroll!.height-a.scroll!.height)[0];
+      const reviewedScreen = questionContexts.length > 0 && !question && !page.elements.some(el => ['code','text','select'].includes(el.kind)) && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task);
+
       // A single numbered MCQ has a verifiable two-step flow. After the
       // selected option is acknowledged, advance only with the user's batch
       // submission grant and a unique observed Submit/Next control.
@@ -486,7 +510,11 @@ export class BrowserAgent {
         previousPage?.text === page.text &&
         inputs.every((el) => el.kind === 'radio' && el.group === confirmedChoice.group) &&
         inputs.some((el) => el.id === confirmedChoice.id && el.label === confirmedChoice.label && el.checked);
-      if (
+      if (reviewedScreen && region?.scroll && region.scroll.top < region.scroll.max - 2) {
+        action = {kind:'scroll',target:region.id,direction:'down',reason:'Continue to the next unanswered question.'};
+      } else if (reviewedScreen && region?.scroll && region.scroll.top >= region.scroll.max - 2) {
+        action = {kind:'done',reason:'Reached the end after reviewing and selecting answers for the encountered questions.'};
+      } else if (
         verified &&
         advances.length === 1 &&
         this.state.autoSubmit &&
@@ -502,7 +530,7 @@ export class BrowserAgent {
         action = BrowserActionSchema.parse(
           await this.plan(
             this.state.task,
-            page,
+            planningPage,
             this.state.log.slice(-8).map((l) => l.message),
             signal,
           ),
@@ -555,6 +583,19 @@ export class BrowserAgent {
         }
       }
       if (signal.aborted || run !== this.runId || this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
+      if (action.kind === 'done' && question) {
+        const choices = planningPage.elements.filter(el => ['radio','checkbox'].includes(el.kind));
+        if (!choices.some(el => el.checked)) throw new Error('A question still has no selected answer. The task is incomplete.');
+        this.reviewedQuestions.add(question);
+        return {phase:'running',observe:true,runId:run};
+      }
+      // A model must not finish an all-questions request after only the first screen.
+      if (action.kind === 'done' && /\b(?:all|each|every)\b/i.test(this.state.task) && /\b(?:questions?|mcqs?)\b/i.test(this.state.task)) {
+        const nested = page.elements.filter((el) => el.kind === 'scroll' && el.scroll).sort((a, b) => b.scroll!.height - a.scroll!.height)[0];
+        const primary = page.scroll && page.scroll.max > 2 ? { id: 'page', scroll: page.scroll } : nested;
+        if (primary?.scroll && primary.scroll.top < primary.scroll.max - 2)
+          action = { kind: 'scroll', target: primary.id, direction: 'down', reason: 'Continue inspecting all requested questions below this section.' };
+      }
       this.checkLease();
       if (this.state.phase !== 'running') return { phase: this.state.phase, observe: false };
       let issue = checkAction(action, page, this.state.task);
@@ -586,6 +627,11 @@ export class BrowserAgent {
         this.state.tab = { title: tab.title, url: tab.url };
         this.observation = null;
         this.note(`Switching to allowed tab: ${tab.title.slice(0, 100)}.`);
+        return { phase: 'running', observe: true, command: this.inFlight, runId: run };
+      }
+      if (action.kind === 'scroll') {
+        this.note(`Scrolling ${action.direction} to inspect the next section.`);
+        this.inFlight = { id: randomUUID(), runId: run, revision: page.revision, origin: this.origin, action };
         return { phase: 'running', observe: true, command: this.inFlight, runId: run };
       }
       const el = page.elements.find((e) => 'target' in action && e.id === action.target)!;

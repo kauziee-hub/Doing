@@ -209,7 +209,7 @@ export function Assistant({ go }: { go: (page: string) => void }) {
             )}
           </div>
         </form>
-        <p className="doing-caption">Text, code, Markdown and CSV files. Changes can be undone during this session.</p>
+        <p className="doing-caption">Text, code, Markdown and CSV files. Undo edits here. Restore deleted items from Windows Recycle Bin.</p>
       </div>
     </>
   );

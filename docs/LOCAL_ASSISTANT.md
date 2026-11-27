@@ -13,3 +13,5 @@ Tasks stop after 30 steps or ten minutes. This release handles files, not arbitr
 Verification: `pnpm test:ts` covers scope restrictions, link/traversal rejection, Stop, file creation, moves and Undo with external edits. `node tools/browser-typing-check.mjs --exe <Doing.exe> --full` also uses the packaged app and real local model to create a plan, preserve and edit an existing note, Undo it and revoke access in a temporary folder. Only the native picker result is supplied by the test; model calls and disk operations are real.
 
 0.5.0 adds whole-folder moves and renames with Undo. Nested files are preserved. A folder cannot be moved into itself, over an existing destination, outside the allowed folder or from the permission root.
+
+0.5.1 adds deletion through Windows Recycle Bin. The host verifies that the source path is absent before reporting success. Similar names require explicit confirmation, and the selected folder itself cannot be deleted. Restore recycled items using Windows Recycle Bin; in-app Undo remains for edits, moves and created folders. Completion text comes from the operations actually performed, not a model's unverified claim.

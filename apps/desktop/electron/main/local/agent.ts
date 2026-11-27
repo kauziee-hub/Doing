@@ -14,6 +14,7 @@ export const FileActionSchema = z.discriminatedUnion('kind', [
     path: z.string().min(1).max(500),
     text: z.string().max(60000),
   }),
+  z.object({ kind: z.literal('delete'), path: z.string().min(1).max(500) }),
   z.object({ kind: z.literal('mkdir'), path: z.string().min(1).max(500) }),
   z.object({
     kind: z.literal('move'),
@@ -35,7 +36,8 @@ export type LocalPlanner = (
 type Undo =
   | { kind: 'write'; path: string; before: string | null; after: string }
   | { kind: 'move'; path: string; destination: string; identity: string }
-  | { kind: 'mkdir'; path: string };
+  | { kind: 'mkdir'; path: string }
+  | { kind: 'trash'; path: string };
 const TEXT_EXTENSIONS = new Set([
   '.txt',
   '.md',
@@ -65,6 +67,7 @@ export class LocalAgent {
   private root: string | null = null;
   private controller: AbortController | null = null;
   private undoStack: Undo[] = [];
+  private pendingDelete: { path: string; identity: string } | null = null;
   private state: LocalStatus = {
     folder: null,
     busy: false,
@@ -73,13 +76,13 @@ export class LocalAgent {
     changes: [],
     canUndo: false,
   };
-  constructor(private readonly plan: LocalPlanner) {}
+  constructor(private readonly plan: LocalPlanner, private readonly trash?: (path: string) => Promise<void>) {}
   status(): LocalStatus {
     return structuredClone({
       ...this.state,
       folder: this.root,
       busy: !!this.controller,
-      canUndo: !this.controller && this.undoStack.length > 0,
+      canUndo: !this.controller && this.undoStack.length > 0 && this.undoStack.at(-1)?.kind !== 'trash',
     });
   }
   async allow(folder: string): Promise<LocalStatus> {
@@ -87,6 +90,7 @@ export class LocalAgent {
     const path = await realpath(folder);
     if (!(await lstat(path)).isDirectory()) throw new Error('Choose a folder.');
     this.root = path;
+    this.pendingDelete = null;
     this.undoStack = [];
     this.state.messages = [];
     this.state.changes = [];
@@ -96,15 +100,17 @@ export class LocalAgent {
   revoke(): LocalStatus {
     this.stop();
     this.root = null;
+    this.pendingDelete = null;
     this.undoStack = [];
     this.state.changes = [];
     this.state.messages = [];
     return this.status();
   }
   stop(): LocalStatus {
+    this.pendingDelete = null;
     if (this.controller && !this.controller.signal.aborted) {
       this.controller.abort();
-      this.reply('Stopped. Completed file changes can be undone.');
+      this.reply('Stopped. Review completed changes below.');
     }
     this.state.message = 'Stopping…';
     return this.status();
@@ -179,6 +185,7 @@ export class LocalAgent {
     if (this.controller) throw new Error('Stop the task before undoing a change.');
     const entry = this.undoStack.at(-1);
     if (!entry) return this.status();
+    if (entry.kind === 'trash') throw new Error('Restore this item from the Windows Recycle Bin.');
     if (entry.kind === 'write') {
       const path = await this.path(entry.path);
       if (digest(await readFile(path, 'utf8')) !== entry.after)
@@ -218,6 +225,11 @@ export class LocalAgent {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10 * 60_000)]);
     const recent: string[] = [];
     const observedFiles = new Map<string, string>();
+    const confirmed: LocalStatus['changes'] = [];
+    const requestedChange = /\b(?:delete|remove|trash|recycle|move|rename|create|write|edit|append|save|organize|update)\b/i.test(text) || /^(?:yes|yep|ok|okay|do it)\b/i.test(text);
+    let completionRetries = 0;
+    const approval = this.pendingDelete && /^(?:yes|yep|ok|okay|do it|delete it)(?:[.! ]|$)/i.test(text.trim()) ? this.pendingDelete : null;
+    if (!approval) this.pendingDelete = null;
     try {
       let observation = this.root
         ? await this.list('')
@@ -226,7 +238,7 @@ export class LocalAgent {
         signal.throwIfAborted();
         this.state.message = step ? 'Working with your files…' : 'Thinking…';
         const action = FileActionSchema.parse(
-          await this.plan(
+          approval && !recent.length ? {kind:'delete',path:approval.path} : await this.plan(
             text,
             {
               folder: !!this.root,
@@ -239,7 +251,12 @@ export class LocalAgent {
         );
         signal.throwIfAborted();
         if (action.kind === 'answer' || action.kind === 'done') {
-          this.reply(action.text);
+          if (confirmed.length) {
+            this.reply(confirmed.map((change) => `${change.kind === 'trashed' ? 'Moved to Recycle Bin:' : change.kind === 'created' ? 'Created' : change.kind === 'updated' ? 'Updated' : change.kind === 'folder' ? 'Created folder' : 'Moved'} ${change.path}.`).join('\n'));
+          } else if (requestedChange && !/^\s*(?:how|why|what|explain|can i)\b/i.test(text) && (/\b(?:delete|remove|trash|recycle|rename|move)\b/i.test(text) || action.kind === 'done' || /\b(?:deleted|removed|created|saved|renamed|updated|moved|completed|done)\b/i.test(action.text))) {
+            if (completionRetries++ === 0) { observation = 'No filesystem changes have happened. Do not claim completion. Execute an available tool, or ask a factual clarification. ' + observation; continue; }
+            this.reply('No files were changed. I could not complete that request. Tell me the exact file or folder to use.');
+          } else this.reply(action.text);
           return;
         }
         if (action.kind === 'list') observation = await this.list(action.path);
@@ -251,7 +268,24 @@ export class LocalAgent {
           const path = await this.path(action.path);
           if (path === this.root) throw new Error('Choose a file or subfolder, not the allowed folder itself.');
           signal.throwIfAborted();
-          if (action.kind === 'write') {
+          if (action.kind === 'delete') {
+            if (!this.trash) throw new Error('Moving items to the Recycle Bin is unavailable. Nothing was deleted.');
+            const info = await lstat(path).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') throw new Error(`Could not find “${action.path}”. Nothing was deleted.`); throw error; });
+            const identity = `${info.dev}:${info.ino}`;
+            const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+            const explicit = /\b(?:delete|remove|trash|recycle)\b/i.test(text) && !/\b(?:line|paragraph|sentence|word|character)\b/i.test(text) && normalize(action.path).length > 0 && normalize(text).includes(normalize(action.path));
+            if (!approval && !/\b(?:delete|remove|trash|recycle)\b/i.test(text)) throw new Error('Specify the file or folder you want moved to the Recycle Bin. Nothing was deleted.');
+            if (!explicit && !approval) { this.pendingDelete = { path: action.path, identity }; this.reply(`I found “${action.path}”. Move this ${info.isDirectory() ? 'folder' : 'file'} to the Recycle Bin?`); return; }
+            if (approval && (approval.path !== action.path || approval.identity !== identity)) throw new Error('The item changed since confirmation. Nothing was deleted.');
+            signal.throwIfAborted();
+            await this.path(action.path);
+            await this.trash(path);
+            const remains = await lstat(path).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return false; throw error; });
+            if (remains) throw new Error('Windows did not move the item to the Recycle Bin. Nothing was confirmed deleted.');
+            this.pendingDelete = null;
+            this.undoStack.push({kind:'trash',path:action.path});
+            this.state.changes.push({path:action.path,kind:'trashed'});
+          } else if (action.kind === 'write') {
             if (!TEXT_EXTENSIONS.has(extname(action.path).toLowerCase()))
               throw new Error('Create a text, Markdown, JSON, CSV or code file.');
             const before = await lstat(path).then(
@@ -328,6 +362,7 @@ export class LocalAgent {
               kind: 'moved',
             });
           }
+          confirmed.push(this.state.changes.at(-1)!);
           this.undoStack = this.undoStack.slice(-30);
           this.state.changes = this.state.changes.slice(-30);
           observation = `Confirmed ${action.kind}: ${action.path}. ${await this.list('')}`;

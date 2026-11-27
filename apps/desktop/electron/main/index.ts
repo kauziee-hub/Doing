@@ -1,5 +1,5 @@
 import './environment';
-import { app, dialog, net, powerMonitor, safeStorage, screen, session } from 'electron';
+import { app, dialog, net, powerMonitor, safeStorage, screen, session, shell } from 'electron';
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { HotkeyAction } from '@doing/contracts';
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
     services.emit({ type: 'command', command: 'navigate', arg: 'browser' });
   }, createBrowserReader(services), createBrowserChatter(services));
   void browser.enable().catch(() => services.emit({ type: 'toast', level: 'warn', message: 'Browser connection could not start. Open Browser assistant to reconnect.' }));
-  const local = new LocalAgent(createLocalPlanner(services));
+  const local = new LocalAgent(createLocalPlanner(services), (path) => shell.trashItem(path));
   registerIpc({ services, windows, hotkeys, tray, paintTokens, updates, browser, local });
   updates.startAutoCheck();
 

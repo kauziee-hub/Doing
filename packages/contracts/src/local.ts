@@ -10,7 +10,7 @@ export interface LocalStatus {
   messages: LocalMessage[];
   changes: Array<{
     path: string;
-    kind: 'created' | 'updated' | 'moved' | 'folder';
+    kind: 'created' | 'updated' | 'moved' | 'folder' | 'trashed';
   }>;
   canUndo: boolean;
 }
