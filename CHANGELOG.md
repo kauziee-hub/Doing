@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5 — 2026-11-28
+
+- WhatsApp tasks continue from opening the app through contact search, chat verification and exact message entry. “Message” and “text” requests count as sending instructions; unfinished follow-ups retain the original message.
+- A native UI Automation 3 reader can read WhatsApp's embedded chat controls when the older reader sees only the title bar. The verified dependency ships with the app and needs no runtime download.
+- Sending checks the intended chat and exact draft, attempts Send once, then looks for a new message and an empty composer. Uncertain outcomes are reported without repeating Send or claiming delivery.
+- Multiple matching contacts need an exact choice unless WhatsApp exposes evidence identifying the requested most frequent contact. Recent chats alone do not establish frequency.
+
 ## 0.5.4 — 2026-11-28
 
 - Browser tasks continue through numbered questions, including multi-select questions and Next buttons with arrows. Completion requires reaching the last observed question, rather than the bottom of one panel.

@@ -41,11 +41,13 @@ public static class DoingDesktop {
       return w;
     }
     var windows = AutomationElement.RootElement.FindAll(TreeScope.Children, Condition.TrueCondition);
-    var matches = new List<AutomationElement>();
+    var matches = new List<AutomationElement>(); var processMatches = new List<AutomationElement>();
     foreach (AutomationElement w in windows) { try {
       var p = Process.GetProcessById(w.Current.ProcessId).ProcessName;
-      if (w.Current.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0 || p.Equals(name, StringComparison.OrdinalIgnoreCase)) matches.Add(w);
+      if (p.Equals(name,StringComparison.OrdinalIgnoreCase)||p.StartsWith(name+".",StringComparison.OrdinalIgnoreCase)) processMatches.Add(w);
+      if (w.Current.Name.IndexOf(name,StringComparison.OrdinalIgnoreCase)>=0) matches.Add(w);
     } catch {} }
+    if (processMatches.Count>0) matches=processMatches;
     if (matches.Count != 1) throw new Exception(matches.Count == 0 ? "No matching open app. Open it first, then read it." : "Several windows match. Tell me the exact window title.");
     return matches[0];
   }

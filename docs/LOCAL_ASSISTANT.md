@@ -31,11 +31,15 @@ The Assistant also works outside the allowed folder through a fixed set of PC ac
 | "Next song", "pause", "mute" | Media keys. |
 | "Volume 30", "brightness 60", "dark mode on" | Set and read back (Core Audio, WMI, the Personalize registry values plus a theme broadcast). Brightness works on built-in laptop screens only. |
 | "Turn on Bluetooth / Wi-Fi", notifications, display… | Opens that Settings page; you change it there. |
-| "WhatsApp +91 98765 43210: running late" | Opens WhatsApp Desktop with the message drafted to that number. **Doing never sends it: you press Enter.** Without a number it asks for one (WhatsApp doesn't let other apps find contacts by name). |
+| "WhatsApp +91 98765 43210: running late" | Opens a draft to that number. With session app control, `Message Alex in WhatsApp "On my way"` searches by name, verifies the chat and sends the exact message once. Ambiguous contacts need a choice. |
 
 In 0.5.2, messages stayed drafts and Spotify stopped at search. Version 0.5.3 adds the app control path below. Payments, installing/uninstalling, model-generated commands and security/password/account/protection changes remain outside these tools.
 
-## App control (0.5.3)
+## App control
+
+Since 0.5.5, WhatsApp uses a native UI Automation 3 reader scoped to its embedded document. Its pinned, verified interop library ships with the app. Other apps retain the existing reader. WhatsApp message tasks retain the exact user-authored recipient and body through unfinished follow-ups, verify the chat header before typing and attempt Send at most once. Completion requires a new matching message and an empty composer; this confirms appearance in the chat, not delivery. Ambiguous outcomes stop without replaying Send. Multiple matching contacts require a choice unless the app exposes frequency evidence; recency is not frequency.
+
+Messaging verification: `DOING_MESSAGING_NATIVE=1 pnpm exec vitest run tests/integration/messaging-native.test.ts` drives a fictional native app through search, contact selection, exact typing, one Send and local-model readback. The live WhatsApp check verified reading and contact-search typing only; it sent no messages.
 
 Click **Allow app control** in Assistant to grant access for this session; **Revoke app control** stops it. This permission is separate from folder edits and Chrome tabs, and is not restored on restart. Give the app/window name and task in ordinary chat. `inspect_app` reads visible accessible controls, and `app_action` chooses one observed control and an advertised action: type, invoke/toggle/select/expand, vertical scroll or Enter. There are no model-generated selectors, scripts, coordinates or commands. Arguments are JSON data passed to the packaged fixed PowerShell/UI Automation helper.
 
